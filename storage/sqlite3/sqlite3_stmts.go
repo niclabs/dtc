@@ -8,7 +8,7 @@ const CreateTokenTable = `
     )`
 
 const InsertTokenQuery = `	
-    INSERT INTO token VALUES (?, ?, ?)
+    INSERT INTO token (label, pin, so_pin) VALUES (?, ?, ?)
 `
 
 const GetTokenQuery = `
@@ -19,8 +19,8 @@ const GetTokenQuery = `
 
 const CreateCryptoObjectTable = `
     CREATE TABLE IF NOT EXISTS crypto_object (
-        token_label		PRIMARY KEY,
-        handle			TEXT
+        token_label		TEXT,
+        handle			INTEGER,
         PRIMARY KEY (token_label, handle)
     )`
 
@@ -30,7 +30,7 @@ const InsertCryptoObjectQuery = `
 `
 
 const CleanCryptoObjectsQuery = `
-	DELETE FROM crypto_object WHERE TKN_LABEL = ?
+	DELETE FROM crypto_object WHERE token_label = ?
 `
 
 const GetCryptoObjectAttrsQuery = `
@@ -44,10 +44,10 @@ const GetCryptoObjectAttrsQuery = `
 
 const CreateAttributeTable = `
     CREATE TABLE IF NOT EXISTS attribute (
-        token_label				PRIMARY KEY,
-        crypto_object_handle	TEXT,
+        token_label				TEXT,
+        crypto_object_handle	INTEGER,
         type					INTEGER,
-        value					BLOB
+        value					BLOB,
         PRIMARY KEY (token_label, crypto_object_handle, type)
     )`
 
@@ -57,11 +57,11 @@ const InsertAttributeQuery = `
 `
 
 const CleanAttributesQuery = `
-	DELETE FROM attribute WHERE TKN_LABEL = ?
+	DELETE FROM attribute WHERE token_label = ?
 `
 
-const GetMaxHandle = `
-	SELECT MAX(handle) FROM crypto_object
+const GetMaxHandleQuery = `
+	SELECT COALESCE(MAX(handle), 0) FROM crypto_object
 `
 
 var CreateStmts = []string{CreateTokenTable, CreateCryptoObjectTable, CreateAttributeTable}

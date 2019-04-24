@@ -2,9 +2,10 @@ package sqlite3
 
 import (
 	"database/sql"
+	"dtcmaster/objects"
 	"dtcmaster/storage"
+	"fmt"
 	_ "github.com/mattn/go-sqlite3"
-	"strconv"
 )
 
 // DB is a wrapper over a sql.DB object, complying with storage
@@ -17,16 +18,15 @@ type DB struct {
 // Creates the databases if they doesn't exist yet.
 func (db DB) InitStorage() error {
 	if err := db.createTables(); err != nil {
-		return err
+		return fmt.Errorf("create tables: %v", err)
 	}
 	if err := db.insertFirstToken(); err != nil {
-		return err
+		return fmt.Errorf("insert first token: %v", err)
 	}
-
 	return nil
 }
 
-func (db DB) SaveToken(token *storage.Token) error {
+func (db DB) SaveToken(token *objects.Token) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -80,15 +80,18 @@ func (db DB) SaveToken(token *storage.Token) error {
 	return tx.Commit()
 }
 
-func (db DB) GetToken(label string) (token *storage.Token, err error) {
-	// Conseguir Token
+func (db DB) GetToken(label string) (token *objects.Token, err error) {
+	// Retreive Token
 	tokenStmt, err := db.Prepare(GetTokenQuery)
 	if err != nil {
 		return
 	}
 	var pin, soPin string
 	err = tokenStmt.QueryRow(label).Scan(&pin, &soPin)
-	token = &storage.Token{
+	if err != nil {
+		return
+	}
+	token = &objects.Token{
 		Label: label,
 		Pin:   pin,
 		SoPin: soPin,
@@ -103,12 +106,11 @@ func (db DB) GetToken(label string) (token *storage.Token, err error) {
 		return
 	}
 	defer rows.Close()
-	cryptoObjects := make(map[string]*storage.CryptoObject)
-	var aHandle string
-	var aType sql.NullString
+	cryptoObjects := make(objects.CryptoObjects)
+	var aHandle int
+	var aType sql.NullInt64
 	var aValue []byte
-	var iHandle int
-	var object *storage.CryptoObject
+	var object *objects.CryptoObject
 	var ok bool
 	for rows.Next() {
 		err = rows.Scan(&aHandle, &aType, &aValue)
@@ -116,29 +118,25 @@ func (db DB) GetToken(label string) (token *storage.Token, err error) {
 			return
 		}
 		if object, ok = cryptoObjects[aHandle]; !ok {
-			iHandle, err = strconv.Atoi(aHandle)
-			if err != nil {
-				return
-			}
-			object = &storage.CryptoObject{
-				Handle:     iHandle,
-				Attributes: make([]*storage.Attribute, 1),
+			object = &objects.CryptoObject{
+				Handle:     aHandle,
+				Attributes: make(objects.Attributes),
 			}
 			cryptoObjects[aHandle] = object
 		}
 		if aType.Valid && aValue != nil {
-			object.Attributes = append(object.Attributes, &storage.Attribute{
-				Type:  aType.String,
+			object.Attributes[aType.Int64] = &objects.Attribute{
+				Type:  aType.Int64,
 				Value: aValue,
-			})
+			}
 		}
 	}
 
-	// Append cryptoobjects to Token
-	token.Objects = make([]*storage.CryptoObject, len(cryptoObjects))
+	// Append crypto_objects to Token
+	token.Objects = make(objects.CryptoObjects)
 	i := 0
 	for _, cryptoObject := range cryptoObjects {
-		token.Objects[i] = cryptoObject
+		token.Objects[cryptoObject.Handle] = cryptoObject
 		i++
 	}
 	return
@@ -147,7 +145,7 @@ func (db DB) GetToken(label string) (token *storage.Token, err error) {
 func (db DB) GetMaxHandle() (int, error) {
 	err := db.updateMaxHandle()
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 	return db.ActualHandle, nil
 }
@@ -170,7 +168,7 @@ func (db DB) createTables() error {
 	for _, stmt := range CreateStmts {
 		_, err := db.Exec(stmt)
 		if err != nil {
-			return err
+			return fmt.Errorf("in stmt %s: %v", stmt, err)
 		}
 	}
 	return nil
@@ -186,15 +184,17 @@ func (db DB) insertFirstToken() error {
 }
 
 func (db DB) updateMaxHandle() error {
-	rows, err := db.Query(GetMaxHandle)
+	rows, err := db.Query(GetMaxHandleQuery)
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
 	if rows.Next() {
-		if err := rows.Scan(&db.ActualHandle); err != nil {
+		var maxHandle int
+		if err := rows.Scan(&maxHandle); err != nil {
 			return err
 		}
+		db.ActualHandle = maxHandle
 	} else {
 		return rows.Err()
 	}
