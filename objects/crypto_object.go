@@ -1,14 +1,42 @@
 package objects
 
+/*
+#include "../criptoki/pkcs11go.h"
+*/
+import "C"
+import "unsafe"
+
+// The type of the cryptoObject
+type CryptoObjectType int
+
+const (
+	SessionObject CryptoObjectType = iota
+	TokenObject
+)
+
 // A cryptoObject related to a token.
 type CryptoObject struct {
 	Handle     int
+	Type       CryptoObjectType
 	Attributes Attributes
 }
 
 // A map of cryptoobjects
 type CryptoObjects map[int]*CryptoObject
 
+var ActualHandle = 0
+
+// https://stackoverflow.com/questions/28925179/cgo-how-to-pass-struct-array-from-c-to-go#28933938
+func NewCryptoObject(pAttributes C.CK_ATTRIBUTE_PTR, ulCount C.CK_ULONG, coType CryptoObjectType) *CryptoObject {
+	attrSlice := CToAttributes(pAttributes, ulCount)
+	ActualHandle++
+	object := &CryptoObject{
+		Handle: ActualHandle,
+		Type: coType,
+		Attributes: attrSlice,
+	}
+	return object
+}
 
 // Equals returns true if the maps of cryproobjects are equal.
 func (objects CryptoObjects) Equals(objects2 CryptoObjects) bool {
@@ -31,4 +59,59 @@ func (objects CryptoObjects) Equals(objects2 CryptoObjects) bool {
 func (object *CryptoObject) Equals(object2 *CryptoObject) bool {
 	return object.Handle == object2.Handle &&
 		object.Attributes.Equals(object2.Attributes)
+}
+
+func (object *CryptoObject) Match(pTemplate C.CK_ATTRIBUTE_PTR, ulCount C.CK_ULONG) bool {
+	templateSlice := (*[1 << 30]C.CK_ATTRIBUTE)(unsafe.Pointer(pTemplate))[:ulCount:ulCount]
+
+	for _, cTmpl := range templateSlice {
+		ourAttr, ok := object.Attributes[cTmpl._type]
+		theirTempVal := C.GoStringN(cTmpl.pValue, cTmpl.ulValueLen)
+		if !ok || ourAttr.Value == theirTempVal {
+			return false
+		}
+	}
+	return true
+}
+
+func (object *CryptoObject) FindAttribute(tmpl *C.CK_ATTRIBUTE) *Attribute {
+	template := (C.CK_ATTRIBUTE)(unsafe.Pointer(tmpl))
+	if attr, ok := object.Attributes[template._type]; ok {
+		return attr
+	}
+	return nil
+}
+
+
+func (object *CryptoObject) CopyAttributes(pTemplate C.CK_ATTRIBUTE_PTR, ulCount C.CK_ULONG) error {
+	if pTemplate == nil {
+		return NewError("CryptoObject.CopyAttributes", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
+	}
+	templateSlice := (*[1 << 30]C.CK_ATTRIBUTE)(unsafe.Pointer(pTemplate))[:ulCount:ulCount]
+
+	for _, cDst := range templateSlice {
+		src := object.FindAttribute(cDst)
+		if src != nil {
+			err := src.ToC(&cDst)
+			if err != nil {
+				return err
+			}
+		} else {
+			return NewError("CryptoObject.CopyAttributes", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
+		}
+	}
+	return nil
+}
+
+
+func (object *CryptoObject) GetType() CryptoObjectType {
+	return object.Type
+}
+
+func (object *CryptoObject) GetHandle() int {
+	return object.Handle
+}
+
+func (object *CryptoObject) GetAttributes() Attributes {
+	return object.Attributes
 }
