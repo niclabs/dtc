@@ -5,6 +5,7 @@ package objects
 */
 import "C"
 import (
+	"strings"
 	"time"
 	"unsafe"
 )
@@ -57,7 +58,7 @@ func (token *Token) Equals(token2 *Token) bool {
 
 func (token *Token) GetInfo(pInfo C.CK_TOKEN_INFO_PTR) error {
 	if pInfo == nil {
-		return NewError("Token.GetInfo", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
+		return NewError("token.GetInfo", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
 	}
 	info := (C.CK_TOKEN_INFO_PTR)(unsafe.Pointer(pInfo))
 
@@ -68,13 +69,24 @@ func (token *Token) GetInfo(pInfo C.CK_TOKEN_INFO_PTR) error {
 		defer C.free(unsafe.Pointer(cLabel))
 		C.memset(info.label, cLabel, len(token.Label))
 	}
-	C.memset(info.manufacturerID, " ", 32)
-	C.memset(info.model, " ", 16)
-	C.memset(info.serialNumber, " ", 16)
 
-	C.memcpy(info.manufacturerID, "NICLabs", 7)
-	C.memcpy(info.model, "TCHSM", 5)
-	C.memcpy(info.serialNumber, "1", 1)
+	manufacturerID := "NICLabs"
+	manufacturerID += strings.Repeat(" ", 32 - len(manufacturerID))
+	cManufacturerID := C.CString(manufacturerID)
+	defer C.free(unsafe.Pointer(cManufacturerID))
+	C.strncpy(info.manufacturerID, cManufacturerID, 32)
+
+	model := "TCHSM"
+	model += strings.Repeat(" ", 16 - len(manufacturerID))
+	cModel := C.CString(model)
+	defer C.free(unsafe.Pointer(cModel))
+	C.strncpy(info.model, cModel, 16)
+
+	serialNumber := "1"
+	serialNumber += strings.Repeat(" ", 16 - len(manufacturerID))
+	cSerialNumber := C.CString(serialNumber)
+	defer C.free(unsafe.Pointer(cSerialNumber))
+	C.strncpy(info.serialNumber, cSerialNumber, 16)
 
 	info.flags = token.tokenFlags
 	info.ulMaxSessionCount = MaxPinLen
@@ -121,7 +133,7 @@ func (token *Token) CheckUserPin(pPin C.CK_UTF8CHAR_PTR, ulPinLen C.CK_ULONG) (S
 	if token.Pin == pin {
 		return User, nil
 	} else {
-		return Error, NewError("Token.GetUserPin", "incorrect pin", C.CKR_PIN_INCORRECT)
+		return Error, NewError("token.GetUserPin", "incorrect pin", C.CKR_PIN_INCORRECT)
 	}
 }
 
@@ -131,7 +143,7 @@ func (token *Token) CheckSecurityOfficerPin(pPin C.CK_UTF8CHAR_PTR, ulPinLen C.C
 	if token.SoPin == pin {
 		return User, nil
 	} else {
-		return Error, NewError("Token.GetUserPin", "incorrect pin", C.CKR_PIN_INCORRECT)
+		return Error, NewError("token.GetUserPin", "incorrect pin", C.CKR_PIN_INCORRECT)
 	}
 }
 
@@ -140,11 +152,11 @@ func (token *Token) Login(userType C.CK_USER_TYPE, pPin C.CK_UTF8CHAR_PTR, ulPin
 	if token.loggedIn &&
 		(userType == C.CKU_USER && token.securityLevel == SecurityOfficer) ||
 		(userType == C.CKU_SO && token.securityLevel == User) {
-		return NewError("Token.Login", "another user already logged in", C.CKR_ANOTHER_USER_ALREADY_LOGGED_IN)
+		return NewError("token.Login", "another user already logged in", C.CKR_ANOTHER_USER_ALREADY_LOGGED_IN)
 	}
 
 	if pPin == nil {
-		return NewError("Token.Login", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
+		return NewError("token.Login", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
 	}
 
 	switch userType {
@@ -163,7 +175,7 @@ func (token *Token) Login(userType C.CK_USER_TYPE, pPin C.CK_UTF8CHAR_PTR, ulPin
 	case C.CKU_CONTEXT_SPECIFIC:
 		switch token.securityLevel {
 		case Public:
-			return NewError("Token.Login", "Bad userType", C.CKR_OPERATION_NOT_INITIALIZED)
+			return NewError("token.Login", "Bad userType", C.CKR_OPERATION_NOT_INITIALIZED)
 		case User:
 			securityLevel, err := token.CheckUserPin(pPin, ulPinLen)
 			if err != nil {
@@ -179,7 +191,7 @@ func (token *Token) Login(userType C.CK_USER_TYPE, pPin C.CK_UTF8CHAR_PTR, ulPin
 
 		}
 	default:
-		return NewError("Token.Login", "Bad userType", C.CKR_USER_TYPE_INVALID)
+		return NewError("token.Login", "Bad userType", C.CKR_USER_TYPE_INVALID)
 	}
 	token.loggedIn = true
 	return nil
@@ -193,8 +205,10 @@ func (token *Token) Logout() {
 
 // Adds a cryptoObject to the token
 func (token *Token) AddObject(object *CryptoObject) C.CK_OBJECT_HANDLE {
-	// TODO: Finish this method
-	return 0
+	handle := object.GetHandle()
+	// TODO: mutex?
+	token.Objects[handle] = object
+	return handle
 }
 
 // Returns the label of the token (should remove. Label is a public property!
@@ -203,14 +217,21 @@ func (token *Token) GetLabel() string {
 }
 
 // Returns an object that uses the handle provided.
-func (token *Token) GetObject(handle C.CK_OBJECT_HANDLE) *CryptoObject {
-	// TODO: Finish this method
-	return &CryptoObject{}
+func (token *Token) GetObject(handle C.CK_OBJECT_HANDLE) (*CryptoObject, error) {
+	// TODO: mutex?
+	if object, ok := token.Objects[handle]; !ok {
+		return nil, NewError("Session.DestroyObject", "object not found", C.CKR_OBJECT_HANDLE_INVALID)
+	} else {
+		return object, nil
+	}
 }
 
-// Returns all the objects in the token
-func (token *Token) GetObjects() CryptoObjects {
-	return token.Objects
+func (token *Token) DeleteObject(handle C.CK_OBJECT_HANDLE) error  {
+	if _, ok := token.Objects[handle]; !ok {
+		return NewError("Session.DestroyObject", "object not found", C.CKR_OBJECT_HANDLE_INVALID)
+	}
+	delete(token.Objects, handle)
+	return nil
 }
 
 // Copies the state of a token

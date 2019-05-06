@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"fmt"
@@ -23,8 +23,9 @@ type Config struct {
 type DTCConfig struct {
 	PublicKey  string
 	PrivateKey string
-	InstanceId string
+	InstanceID string
 	Nodes      []*NodesConfig
+	Timeout    uint16
 }
 
 type NodesConfig struct {
@@ -35,7 +36,7 @@ type NodesConfig struct {
 }
 
 type CriptokiConfig struct {
-	DatabasePath string
+	DatabaseType string
 	NodesNumber  uint16
 	Threshold    uint16
 	Slots        []*SlotsConfig

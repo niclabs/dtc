@@ -16,25 +16,36 @@ const (
 
 // A cryptoObject related to a token.
 type CryptoObject struct {
-	Handle     int
+	Handle     C.CK_OBJECT_HANDLE
 	Type       CryptoObjectType
 	Attributes Attributes
 }
 
 // A map of cryptoobjects
-type CryptoObjects map[int]*CryptoObject
+type CryptoObjects map[C.CK_OBJECT_HANDLE]*CryptoObject
 
-var ActualHandle = 0
+var ActualHandle = uint64(0)
 
-func CToCryptoObject(pAttributes C.CK_ATTRIBUTE_PTR, ulCount C.CK_ULONG, coType CryptoObjectType) *CryptoObject {
+func CToCryptoObject(pAttributes C.CK_ATTRIBUTE_PTR, ulCount C.CK_ULONG) (*CryptoObject, error) {
 	attrSlice := CToAttributes(pAttributes, ulCount)
+	var coType CryptoObjectType
+	tokenAttr, ok := attrSlice[C.CKA_TOKEN]
+	if !ok {
+		return nil, NewError("CToCryptoObject", "Token attribute not found", C.CK_ATTRIBUTE_VALUE_INVALID)
+	}
+	isToken := C.CK_BBOOL(tokenAttr.Value[0])
+	if isToken == C.CK_FALSE {
+		coType = SessionObject
+	} else {
+		coType = TokenObject
+	}
 	ActualHandle++
 	object := &CryptoObject{
 		Handle:     ActualHandle,
 		Type:       coType,
 		Attributes: attrSlice,
 	}
-	return object
+	return object, nil
 }
 
 // Equals returns true if the maps of crypto objects are equal.
@@ -74,9 +85,8 @@ func (object *CryptoObject) Match(pTemplate C.CK_ATTRIBUTE_PTR, ulCount C.CK_ULO
 	return true
 }
 
-func (object *CryptoObject) FindAttribute(tmpl *C.CK_ATTRIBUTE) *Attribute {
-	template := (C.CK_ATTRIBUTE)(unsafe.Pointer(tmpl))
-	if attr, ok := object.Attributes[template._type]; ok {
+func (object *CryptoObject) FindAttribute(attrType C.CK_ATTRIBUTE_TYPE) *Attribute {
+	if attr, ok := object.Attributes[attrType]; ok {
 		return attr
 	}
 	return nil
@@ -101,16 +111,4 @@ func (object *CryptoObject) CopyAttributes(pTemplate C.CK_ATTRIBUTE_PTR, ulCount
 		}
 	}
 	return nil
-}
-
-func (object *CryptoObject) GetType() CryptoObjectType {
-	return object.Type
-}
-
-func (object *CryptoObject) GetHandle() int {
-	return object.Handle
-}
-
-func (object *CryptoObject) GetAttributes() Attributes {
-	return object.Attributes
 }

@@ -9,9 +9,12 @@ dtc:
       dealer_port: 2031
 
 criptoki:
-  database_path: db.sqlite3
+  database_type: sqlite3
   nodes_number: 10
   threshold: 8
   slots:
     - label: slot1
   timeout: 10
+
+sqlite3:
+  path: db.sqlite3

@@ -81,7 +81,7 @@ func (db DB) SaveToken(token *objects.Token) error {
 }
 
 func (db DB) GetToken(label string) (token *objects.Token, err error) {
-	// Retreive Token
+	// Retreive token
 	tokenStmt, err := db.Prepare(GetTokenQuery)
 	if err != nil {
 		return
@@ -132,7 +132,7 @@ func (db DB) GetToken(label string) (token *objects.Token, err error) {
 		}
 	}
 
-	// Append crypto_objects to Token
+	// Append crypto_objects to token
 	token.Objects = make(objects.CryptoObjects)
 	i := 0
 	for _, cryptoObject := range cryptoObjects {

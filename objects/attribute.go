@@ -11,12 +11,12 @@ import (
 
 // An attribute related to a crypto object.
 type Attribute struct {
-	Type  uint64
+	Type  C.CK_ATTRIBUTE_TYPE
 	Value []byte
 }
 
 // A map of attributes
-type Attributes map[uint64]*Attribute
+type Attributes map[C.CK_ATTRIBUTE_TYPE]*Attribute
 
 func CToAttributes(pAttributes C.CK_ATTRIBUTE_PTR, ulCount C.CK_ULONG) Attributes {
 	cAttrSlice := (*[1 << 30]C.CK_ATTRIBUTE)(unsafe.Pointer(pAttributes))[:ulCount:ulCount]
@@ -77,4 +77,13 @@ func (attribute *Attribute) ToC(cDst C.CK_ATTRIBUTE_PTR) error {
 		return NewError("Attribute.ToC", "Buffer too small", C.CKR_BUFFER_TOO_SMALL)
 	}
 	return nil
+}
+
+
+func (attributes Attributes) GetAttributeByType(cAttr C.CK_ATTRIBUTE_TYPE) (*Attribute, error) {
+	attr, ok := attributes[cAttr]
+	if ok {
+		return attr, nil
+	}
+	return nil, NewError("Attributes.GetAttributeByType", "attribute doesn't exist", C.CKR_ATTRIBUTE_VALUE_INVALID) // is this error code ok?
 }
