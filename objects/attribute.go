@@ -11,13 +11,12 @@ import (
 
 // An attribute related to a crypto object.
 type Attribute struct {
-	Type  int64
+	Type  uint64
 	Value []byte
 }
 
 // A map of attributes
-type Attributes map[int64]*Attribute
-
+type Attributes map[uint64]*Attribute
 
 func CToAttributes(pAttributes C.CK_ATTRIBUTE_PTR, ulCount C.CK_ULONG) Attributes {
 	cAttrSlice := (*[1 << 30]C.CK_ATTRIBUTE)(unsafe.Pointer(pAttributes))[:ulCount:ulCount]
@@ -62,7 +61,7 @@ func CToAttribute(cAttr C.CK_ATTRIBUTE) *Attribute {
 	}
 }
 
-func (attribute *Attribute) ToC(cDst *C.CK_ATTRIBUTE) error {
+func (attribute *Attribute) ToC(cDst C.CK_ATTRIBUTE_PTR) error {
 	if cDst.pValue == nil {
 		cDst.ulValueLen = len(attribute.Value)
 		return nil

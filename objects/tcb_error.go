@@ -7,17 +7,16 @@ import "C"
 import "fmt"
 
 type TcbError struct {
-	Who string
+	Who         string
 	Description string
-	Code C.CK_RV
+	Code        uint64
 }
-
 
 func NewError(who, description string, code C.CK_RV) *TcbError {
 	return &TcbError{
-		Who: who,
+		Who:         who,
 		Description: description,
-		Code: code,
+		Code:        code,
 	}
 }
 

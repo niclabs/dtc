@@ -26,19 +26,18 @@ type CryptoObjects map[int]*CryptoObject
 
 var ActualHandle = 0
 
-// https://stackoverflow.com/questions/28925179/cgo-how-to-pass-struct-array-from-c-to-go#28933938
-func NewCryptoObject(pAttributes C.CK_ATTRIBUTE_PTR, ulCount C.CK_ULONG, coType CryptoObjectType) *CryptoObject {
+func CToCryptoObject(pAttributes C.CK_ATTRIBUTE_PTR, ulCount C.CK_ULONG, coType CryptoObjectType) *CryptoObject {
 	attrSlice := CToAttributes(pAttributes, ulCount)
 	ActualHandle++
 	object := &CryptoObject{
-		Handle: ActualHandle,
-		Type: coType,
+		Handle:     ActualHandle,
+		Type:       coType,
 		Attributes: attrSlice,
 	}
 	return object
 }
 
-// Equals returns true if the maps of cryproobjects are equal.
+// Equals returns true if the maps of crypto objects are equal.
 func (objects CryptoObjects) Equals(objects2 CryptoObjects) bool {
 	if len(objects) != len(objects2) {
 		return false
@@ -61,6 +60,7 @@ func (object *CryptoObject) Equals(object2 *CryptoObject) bool {
 		object.Attributes.Equals(object2.Attributes)
 }
 
+// https://stackoverflow.com/questions/28925179/cgo-how-to-pass-struct-array-from-c-to-go#28933938
 func (object *CryptoObject) Match(pTemplate C.CK_ATTRIBUTE_PTR, ulCount C.CK_ULONG) bool {
 	templateSlice := (*[1 << 30]C.CK_ATTRIBUTE)(unsafe.Pointer(pTemplate))[:ulCount:ulCount]
 
@@ -82,17 +82,17 @@ func (object *CryptoObject) FindAttribute(tmpl *C.CK_ATTRIBUTE) *Attribute {
 	return nil
 }
 
-
+// https://stackoverflow.com/questions/28925179/cgo-how-to-pass-struct-array-from-c-to-go#28933938
 func (object *CryptoObject) CopyAttributes(pTemplate C.CK_ATTRIBUTE_PTR, ulCount C.CK_ULONG) error {
 	if pTemplate == nil {
 		return NewError("CryptoObject.CopyAttributes", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
 	}
 	templateSlice := (*[1 << 30]C.CK_ATTRIBUTE)(unsafe.Pointer(pTemplate))[:ulCount:ulCount]
 
-	for _, cDst := range templateSlice {
-		src := object.FindAttribute(cDst)
+	for i := 0; i < len(templateSlice); i++ {
+		src := object.FindAttribute(templateSlice[i])
 		if src != nil {
-			err := src.ToC(&cDst)
+			err := src.ToC(&templateSlice[i])
 			if err != nil {
 				return err
 			}
@@ -102,7 +102,6 @@ func (object *CryptoObject) CopyAttributes(pTemplate C.CK_ATTRIBUTE_PTR, ulCount
 	}
 	return nil
 }
-
 
 func (object *CryptoObject) GetType() CryptoObjectType {
 	return object.Type

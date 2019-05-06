@@ -6,8 +6,8 @@ package objects
 import "C"
 
 type Slot struct {
-	ID C.CK_SLOT_ID
-	Flags C.CK_FLAGS
-	Token *Token
+	ID       int64
+	Flags    uint64
+	Token    *Token
 	Sessions Sessions
 }

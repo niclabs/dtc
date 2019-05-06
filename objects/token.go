@@ -8,6 +8,7 @@ import (
 	"time"
 	"unsafe"
 )
+
 // Security level constant
 type SecurityLevel int
 
@@ -20,22 +21,22 @@ const (
 
 // A token of the PKCS11 device.
 type Token struct {
-	Label   string
-	Pin     string
-	SoPin   string
-	Objects CryptoObjects
-	tokenFlags C.CK_FLAGS
+	Label         string
+	Pin           string
+	SoPin         string
+	Objects       CryptoObjects
+	tokenFlags    uint64
 	securityLevel SecurityLevel
-	loggedIn bool
+	loggedIn      bool
 }
 
 func NewToken(label, userPin, soPin string) (*Token, error) {
 	if len(label) > 32 {
-		return nil, NewError("objects.NewToken","Label with more than 32 chars", C.CKR_ARGUMENTS_BAD)
+		return nil, NewError("objects.NewToken", "Label with more than 32 chars", C.CKR_ARGUMENTS_BAD)
 	}
 	newToken := &Token{
 		Label: label,
-		Pin: userPin,
+		Pin:   userPin,
 		SoPin: soPin,
 		tokenFlags: C.CKF_RNG |
 			C.CKF_WRITE_PROTECTED |
@@ -53,7 +54,6 @@ func (token *Token) Equals(token2 *Token) bool {
 		token.SoPin == token2.SoPin &&
 		token.Objects.Equals(token2.Objects)
 }
-
 
 func (token *Token) GetInfo(pInfo C.CK_TOKEN_INFO_PTR) error {
 	if pInfo == nil {
