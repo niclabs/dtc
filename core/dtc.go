@@ -2,6 +2,8 @@ package core
 
 import (
 	"dtcmaster/messaging"
+	"fmt"
+	"github.com/niclabs/tcrsa"
 	"os"
 )
 
@@ -10,6 +12,8 @@ type DTC struct {
 	ConnectionID int
 	Timeout uint16
 	Messenger messaging.Messenger
+	KeyMeta tcrsa.KeyMeta
+
 }
 
 func getConnectionID() int {
@@ -25,4 +29,12 @@ func NewDTC(config DTCConfig) *DTC {
 }
 
 
-func (dtc *DTC) GenerateKeyShares(keyID string, bitSize int, threshold, cantNodes uint16, )
+func (dtc *DTC) GenerateKeyShares(keyID string, bitSize int, k, l uint16) error {
+	if l < 1 {
+		return fmt.Errorf("node number must be greater than one")
+	}
+	keyShares, keyMeta, err := tcrsa.NewKey(bitSize, k, l, nil)
+	if err != nil {
+		return err
+	}
+}

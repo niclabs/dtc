@@ -21,18 +21,8 @@ type Config struct {
 }
 
 type DTCConfig struct {
-	PublicKey  string
-	PrivateKey string
-	InstanceID string
-	Nodes      []*NodesConfig
-	Timeout    uint16
-}
-
-type NodesConfig struct {
-	IP         string
-	PublicKey  string
-	SubPort    uint16
-	DealerPort uint16
+	MessagingType string
+	InstanceID    string
 }
 
 type CriptokiConfig struct {
@@ -40,7 +30,6 @@ type CriptokiConfig struct {
 	NodesNumber  uint16
 	Threshold    uint16
 	Slots        []*SlotsConfig
-	Timeout      uint16
 }
 
 type SlotsConfig struct {

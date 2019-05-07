@@ -1,12 +1,6 @@
 dtc:
-  public_key: PubK
-  private_key: PrivK
+  messaging_type: zmq
   instance_id: libdtc
-  nodes:
-    - ip: 1.2.3.4
-      public_key: PubK
-      sub_port: 2030
-      dealer_port: 2031
 
 criptoki:
   database_type: sqlite3
@@ -14,7 +8,23 @@ criptoki:
   threshold: 8
   slots:
     - label: slot1
-  timeout: 10
 
 sqlite3:
   path: db.sqlite3
+
+zmq:
+  timeout: 10
+  public_key: PubK
+  private_key: PrivK
+  network:
+    ip: 1.2.3.4
+    port: 2031
+  nodes:
+    - network:
+        ip: 1.2.3.4
+        port: 2030
+      public_key: PubK
+    - network:
+        ip: 1.2.3.4
+        port: 2031
+      public_key: PubK
