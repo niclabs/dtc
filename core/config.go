@@ -23,6 +23,7 @@ type Config struct {
 type DTCConfig struct {
 	MessagingType string
 	InstanceID    string
+	Timeout       uint16
 }
 
 type CriptokiConfig struct {

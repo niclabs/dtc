@@ -1,18 +1,18 @@
 package core
 
 import (
-	"dtcmaster/messaging"
+	"dtcmaster/network"
 	"fmt"
 	"github.com/niclabs/tcrsa"
 	"os"
 )
 
 type DTC struct {
-	InstanceID string
+	InstanceID   string
 	ConnectionID int
-	Timeout uint16
-	Messenger messaging.Messenger
-	KeyMeta tcrsa.KeyMeta
+	Timeout      uint16
+	Messenger    network.Connection
+	KeyMeta      tcrsa.KeyMeta
 
 }
 

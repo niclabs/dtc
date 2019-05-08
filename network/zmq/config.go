@@ -1,18 +1,12 @@
 package zmq
 
 import (
-	"fmt"
 	"github.com/spf13/viper"
-	"net"
 )
 
-type NetParams struct {
-	IP net.IP
-	Port uint16
-}
-
 type Config struct {
-	Network    NetParams
+	IP         string
+	Port       uint16
 	PublicKey  string
 	PrivateKey string
 	Nodes      []*NodeConfig
@@ -21,12 +15,8 @@ type Config struct {
 
 type NodeConfig struct {
 	PublicKey string
-	Network   NetParams
-}
-
-
-func (params *NetParams) String() string {
-	return fmt.Sprintf("tcp://%s:%d", params.IP, params.Port)
+	IP        string
+	Port      uint16
 }
 
 func GetConfig() (*Config, error) {
