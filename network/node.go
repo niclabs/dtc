@@ -1,11 +1,16 @@
 package network
 
-import "github.com/niclabs/tcrsa"
+
+type MessageType uint8
+
+const (
+	None MessageType = iota
+	SendKeyShare
+	AskForSigShare
+)
 
 type Node interface {
-	Connect()
-	SendKeyShare(key *tcrsa.KeyShare, meta *tcrsa.KeyMeta, timeout int) error
-	Sign(hash []byte, timeout int) (*tcrsa.SigShare, error)
+	GetID() string
 	GetError() error
 	IsConnected() bool
 	Disconnect() error

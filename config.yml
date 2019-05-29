@@ -8,7 +8,7 @@ criptoki:
   nodes_number: 10
   threshold: 8
   slots:
-             - label: slot1
+    - label: slot1
 
 sqlite3:
   path: db.sqlite3
@@ -18,7 +18,7 @@ zmq:
   private_key: PrivK
   ip: 1.2.3.4
   router_port: 2031 # Router port
-  push_port: 2031 # Router port
+  push_port: 3031 # Router port
   nodes:
     - network:
       ip: 1.2.3.4

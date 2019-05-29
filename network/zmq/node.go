@@ -2,6 +2,8 @@ package zmq
 
 import (
 	"bytes"
+	"dtcmaster/network"
+	"dtcmaster/utils"
 	"encoding/gob"
 	"fmt"
 	"github.com/niclabs/tcrsa"
@@ -9,32 +11,30 @@ import (
 	"net"
 )
 
-const (
-	SendKeyShare byte = iota
-	GetSigShare
-	InvalidMessage // Keep this at the end
-)
+type NodeState int
 
-
+// A node represents a remote machine
 type Node struct {
-	ip     net.IP
-	port   uint16
-	pubKey string
-	socket *zmq4.Socket
-	ctx    *zmq4.Context
-	conn   *ZMQ
-	Err    error
+	ip              net.IP
+	id              string
+	port            uint16
+	pubKey          string
+	socket          *zmq4.Socket
+	ctx             *zmq4.Context
+	conn            *ZMQ
+	Err             error
 }
 
-func (node *Node) Sign(hash []byte, timeout int) (*tcrsa.SigShare, error) {
-	panic("implement me")
-}
-
-func (node *Node) Connect() {
+func (node *Node) connect() {
 	// Create and name socket
 	pubSock, err := node.conn.ctx.NewSocket(zmq4.PUSH)
 	if err != nil {
 		node.Err = err
+		return
+	}
+
+	// config timeout as conn timeout
+	if err = pubSock.SetSndtimeo(node.conn.timeout); err != nil {
 		return
 	}
 
@@ -49,67 +49,61 @@ func (node *Node) Connect() {
 		node.Err = err
 		return
 	}
-	// Connect
+	// connect
 	if err = node.socket.Connect(node.GetConnString()); err != nil {
 		node.Err = err
 		return
 	}
+	// Put an ID to the node
+	id, err := utils.GetRandomHexString(16)
+	if err != nil {
+		node.Err = err
+		return
+	}
+	node.id = id
 }
 
+func (node *Node) GetID() string {
+	return node.id
+}
 
-func (node *Node) SendKeyShare(key *tcrsa.KeyShare, meta *tcrsa.KeyMeta, timeout int) error {
+func (node *Node) sendKeyShare(key *tcrsa.KeyShare, meta *tcrsa.KeyMeta) (*Message, error) {
 	var keyBuffer bytes.Buffer
 	keyEncoder := gob.NewEncoder(&keyBuffer)
 	var metaBuffer bytes.Buffer
 	metaEncoder := gob.NewEncoder(&metaBuffer)
 	if err := keyEncoder.Encode(key); err != nil {
-		return err
-	}
-	if err := metaEncoder.Encode(meta); err != nil {
-		return err
-	}
-	flagBinary := []byte{SendKeyShare}
-	keyBinary := keyBuffer.Bytes()
-	metaBinary := metaBuffer.Bytes()
-	completeMsg := [][]byte{flagBinary, keyBinary, metaBinary}
-	if _, err := node.socket.SendMessage(completeMsg); err != nil {
-		return err
-	}
-	respMsg, err := node.socket.RecvMessageBytes(0)
-	if err != nil {
-		return err
-	}
-	if len(respMsg) != 2 || len(respMsg[0]) != 1 || respMsg[0][0] != SendKeyShare {
-		err = fmt.Errorf("wrong response")
-		return err
-	}
-	if string(respMsg[1]) != "ok" {
-		return fmt.Errorf("error sending key")
-	}
-	return nil
-}
-
-func (node *Node) GetSigShare(doc []byte, timeout int) (sigShare *tcrsa.SigShare, err error) {
-	flagBinary := []byte{GetSigShare}
-	completeMsg := [][]byte{flagBinary, doc}
-	if _, err := node.socket.SendMessage(completeMsg); err != nil {
 		return nil, err
 	}
-	respMsg, err := node.socket.RecvMessageBytes(0)
+	if err := metaEncoder.Encode(meta); err != nil {
+		return nil, err
+	}
+	keyBinary := keyBuffer.Bytes()
+	metaBinary := metaBuffer.Bytes()
+	message, err := NewMessage(network.SendKeyShare, node.GetID(), keyBinary, metaBinary)
 	if err != nil {
-		return
+		return nil, err
 	}
-	if len(respMsg) != 2 || len(respMsg[0]) != 1 || respMsg[0][0] != GetSigShare {
-		err = fmt.Errorf("wrong response")
-		return
+	var i int
+	if i, err = node.socket.SendMessage(message.GetBytesLists()); err != nil {
+		return nil, err
 	}
-	respBuffer := bytes.NewBuffer(respMsg[1])
-	sigDecoder := gob.NewDecoder(respBuffer)
-	if err = sigDecoder.Decode(&sigShare); err != nil {
-		return
-	}
-	return
+	fmt.Printf("%d\n", i)
+	return message, nil
 }
+
+
+func (node *Node) AskForSigShare(doc []byte) (message *Message, err error) {
+	message, err = NewMessage(network.AskForSigShare, node.GetID(), doc)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := node.socket.SendMessage(message.GetBytesLists()); err != nil {
+		return nil, err
+	}
+	return message, nil
+}
+
 
 func (node *Node) GetError() error {
 	return node.Err

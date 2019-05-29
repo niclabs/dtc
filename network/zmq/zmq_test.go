@@ -5,24 +5,26 @@ import (
 	"crypto"
 	"crypto/rsa"
 	"crypto/sha256"
+	"dtcmaster/network"
 	"encoding/gob"
 	"fmt"
 	"github.com/niclabs/tcrsa"
 	"github.com/pebbe/zmq4"
+	"os"
 	"testing"
 )
 
 const testK = 6
 const testL = 10
 
+var initPort uint16 = 2031
+
 type NodeStub struct {
 	privKey string
 	pubKey  string
 	ip      string
 	port    uint16
-	server  *ZMQ
 	context *zmq4.Context
-	socket  *zmq4.Socket
 }
 
 func (stub *NodeStub) GetID() string {
@@ -31,10 +33,7 @@ func (stub *NodeStub) GetID() string {
 
 // This should be launched as goroutine
 func (stub *NodeStub) StartAndWait(connPubKey string) error {
-	zmq4.AuthAllow(stub.GetID(), "127.0.0.1")
-	zmq4.AuthCurveAdd(stub.GetID(), connPubKey)
-
-	conn, err := zmq4.NewSocket(zmq4.SUB)
+	conn, err := stub.context.NewSocket(zmq4.SUB)
 	defer func() {
 		conn.SetLinger(0)
 		conn.Close()
@@ -48,75 +47,83 @@ func (stub *NodeStub) StartAndWait(connPubKey string) error {
 	if err := conn.ServerAuthCurve(stub.GetID(), stub.privKey); err != nil {
 		return err
 	}
+	_, _ = fmt.Fprintf(os.Stderr, "connecting to tcp://%s:%d...\n", stub.ip, stub.port)
 	if err := conn.Bind(fmt.Sprintf("tcp://%s:%d", stub.ip, stub.port)); err != nil {
 		return err
 	}
 
 	for {
-		rawMsg, err := conn.RecvMessageBytes(0)
-		if err != nil {
-			return err
-		}
-		if len(rawMsg) < 2 || len(rawMsg[0]) != 1 {
-			return fmt.Errorf("wrong message")
-		}
-		msgType := rawMsg[0]
-		msgRest := rawMsg[1:]
-
 		var keyShare *tcrsa.KeyShare
 		var keyMeta *tcrsa.KeyMeta
-
-		switch msgType[0] {
-		case SendKeyShare:
-			keyBuffer := bytes.NewBuffer(msgRest[0])
-			keyDecoder := gob.NewDecoder(keyBuffer)
-			if err = keyDecoder.Decode(keyShare); err != nil {
-				return err
+		_, _ = fmt.Fprintf(os.Stderr, "stub %s: receiving message...\n", stub.GetID())
+		rawMsg, err := conn.RecvMessageBytes(0)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, ReceiveMessageError.ComposeError(err))
+			continue
+		}
+		_, _ = fmt.Fprintf(os.Stderr, "stub %s: parsing message...\n", stub.GetID())
+		msg, err := MessageFromBytes(rawMsg)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, ParseMessageError.ComposeError(err))
+			continue
+		}
+		_, _ = fmt.Fprintf(os.Stderr, "stub %s: copying response...\n", stub.GetID())
+		resp := msg.CopyWithoutData(NoError)
+		switch msg.Type {
+		case network.SendKeyShare:
+			_, _ = fmt.Fprintf(os.Stderr, "stub %s: parsing keyshare...\n", stub.GetID())
+			if err = gob.NewDecoder(bytes.NewBuffer(msg.Data[0])).Decode(keyShare); err != nil {
+				resp.Error = KeyShareDecodeError
+				break
 			}
-			metaBuffer := bytes.NewBuffer(msgRest[1])
-			metaDecoder := gob.NewDecoder(metaBuffer)
-			if err = metaDecoder.Decode(keyMeta); err != nil {
-				_, _ = conn.SendMessage([][]byte{{SendKeyShare}, []byte("okn't")}, 0)
-				return err
+			_, _ = fmt.Fprintf(os.Stderr, "stub %s: parsing keymeta...\n", stub.GetID())
+			if err = gob.NewDecoder(bytes.NewBuffer(msg.Data[1])).Decode(keyMeta); err != nil {
+				resp.Error = KeyMetaDecodeError
+				break
 			}
-			_, err := conn.SendMessage([][]byte{{SendKeyShare}, []byte("ok")}, 0)
-			if err != nil {
-				return err
-			}
-		case GetSigShare:
+		case network.AskForSigShare:
 			if keyShare == nil || keyMeta == nil {
-				_, _ = conn.SendMessage([][]byte{{GetSigShare}, []byte("okn't")}, 0)
-				return err
+				_, _ = fmt.Fprintf(os.Stderr, "stub %s: not initialized ...\n", stub.GetID())
+				resp.Error = NotInitializedError
+				break
 			}
-			respBuffer := bytes.NewBuffer(msgRest[0])
-			sigDecoder := gob.NewDecoder(respBuffer)
 			var doc []byte
-			if err = sigDecoder.Decode(&doc); err != nil {
-				return err
+			_, _ = fmt.Fprintf(os.Stderr, "stub %s: parsing message...\n", stub.GetID())
+			if err = gob.NewDecoder(bytes.NewBuffer(msg.Data[0])).Decode(&doc); err != nil {
+				resp.Error = DocDecodeError
+				break
 			}
+			// Sign
+			_, _ = fmt.Fprintf(os.Stderr, "stub %s: signing message ...\n", stub.GetID())
 			sigShare, err := keyShare.Sign(doc, crypto.SHA256, keyMeta)
 			if err != nil {
-				_, _ = conn.SendMessage([][]byte{{GetSigShare}, []byte("okn't")}, 0)
-				return err
+				resp.Error = DocSignError
+				break
 			}
 			var keyBuffer bytes.Buffer
-			keyEncoder := gob.NewEncoder(&keyBuffer)
-			if err := keyEncoder.Encode(sigShare); err != nil {
-				return err
+			_, _ = fmt.Fprintf(os.Stderr, "stub %s: encoding sigshare ...\n", stub.GetID())
+			if err := gob.NewEncoder(&keyBuffer).Encode(sigShare); err != nil {
+				resp.Error = SigShareEncodeError
+				break
 			}
-			flagBinary := []byte{GetSigShare}
-			keyBinary := keyBuffer.Bytes()
-			completeMsg := [][]byte{flagBinary, keyBinary}
-			_, err = conn.SendMessage(completeMsg, 0)
-			if err != nil {
-				return err
-			}
-			// we stop the server after signing
-			return nil
 		default:
-			return fmt.Errorf("unknown message")
+			resp.Error = UnknownError
+		}
+		if resp.Error != NoError {
+			_, _ = fmt.Fprintf(os.Stderr, resp.Error.ComposeError(err))
+		}
+		_, _ = fmt.Fprintf(os.Stderr, "stub %s: sending message ...\n", stub.GetID())
+		_, err = conn.SendMessage(resp)
+		if err != nil {
+			resp.Error = SendResponseError
+			_, _ = fmt.Fprintf(os.Stderr, resp.Error.ComposeError(err))
+		}
+		// In this mock up, we stop the server after signing and sending successfully
+		if resp.Error == NoError && resp.Type == network.AskForSigShare {
+			break
 		}
 	}
+	return nil
 }
 
 func getNodeStubs(num uint16) (nodeStubs []*NodeStub, err error) {
@@ -124,7 +131,6 @@ func getNodeStubs(num uint16) (nodeStubs []*NodeStub, err error) {
 	if err != nil {
 		return
 	}
-	initPort := uint16(2031)
 	nodeStubs = make([]*NodeStub, num)
 	var i uint16
 	for i = 0; i < num; i++ {
@@ -140,6 +146,8 @@ func getNodeStubs(num uint16) (nodeStubs []*NodeStub, err error) {
 		}
 		nodeStubs[i].pubKey, nodeStubs[i].privKey = pubKey, privKey
 	}
+	// update initport number for future uses
+	initPort += num
 	return
 }
 
@@ -148,6 +156,7 @@ func getExampleConfig(numNodes uint16) (config *Config, stubs []*NodeStub, err e
 		IP:    "127.0.0.1",
 		Port:  2030,
 		Nodes: make([]*NodeConfig, numNodes),
+		Timeout: 3,
 	}
 	pubKey, privKey, err := zmq4.NewCurveKeypair()
 	if err != nil {
@@ -201,6 +210,7 @@ func TestZMQ_Open(t *testing.T) {
 }
 
 func TestZMQ_Connect(t *testing.T) {
+	_, _ = fmt.Fprintf(os.Stderr, "server: creating connection...\n")
 	conn, nodes, err := createConnection()
 	if err != nil {
 		t.Errorf("%v", err)
@@ -208,7 +218,11 @@ func TestZMQ_Connect(t *testing.T) {
 	}
 
 	// We start the nodes
-	for _, node := range nodes {
+	_, _ = fmt.Fprintf(os.Stderr, "server: starting the nodes...\n")
+	for i := 0; i < len(nodes); i++ {
+		node := nodes[i]
+		zmq4.AuthAllow(node.GetID(), "127.0.0.1")
+		zmq4.AuthCurveAdd(node.GetID(), conn.pubKey)
 		go func() {
 			err := node.StartAndWait(conn.pubKey)
 			if err != nil {
@@ -218,6 +232,7 @@ func TestZMQ_Connect(t *testing.T) {
 	}
 
 	// and open the connection
+	_, _ = fmt.Fprintf(os.Stderr, "server: starting the server node...\n")
 	err = conn.Open()
 	defer conn.Close()
 	if err != nil {
@@ -226,49 +241,73 @@ func TestZMQ_Connect(t *testing.T) {
 	}
 
 	// Extracted from libtdc documentation
-
+	_, _ = fmt.Fprintf(os.Stderr, "server: creating the keys...\n")
 	keyShares, keyMeta, err := tcrsa.NewKey(512, uint16(testK), uint16(testL), nil)
 	if err != nil {
-		panic(fmt.Sprintf("%v", err))
+		t.Errorf("cannot create keys: %v", err)
+		return
 	}
 
 	// Sending keys
-
-	for i, node := range conn.GetNodes() {
-		err := node.SendKeyShare(keyShares[i], keyMeta,10)
-		if err != nil {
-			t.Errorf("cannot send key share: %v", err)
-		}
+	_, _ = fmt.Fprintf(os.Stderr, "server: sending the keys...\n")
+	if err := conn.SendKeyShares(keyShares, keyMeta); err != nil {
+		t.Errorf("cannot send key shares: %v", err)
+		return
 	}
 
+	// Receiving acks
+	_, _ = fmt.Fprintf(os.Stderr, "server: waiting for acks...\n")
+
+	if err := conn.AckKeyShares(); err != nil {
+		t.Errorf("error acking key shares: %v", err)
+		return
+	}
+
+	_, _ = fmt.Fprintf(os.Stderr, "server: hashing the doc...\n")
 	// Hashing a doc (hello world)
 	docHash := sha256.Sum256([]byte("hello world"))
+
+	// PKCS1 Padding
+	_, _ = fmt.Fprintf(os.Stderr, "server: padding the hash of the doc...\n")
+
 	docPKCS1, err := tcrsa.PrepareDocumentHash(keyMeta.PublicKey.Size(), crypto.SHA256, docHash[:])
 	if err != nil {
-		panic(fmt.Sprintf("%v", err))
+		t.Errorf("error preparing hash: %v", err)
+		return
 	}
 
 	// Asking for signatures
-	sigShares := make(tcrsa.SigShareList, testL)
-	for i, node := range conn.GetNodes() {
-		sigShares[i], err = node.Sign(docPKCS1, 10)
-		if err != nil {
-			t.Errorf("cannot create sig share: %v", err)
-		}
-		if err := sigShares[i].Verify(docPKCS1, keyMeta); err != nil {
-			t.Errorf(fmt.Sprintf("sig share received is invalid: %v", err))
-		}
+	_, _ = fmt.Fprintf(os.Stderr, "server: asking for sigshares...\n")
+	if err := conn.AskForSigShares(docPKCS1); err != nil {
+		t.Errorf("error asking for sigshares: %v", err)
+		return
 	}
 
-	// Finally we join them.
+	// Retrieving signatures
+	_, _ = fmt.Fprintf(os.Stderr, "server: retrieving sigshares...\n")
 
+	sigShares, err :=  conn.GetSigShares()
+	if err != nil {
+		t.Errorf("error retrieving sigshares: %v", err)
+		return
+	}
+
+	if len(sigShares) < testK {
+		t.Errorf("there are no enough sigshares")
+		return
+	}
+	// Finally we join them.
+	_, _ = fmt.Fprintf(os.Stderr, "server: joining sigshares...\n")
 	signature, err := sigShares.Join(docPKCS1, keyMeta)
 	if err != nil {
 		t.Errorf(fmt.Sprintf("%v", err))
+		return
 	}
 
+	_, _ = fmt.Fprintf(os.Stderr, "server: verifying signature...\n")
 	if err := rsa.VerifyPKCS1v15(keyMeta.PublicKey, crypto.SHA256, docHash[:], signature); err != nil {
 		t.Errorf(fmt.Sprintf("%v", err))
+		return
 	}
 
 }
