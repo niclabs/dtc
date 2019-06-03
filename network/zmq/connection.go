@@ -83,7 +83,7 @@ func (conn *ZMQ) Open() (err error) {
 	}
 
 	// wait forever for messages
-	if err = socket.SetRcvtimeo(-1); err != nil {
+	if err = socket.SetRcvtimeo(1); err != nil {
 		return
 	}
 
@@ -112,11 +112,12 @@ func (conn *ZMQ) Open() (err error) {
 		for {
 			rawMsg, err := conn.serverSocket.RecvMessageBytes(0)
 			if err != nil {
-				log.Printf("cannot receive messages: %s", err)
+				continue
 			}
 			msg, err := MessageFromBytes(rawMsg)
 			if err != nil {
 				log.Printf("cannot parse messages: %s", err)
+				continue
 			}
 			conn.channel <- msg
 		}

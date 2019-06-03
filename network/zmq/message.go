@@ -36,7 +36,7 @@ func NewMessage(rType network.MessageType, nodeID string, msgs ...[]byte) (*Mess
 		ID:     id,
 		Type:   rType,
 		NodeID: nodeID,
-		Data:   make([][]byte, len(msgs)),
+		Data:   make([][]byte, 0),
 	}
 	req.Data = append(req.Data, msgs...)
 	return req, nil

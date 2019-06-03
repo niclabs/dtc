@@ -16,8 +16,10 @@ import (
 
 const testK = 6
 const testL = 10
+const testIP = "127.0.0.1"
 
 var initPort uint16 = 2031
+
 
 type NodeStub struct {
 	privKey string
@@ -29,6 +31,10 @@ type NodeStub struct {
 
 func (stub *NodeStub) GetID() string {
 	return fmt.Sprintf("node-%d", stub.port)
+}
+
+func (stub *NodeStub) GetConnID() string {
+	return fmt.Sprintf("tcp://%s:%d", stub.ip, stub.port)
 }
 
 // This should be launched as goroutine
@@ -47,16 +53,18 @@ func (stub *NodeStub) StartAndWait(connPubKey string) error {
 	if err := conn.ServerAuthCurve(stub.GetID(), stub.privKey); err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintf(os.Stderr, "connecting to tcp://%s:%d...\n", stub.ip, stub.port)
-	if err := conn.Bind(fmt.Sprintf("tcp://%s:%d", stub.ip, stub.port)); err != nil {
+	_, _ = fmt.Fprintf(os.Stderr, "binding to %s\n", stub.GetConnID())
+	if err := conn.Bind(stub.GetConnID()); err != nil {
 		return err
 	}
 
 	for {
 		var keyShare *tcrsa.KeyShare
 		var keyMeta *tcrsa.KeyMeta
-		_, _ = fmt.Fprintf(os.Stderr, "stub %s: receiving message...\n", stub.GetID())
+		_, _ = fmt.Fprintf(os.Stderr, "stub %s: receiving messages sent to %s...\n", stub.GetID(), stub.GetConnID())
 		rawMsg, err := conn.RecvMessageBytes(0)
+		_, _ = fmt.Fprintf(os.Stderr, "stub %s: message received!\n", stub.GetID())
+
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, ReceiveMessageError.ComposeError(err))
 			continue
@@ -135,7 +143,7 @@ func getNodeStubs(num uint16) (nodeStubs []*NodeStub, err error) {
 	var i uint16
 	for i = 0; i < num; i++ {
 		nodeStubs[i] = &NodeStub{
-			ip:      "127.0.0.1",
+			ip:      testIP,
 			port:    initPort + i,
 			context: context,
 		}
@@ -153,9 +161,9 @@ func getNodeStubs(num uint16) (nodeStubs []*NodeStub, err error) {
 
 func getExampleConfig(numNodes uint16) (config *Config, stubs []*NodeStub, err error) {
 	config = &Config{
-		IP:    "127.0.0.1",
-		Port:  2030,
-		Nodes: make([]*NodeConfig, numNodes),
+		IP:      testIP,
+		Port:    2030,
+		Nodes:   make([]*NodeConfig, numNodes),
 		Timeout: 3,
 	}
 	pubKey, privKey, err := zmq4.NewCurveKeypair()

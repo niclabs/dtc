@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"github.com/niclabs/tcrsa"
 	"github.com/pebbe/zmq4"
+	"log"
 	"net"
+	"os"
 )
 
 type NodeState int
@@ -50,6 +52,7 @@ func (node *Node) connect() {
 		return
 	}
 	// connect
+	_, _ = fmt.Fprintf(os.Stderr, "connecting to %s\n", node.GetConnString())
 	if err = node.socket.Connect(node.GetConnString()); err != nil {
 		node.Err = err
 		return
@@ -84,11 +87,10 @@ func (node *Node) sendKeyShare(key *tcrsa.KeyShare, meta *tcrsa.KeyMeta) (*Messa
 	if err != nil {
 		return nil, err
 	}
-	var i int
-	if i, err = node.socket.SendMessage(message.GetBytesLists()); err != nil {
+	log.Printf("Sending message to %s", node.GetConnString());
+	if _, err = node.socket.SendMessage(message.GetBytesLists()); err != nil {
 		return nil, err
 	}
-	fmt.Printf("%d\n", i)
 	return message, nil
 }
 
