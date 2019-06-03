@@ -15,6 +15,7 @@ import (
 
 // TchsmDomain is the default domain for ZMQ context.
 const TchsmDomain = "tchsm"
+const TchsmProtocol = "tcp"
 
 // This error represents a timeout situation
 var TimeoutError = fmt.Errorf("timeout")
@@ -83,7 +84,7 @@ func (conn *ZMQ) Open() (err error) {
 	}
 
 	// wait forever for messages
-	if err = socket.SetRcvtimeo(1); err != nil {
+	if err = socket.SetRcvtimeo(-1); err != nil {
 		return
 	}
 
@@ -116,7 +117,7 @@ func (conn *ZMQ) Open() (err error) {
 			}
 			msg, err := MessageFromBytes(rawMsg)
 			if err != nil {
-				log.Printf("cannot parse messages: %s", err)
+				log.Printf("cannot parse messages: %s\n", err)
 				continue
 			}
 			conn.channel <- msg
@@ -206,7 +207,7 @@ func (conn *ZMQ) AckKeyShares() error {
 					return nil
 				}
 			} else if !exists {
-				log.Printf("unexpected message: %v", msg)
+				log.Printf("unexpected message: %v\n", msg)
 			} else if msg.Error != NoError {
 				return fmt.Errorf("error with message: %s", pending.Error.Error())
 			} else {
@@ -259,12 +260,12 @@ L:
 				sigShare := &tcrsa.SigShare{}
 				delete(conn.pendingMessages, msg.ID)
 				if err := gob.NewDecoder(bytes.NewBuffer(msg.Data[0])).Decode(sigShare); err != nil {
-					log.Printf("corrupt key: %v", msg)
+					log.Printf("corrupt key: %v\n", msg)
 					// Ask for it again?
 					node := conn.GetNodeByID(msg.NodeID)
 					newRequest, err := node.AskForSigShare(pending.Data[0])
 					if err != nil {
-						log.Printf("error asking sigshare with node %s: %s", node.GetID(), err)
+						log.Printf("error asking sigshare with node %s: %s\n", node.GetID(), err)
 					}
 					// save it in pending
 					conn.pendingMessages[newRequest.ID] = newRequest
@@ -275,11 +276,11 @@ L:
 					}
 				}
 			} else if !exists {
-				log.Printf("unexpected message: %v", msg)
+				log.Printf("unexpected message: %v\n", msg)
 			} else if msg.Error != NoError {
-				return nil, fmt.Errorf("error with message: %s", pending.Error.Error())
+				return nil, fmt.Errorf("error with message: %s\n", pending.Error.Error())
 			} else {
-				return nil, fmt.Errorf("message mismatch: request: [%v], response: [%v]", pending, msg)
+				return nil, fmt.Errorf("message mismatch: request: [%v], response: [%v\n]", pending, msg)
 			}
 		case <-timer:
 			break L
@@ -290,7 +291,7 @@ L:
 
 // GetConnString returns a formatted connection string.
 func (conn *ZMQ) GetConnString() string {
-	return fmt.Sprintf("tcp://%s:%d", conn.ip, conn.port)
+	return fmt.Sprintf("%s://%s:%d", TchsmProtocol, conn.ip, conn.port)
 }
 
 // Close finishes the operation of the connection.

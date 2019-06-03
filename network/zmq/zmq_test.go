@@ -16,7 +16,8 @@ import (
 
 const testK = 6
 const testL = 10
-const testIP = "127.0.0.1"
+const testIP = "0.0.0.0"
+const testTimeout = 3
 
 var initPort uint16 = 2031
 
@@ -29,50 +30,67 @@ type NodeStub struct {
 	context *zmq4.Context
 }
 
+func init() {
+	zmq4.AuthSetVerbose(true)
+}
+
 func (stub *NodeStub) GetID() string {
 	return fmt.Sprintf("node-%d", stub.port)
 }
 
 func (stub *NodeStub) GetConnID() string {
-	return fmt.Sprintf("tcp://%s:%d", stub.ip, stub.port)
+	return fmt.Sprintf("%s://%s:%d", TchsmProtocol,  stub.ip, stub.port)
 }
 
 // This should be launched as goroutine
-func (stub *NodeStub) StartAndWait(connPubKey string) error {
-	conn, err := stub.context.NewSocket(zmq4.SUB)
-	defer func() {
-		conn.SetLinger(0)
-		conn.Close()
-	}()
+func (stub *NodeStub) StartAndWait(connStr, connPubKey string) error {
+	in, err := stub.context.NewSocket(zmq4.PULL)
 	if err != nil {
 		return err
 	}
-	if err := conn.SetIdentity(stub.GetID()); err != nil {
+	out, err := stub.context.NewSocket(zmq4.ROUTER)
+	if err != nil {
 		return err
 	}
-	if err := conn.ServerAuthCurve(stub.GetID(), stub.privKey); err != nil {
+	defer func() {
+		in.SetLinger(0)
+		in.Close()
+		out.SetLinger(0)
+		out.Close()
+	}()
+	if err := in.SetIdentity(stub.GetID()); err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintf(os.Stderr, "binding to %s\n", stub.GetConnID())
-	if err := conn.Bind(stub.GetConnID()); err != nil {
+	if err := in.ServerAuthCurve(stub.GetID(), stub.privKey); err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintf(os.Stderr, "node %s: binding to %s\n", stub.GetID(), stub.GetConnID())
+	if err := in.Bind(stub.GetConnID()); err != nil {
 		return err
 	}
 
+	if err := out.SetIdentity(stub.GetID()); err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintf(os.Stderr, "node %s: connecting to %s\n", stub.GetID(), connStr)
+	if err := out.Connect(connStr); err != nil {
+		return err
+	}
+
+
+	var keyShare *tcrsa.KeyShare
+	var keyMeta *tcrsa.KeyMeta
 	for {
-		var keyShare *tcrsa.KeyShare
-		var keyMeta *tcrsa.KeyMeta
-		_, _ = fmt.Fprintf(os.Stderr, "stub %s: receiving messages sent to %s...\n", stub.GetID(), stub.GetConnID())
-		rawMsg, err := conn.RecvMessageBytes(0)
-		_, _ = fmt.Fprintf(os.Stderr, "stub %s: message received!\n", stub.GetID())
-
+		rawMsg, err := in.RecvMessageBytes(0)
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, ReceiveMessageError.ComposeError(err))
+			_, _ = fmt.Fprintf(os.Stderr, "%s\n", ReceiveMessageError.ComposeError(err))
 			continue
 		}
+		_, _ = fmt.Fprintf(os.Stderr, "stub %s: message received in %s!\n", stub.GetID(), stub.GetConnID())
 		_, _ = fmt.Fprintf(os.Stderr, "stub %s: parsing message...\n", stub.GetID())
 		msg, err := MessageFromBytes(rawMsg)
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, ParseMessageError.ComposeError(err))
+			_, _ = fmt.Fprintf(os.Stderr, "%s\n", ParseMessageError.ComposeError(err))
 			continue
 		}
 		_, _ = fmt.Fprintf(os.Stderr, "stub %s: copying response...\n", stub.GetID())
@@ -121,7 +139,7 @@ func (stub *NodeStub) StartAndWait(connPubKey string) error {
 			_, _ = fmt.Fprintf(os.Stderr, resp.Error.ComposeError(err))
 		}
 		_, _ = fmt.Fprintf(os.Stderr, "stub %s: sending message ...\n", stub.GetID())
-		_, err = conn.SendMessage(resp)
+		_, err = out.SendMessage(resp)
 		if err != nil {
 			resp.Error = SendResponseError
 			_, _ = fmt.Fprintf(os.Stderr, resp.Error.ComposeError(err))
@@ -164,7 +182,7 @@ func getExampleConfig(numNodes uint16) (config *Config, stubs []*NodeStub, err e
 		IP:      testIP,
 		Port:    2030,
 		Nodes:   make([]*NodeConfig, numNodes),
-		Timeout: 3,
+		Timeout: testTimeout,
 	}
 	pubKey, privKey, err := zmq4.NewCurveKeypair()
 	if err != nil {
@@ -232,7 +250,7 @@ func TestZMQ_Connect(t *testing.T) {
 		zmq4.AuthAllow(node.GetID(), "127.0.0.1")
 		zmq4.AuthCurveAdd(node.GetID(), conn.pubKey)
 		go func() {
-			err := node.StartAndWait(conn.pubKey)
+			err := node.StartAndWait(conn.GetConnString(), conn.pubKey)
 			if err != nil {
 				t.Errorf("%v", err)
 			}

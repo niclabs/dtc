@@ -42,14 +42,16 @@ func NewMessage(rType network.MessageType, nodeID string, msgs ...[]byte) (*Mess
 	return req, nil
 }
 
-func (message *Message) GetBytesLists() [][]byte {
-	b := [][]byte{
+func (message *Message) GetBytesLists() []interface{} {
+	b := []interface{}{
 		[]byte(message.ID),
-		{byte(message.Type)},
+		[]byte{byte(message.Type)},
 		[]byte(message.NodeID),
-		{byte(message.Error)},
+		[]byte{byte(message.Error)},
 	}
-	b = append(b, message.Data...)
+	for _, datum := range message.Data {
+		b = append(b, datum)
+	}
 	return b
 }
 

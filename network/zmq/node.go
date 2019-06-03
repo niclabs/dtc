@@ -87,8 +87,8 @@ func (node *Node) sendKeyShare(key *tcrsa.KeyShare, meta *tcrsa.KeyMeta) (*Messa
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Sending message to %s", node.GetConnString());
-	if _, err = node.socket.SendMessage(message.GetBytesLists()); err != nil {
+	log.Printf("Sending message to %s\n", node.GetConnString())
+	if _, err = node.socket.SendMessage(message.GetBytesLists()...); err != nil {
 		return nil, err
 	}
 	return message, nil
@@ -116,7 +116,7 @@ func (node *Node) IsConnected() bool {
 }
 
 func (node *Node) GetConnString() string {
-	return fmt.Sprintf("tcp://%s:%d", node.ip, node.port)
+	return fmt.Sprintf("%s://%s:%d", TchsmProtocol,  node.ip, node.port)
 }
 
 func (node *Node) Disconnect() error {
