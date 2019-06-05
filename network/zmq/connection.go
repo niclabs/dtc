@@ -1,10 +1,8 @@
 package zmq
 
 import (
-	"bytes"
 	"dtcmaster/network"
 	"dtcmaster/network/zmq/message"
-	"encoding/gob"
 	"fmt"
 	"github.com/niclabs/tcrsa"
 	"github.com/pebbe/zmq4"
@@ -109,7 +107,6 @@ func (conn *ZMQ) Open() (err error) {
 		return
 	}
 	conn.serverSocket = in
-
 
 	// Now we connect to the clients
 	for _, client := range conn.nodes {
@@ -223,7 +220,6 @@ func (conn *ZMQ) AckKeyShares() error {
 	for {
 		select {
 		case msg := <-conn.channel:
-			log.Printf("server: message received! %+v\n", msg)
 			if pending, exists := conn.pendingMessages[msg.ID]; exists {
 				if err := msg.Ok(pending, 0); err != nil {
 					log.Printf("error with message: %v\n", msg)
@@ -286,21 +282,21 @@ L:
 				}
 				// Remove message from pending list
 				delete(conn.pendingMessages, msg.ID)
-
-				sigShare := &tcrsa.SigShare{}
-				if err := gob.NewDecoder(bytes.NewBuffer(msg.Data[0])).Decode(sigShare); err != nil {
+				sigShare, err := message.DecodeSigShare(msg.Data[0])
+				if err != nil {
 					log.Printf("corrupt key: %v\n", msg)
 					// Ask for it again?
 					node := conn.GetNodeByID(msg.NodeID)
 					newRequest, err := node.AskForSigShare(pending.Data[0])
 					if err != nil {
-						log.Printf("error asking sigshare with node %s: %s\n", node.GetID(), err)
+						log.Printf("error asking signature share to node %s: %s\n", node.GetID(), err)
 					}
 					// save it in pending
 					conn.pendingMessages[newRequest.ID] = newRequest
 				} else {
 					sigShares = append(sigShares, sigShare)
 					if len(sigShares) == len(conn.nodes) {
+						log.Printf("all signature shares retrieved.\n")
 						break L
 					}
 				}
@@ -308,6 +304,7 @@ L:
 				log.Printf("unexpected message: %v\n", msg)
 			}
 		case <-timer:
+			log.Printf("timeout: %d out of %d sigs retrieved\n", len(sigShares), len (conn.nodes))
 			break L
 		}
 	}

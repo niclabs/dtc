@@ -1,16 +1,13 @@
 package zmq
 
 import (
-	"bytes"
 	"crypto"
 	"crypto/rsa"
 	"crypto/sha256"
 	"dtcmaster/network/zmq/message"
-	"encoding/gob"
 	"fmt"
 	"github.com/niclabs/tcrsa"
 	"github.com/pebbe/zmq4"
-	"os"
 	"testing"
 	"time"
 )
@@ -45,7 +42,7 @@ func (stub *NodeStub) GetConnString() string {
 }
 
 // This should be launched as goroutine
-func (stub *NodeStub) StartAndWait(server *ZMQ) error {
+func (stub *NodeStub) StartAndWait(server *ZMQ, t *testing.T) error {
 	in, err := stub.context.NewSocket(zmq4.ROUTER)
 	if err != nil {
 		return err
@@ -63,7 +60,6 @@ func (stub *NodeStub) StartAndWait(server *ZMQ) error {
 	if err := in.ServerAuthCurve(TchsmDomain, stub.privKey); err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintf(os.Stderr, "node %s: binding to %s\n", stub.GetID(), stub.GetConnString())
 	if err := in.Bind(stub.GetConnString()); err != nil {
 		return err
 	}
@@ -74,80 +70,64 @@ func (stub *NodeStub) StartAndWait(server *ZMQ) error {
 	if err := out.ClientAuthCurve(server.pubKey, stub.pubKey, stub.privKey); err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintf(os.Stderr, "node %s: connecting to %s\n", stub.GetID(), server.GetConnString())
 	if err := out.Connect(server.GetConnString()); err != nil {
 		return err
 	}
 
 
-	var keyShare tcrsa.KeyShare
-	var keyMeta tcrsa.KeyMeta
+	var keyShare *tcrsa.KeyShare
+	var keyMeta *tcrsa.KeyMeta
 	for {
-		_, _ = fmt.Fprintf(os.Stderr, "stub %s: receiving messages from %s...\n", stub.GetID(), stub.GetConnString())
 		rawMsg, err := in.RecvMessageBytes(0)
-		_, _ = fmt.Fprintf(os.Stderr, "message from node %s\n", rawMsg[0])
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "%s\n", message.ReceiveMessageError.ComposeError(err))
 			continue
 		}
-		_, _ = fmt.Fprintf(os.Stderr, "stub %s: message received in %s!\n", stub.GetID(), stub.GetConnString())
-		_, _ = fmt.Fprintf(os.Stderr, "stub %s: parsing message...\n", stub.GetID())
 		msg, err := message.FromBytes(rawMsg)
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "%s\n", message.ParseMessageError.ComposeError(err))
 			continue
 		}
-		_, _ = fmt.Fprintf(os.Stderr, "stub %s: copying response...\n", stub.GetID())
 		resp := msg.CopyWithoutData(message.Ok)
 		switch msg.Type {
 		case message.SendKeyShare:
-			_, _ = fmt.Fprintf(os.Stderr, "stub %s: parsing keyshare...\n", stub.GetID())
-			keyShareBuffer := bytes.NewBuffer(msg.Data[0])
-			keyShareDecoder := gob.NewDecoder(keyShareBuffer)
-			if err = keyShareDecoder.Decode(&keyShare); err != nil {
+			keyShare, err = message.DecodeKeyShare(msg.Data[0])
+			if err != nil {
 				resp.Error = message.KeyShareDecodeError
 				break
 			}
-			keyMetaBuffer := bytes.NewBuffer(msg.Data[1])
-			keyMetaDecoder := gob.NewDecoder(keyMetaBuffer)
-			_, _ = fmt.Fprintf(os.Stderr, "stub %s: parsing keymeta...\n", stub.GetID())
-			if err = keyMetaDecoder.Decode(&keyMeta); err != nil {
+			keyMeta, err = message.DecodeKeyMeta(msg.Data[1])
+			if err != nil {
 				resp.Error = message.KeyMetaDecodeError
 				break
 			}
 		case message.AskForSigShare:
-			if keyShare.Si == nil || keyMeta.PublicKey == nil {
-				_, _ = fmt.Fprintf(os.Stderr, "stub %s: not initialized ...\n", stub.GetID())
+			if keyShare == nil || keyMeta == nil {
 				resp.Error = message.NotInitializedError
 				break
 			}
 			// doc is already binary!
 			doc := msg.Data[0]
 			// Sign
-			_, _ = fmt.Fprintf(os.Stderr, "stub %s: signing message ...\n", stub.GetID())
-			sigShare, err := keyShare.Sign(doc, crypto.SHA256, &keyMeta)
+			sigShare, err := keyShare.Sign(doc, crypto.SHA256, keyMeta)
 			if err != nil {
 				resp.Error = message.DocSignError
 				break
 			}
-			var keyBuffer bytes.Buffer
-			_, _ = fmt.Fprintf(os.Stderr, "stub %s: encoding sigshare ...\n", stub.GetID())
-			if err := gob.NewEncoder(&keyBuffer).Encode(sigShare); err != nil {
+			sigShareBytes, err := message.EncodeSigShare(sigShare)
+			if err != nil {
 				resp.Error = message.SigShareEncodeError
 				break
 			}
-			resp.AddMessage(keyBuffer.Bytes())
+			resp.AddMessage(sigShareBytes)
 		default:
 			resp.Error = message.UnknownError
 		}
 		if resp.Error != message.Ok {
-			_, _ = fmt.Fprintf(os.Stderr, resp.Error.ComposeError(err))
+			t.Errorf(resp.Error.Error())
 		}
-		_, _ = fmt.Fprintf(os.Stderr, "stub %s: sending message ...\n", stub.GetID())
 		_, err = out.SendMessage(resp.GetBytesLists()...)
 		if err != nil {
 			resp.Error = message.SendResponseError
-			_, _ = fmt.Fprintf(os.Stderr, "%s\n", resp.Error.ComposeError(err))
+			t.Errorf(resp.Error.ComposeError(err))
 		}
 		// In this mock up, we stop the server after signing and sending successfully
 		if resp.Error == message.Ok && resp.Type == message.AskForSigShare {
@@ -242,7 +222,6 @@ func TestZMQ_Open(t *testing.T) {
 }
 
 func TestZMQ_Connect(t *testing.T) {
-	_, _ = fmt.Fprintf(os.Stderr, "server: creating connection...\n")
 	conn, nodes, err := createConnection()
 	if err != nil {
 		t.Errorf("%v", err)
@@ -254,7 +233,6 @@ func TestZMQ_Connect(t *testing.T) {
 
 
 	// and open the connection
-	_, _ = fmt.Fprintf(os.Stderr, "server: starting the server node...\n")
 	err = conn.Open()
 	defer conn.Close()
 	if err != nil {
@@ -263,25 +241,21 @@ func TestZMQ_Connect(t *testing.T) {
 	}
 
 	// We start the client nodes and add their IP and keys
-	_, _ = fmt.Fprintf(os.Stderr, "server: starting the nodes...\n")
 	for i := 0; i < len(nodes); i++ {
 		node := nodes[i]
 		zmq4.AuthAllow(TchsmDomain, node.ip)
 		zmq4.AuthCurveAdd(TchsmDomain, conn.pubKey)
 		go func() {
-			err := node.StartAndWait(conn)
+			err := node.StartAndWait(conn, t)
 			if err != nil {
 				t.Errorf("%v", err)
 			}
 		}()
 	}
-	_, _ = fmt.Fprintf(os.Stderr, "server: waiting 3 seconds before key sending...\n")
 	time.Sleep(3*time.Second)
 	// Sending keys
-	_, _ = fmt.Fprintf(os.Stderr, "server: sending the keys...\n")
 
 	// Extracted from libtdc documentation
-	_, _ = fmt.Fprintf(os.Stderr, "server: creating the keys...\n")
 	keyShares, keyMeta, err := tcrsa.NewKey(512, uint16(testK), uint16(testL), nil)
 	if err != nil {
 		t.Errorf("cannot create keys: %v", err)
@@ -295,19 +269,15 @@ func TestZMQ_Connect(t *testing.T) {
 	}
 
 	// Receiving acks
-	_, _ = fmt.Fprintf(os.Stderr, "server: waiting for acks...\n")
-
 	if err := conn.AckKeyShares(); err != nil {
 		t.Errorf("error acking key shares: %v", err)
 		return
 	}
 
-	_, _ = fmt.Fprintf(os.Stderr, "server: hashing the doc...\n")
 	// Hashing a doc (hello world)
 	docHash := sha256.Sum256([]byte("hello world"))
 
 	// PKCS1 Padding
-	_, _ = fmt.Fprintf(os.Stderr, "server: padding the hash of the doc...\n")
 
 	docPKCS1, err := tcrsa.PrepareDocumentHash(keyMeta.PublicKey.Size(), crypto.SHA256, docHash[:])
 	if err != nil {
@@ -316,15 +286,12 @@ func TestZMQ_Connect(t *testing.T) {
 	}
 
 	// Asking for signatures
-	_, _ = fmt.Fprintf(os.Stderr, "server: asking for sigshares...\n")
 	if err := conn.AskForSigShares(docPKCS1); err != nil {
 		t.Errorf("error asking for sigshares: %v", err)
 		return
 	}
 
 	// Retrieving signatures
-	_, _ = fmt.Fprintf(os.Stderr, "server: retrieving sigshares...\n")
-
 	sigShares, err :=  conn.GetSigShares()
 	if err != nil {
 		t.Errorf("error retrieving sigshares: %v", err)
@@ -336,14 +303,12 @@ func TestZMQ_Connect(t *testing.T) {
 		return
 	}
 	// Finally we join them.
-	_, _ = fmt.Fprintf(os.Stderr, "server: joining sigshares...\n")
 	signature, err := sigShares.Join(docPKCS1, keyMeta)
 	if err != nil {
 		t.Errorf(fmt.Sprintf("%v", err))
 		return
 	}
 
-	_, _ = fmt.Fprintf(os.Stderr, "server: verifying signature...\n")
 	if err := rsa.VerifyPKCS1v15(keyMeta.PublicKey, crypto.SHA256, docHash[:], signature); err != nil {
 		t.Errorf(fmt.Sprintf("%v\n", err))
 		return

@@ -1,13 +1,10 @@
 package zmq
 
 import (
-	"bytes"
 	"dtcmaster/network/zmq/message"
-	"encoding/gob"
 	"fmt"
 	"github.com/niclabs/tcrsa"
 	"github.com/pebbe/zmq4"
-	"log"
 	"net"
 )
 
@@ -53,23 +50,18 @@ func (node *Node) GetID() string {
 }
 
 func (node *Node) sendKeyShare(key *tcrsa.KeyShare, meta *tcrsa.KeyMeta) (*message.Message, error) {
-	var keyBuffer bytes.Buffer
-	keyEncoder := gob.NewEncoder(&keyBuffer)
-	var metaBuffer bytes.Buffer
-	metaEncoder := gob.NewEncoder(&metaBuffer)
-	if err := keyEncoder.Encode(key); err != nil {
+	keyBinary, err := message.EncodeKeyShare(key)
+	if err != nil {
 		return nil, err
 	}
-	if err := metaEncoder.Encode(meta); err != nil {
+	metaBinary, err := message.EncodeKeyMeta(meta)
+	if err != nil {
 		return nil, err
 	}
-	keyBinary := keyBuffer.Bytes()
-	metaBinary := metaBuffer.Bytes()
 	message, err := message.NewMessage(message.SendKeyShare, node.GetID(), keyBinary, metaBinary)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Sending message to %s\n", node.GetConnString())
 	_, err = node.socket.SendMessage(message.GetBytesLists()...)
 	if err != nil {
 		return nil, err
