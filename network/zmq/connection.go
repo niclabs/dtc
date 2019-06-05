@@ -73,41 +73,47 @@ func New(config *Config) (conn *ZMQ, err error) {
 // Open opens the connection and initializes the binding with the nodes.
 // It also starts polling responses from the ROUTER socket on the server.
 func (conn *ZMQ) Open() (err error) {
+	if conn.nodes == nil {
+		return fmt.Errorf("not initialized. Use 'New' to create a new struct")
+	}
 	err = zmq4.AuthStart()
 	if err != nil {
 		return
 	}
-	// Create socket
-	socket, err := conn.ctx.NewSocket(zmq4.ROUTER)
+
+	// Add IPs and public keys from clients
+	zmq4.AuthAllow(TchsmDomain, conn.GetIPs()...)
+	zmq4.AuthCurveAdd(TchsmDomain, conn.GetPubKeys()...)
+
+	// Create in
+	in, err := conn.ctx.NewSocket(zmq4.ROUTER)
 	if err != nil {
 		return
 	}
 
 	// wait forever for messages
-	if err = socket.SetRcvtimeo(-1); err != nil {
+	if err = in.SetRcvtimeo(-1); err != nil {
 		return
 	}
 
-	conn.serverSocket = socket
-
-	// Add all IPs in domain as allowed
-	err = conn.serverSocket.ServerAuthCurve(TchsmDomain, conn.privKey)
+	// Add our private key
+	err = in.ServerAuthCurve(TchsmDomain, conn.privKey)
 	if err != nil {
 		return
 	}
 
 	// Bind
-	err = conn.serverSocket.Bind(conn.GetConnString())
+	err = in.Bind(conn.GetConnString())
 	if err != nil {
 		return
 	}
+	conn.serverSocket = in
 
-	// Add peers to auth curve allowed and try to connect to them
-	for _, node := range conn.nodes {
-		zmq4.AuthCurveAdd(TchsmDomain, node.pubKey)
-		node.connect()
+
+	// Now we connect to the clients
+	for _, client := range conn.nodes {
+		client.connect()
 	}
-
 	// Start message polling
 	go func() {
 		for {
@@ -115,7 +121,8 @@ func (conn *ZMQ) Open() (err error) {
 			if err != nil {
 				continue
 			}
-			msg, err := MessageFromBytes(rawMsg)
+			// It was sent to a ROUTER socket, so the first part is its ID, the rest is our message.
+			msg, err := MessageFromBytes(rawMsg[1:])
 			if err != nil {
 				log.Printf("cannot parse messages: %s\n", err)
 				continue
@@ -125,6 +132,22 @@ func (conn *ZMQ) Open() (err error) {
 	}()
 
 	return
+}
+
+func (conn *ZMQ) GetPubKeys() []string {
+	pubKeys := make([]string, len(conn.nodes))
+	for i, node := range conn.nodes {
+		pubKeys[i] = node.pubKey
+	}
+	return pubKeys
+}
+
+func (conn *ZMQ) GetIPs() []string {
+	ips := make([]string, len(conn.nodes))
+	for i, node := range conn.nodes {
+		ips[i] = node.ip.String()
+	}
+	return ips
 }
 
 // GetNodes returns a list with the nodes.
@@ -195,23 +218,23 @@ func (conn *ZMQ) AckKeyShares() error {
 	if conn.currentMessage != network.SendKeyShare {
 		return fmt.Errorf("cannot ack key shares in a currentMessage state different to sendKeyShare")
 	}
-	ackd := 0
+	acked := 0
 	timer := time.After(conn.timeout)
 	for {
 		select {
 		case msg := <-conn.channel:
-			if pending, exists := conn.pendingMessages[msg.ID]; exists && msg.Ok(pending) {
+			log.Printf("server: message received! %+v\n", msg)
+			if pending, exists := conn.pendingMessages[msg.ID]; exists {
+				if err := msg.Ok(pending, 0); err != nil {
+					log.Printf("error with message: %v\n", msg)
+				}
 				delete(conn.pendingMessages, msg.ID)
-				ackd++
-				if ackd == len(conn.nodes) {
+				acked++
+				if acked == len(conn.nodes) {
 					return nil
 				}
-			} else if !exists {
-				log.Printf("unexpected message: %v\n", msg)
-			} else if msg.Error != NoError {
-				return fmt.Errorf("error with message: %s", pending.Error.Error())
 			} else {
-				return fmt.Errorf("message mismatch: request: [%v], response: [%v]", pending, msg)
+				log.Printf("unexpected message: %v\n", msg)
 			}
 		case <-timer:
 			return TimeoutError
@@ -251,14 +274,20 @@ func (conn *ZMQ) GetSigShares() (tcrsa.SigShareList, error) {
 	}
 	sigShares := make(tcrsa.SigShareList, 0)
 	timer := time.After(conn.timeout)
-
+	minLen := 1
 L:
 	for {
 		select {
 		case msg := <-conn.channel:
-			if pending, exists := conn.pendingMessages[msg.ID]; exists && msg.Ok(pending) {
-				sigShare := &tcrsa.SigShare{}
+			if pending, exists := conn.pendingMessages[msg.ID]; exists {
+				if err := msg.Ok(pending, minLen); err != nil {
+					log.Printf("error with message: %s\n", err)
+					break
+				}
+				// Remove message from pending list
 				delete(conn.pendingMessages, msg.ID)
+
+				sigShare := &tcrsa.SigShare{}
 				if err := gob.NewDecoder(bytes.NewBuffer(msg.Data[0])).Decode(sigShare); err != nil {
 					log.Printf("corrupt key: %v\n", msg)
 					// Ask for it again?
@@ -275,12 +304,8 @@ L:
 						break L
 					}
 				}
-			} else if !exists {
-				log.Printf("unexpected message: %v\n", msg)
-			} else if msg.Error != NoError {
-				return nil, fmt.Errorf("error with message: %s\n", pending.Error.Error())
 			} else {
-				return nil, fmt.Errorf("message mismatch: request: [%v], response: [%v\n]", pending, msg)
+				log.Printf("unexpected message: %v\n", msg)
 			}
 		case <-timer:
 			break L

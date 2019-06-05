@@ -12,14 +12,15 @@ import (
 	"github.com/pebbe/zmq4"
 	"os"
 	"testing"
+	"time"
 )
 
 const testK = 6
 const testL = 10
 const testIP = "0.0.0.0"
-const testTimeout = 3
+const testTimeout = 300
 
-var initPort uint16 = 2031
+var initPort uint16 = 2030
 
 
 type NodeStub struct {
@@ -38,17 +39,17 @@ func (stub *NodeStub) GetID() string {
 	return fmt.Sprintf("node-%d", stub.port)
 }
 
-func (stub *NodeStub) GetConnID() string {
+func (stub *NodeStub) GetConnString() string {
 	return fmt.Sprintf("%s://%s:%d", TchsmProtocol,  stub.ip, stub.port)
 }
 
 // This should be launched as goroutine
-func (stub *NodeStub) StartAndWait(connStr, connPubKey string) error {
+func (stub *NodeStub) StartAndWait(server *ZMQ) error {
 	in, err := stub.context.NewSocket(zmq4.PULL)
 	if err != nil {
 		return err
 	}
-	out, err := stub.context.NewSocket(zmq4.ROUTER)
+	out, err := stub.context.NewSocket(zmq4.DEALER)
 	if err != nil {
 		return err
 	}
@@ -58,35 +59,40 @@ func (stub *NodeStub) StartAndWait(connStr, connPubKey string) error {
 		out.SetLinger(0)
 		out.Close()
 	}()
+
 	if err := in.SetIdentity(stub.GetID()); err != nil {
 		return err
 	}
-	if err := in.ServerAuthCurve(stub.GetID(), stub.privKey); err != nil {
+	if err := in.ServerAuthCurve(TchsmDomain, stub.privKey); err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintf(os.Stderr, "node %s: binding to %s\n", stub.GetID(), stub.GetConnID())
-	if err := in.Bind(stub.GetConnID()); err != nil {
+	_, _ = fmt.Fprintf(os.Stderr, "node %s: binding to %s\n", stub.GetID(), stub.GetConnString())
+	if err := in.Bind(stub.GetConnString()); err != nil {
 		return err
 	}
 
 	if err := out.SetIdentity(stub.GetID()); err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintf(os.Stderr, "node %s: connecting to %s\n", stub.GetID(), connStr)
-	if err := out.Connect(connStr); err != nil {
+	if err := out.ClientAuthCurve(server.pubKey, stub.pubKey, stub.privKey); err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintf(os.Stderr, "node %s: connecting to %s\n", stub.GetID(), server.GetConnString())
+	if err := out.Connect(server.GetConnString()); err != nil {
 		return err
 	}
 
 
-	var keyShare *tcrsa.KeyShare
-	var keyMeta *tcrsa.KeyMeta
+	var keyShare tcrsa.KeyShare
+	var keyMeta tcrsa.KeyMeta
 	for {
+		_, _ = fmt.Fprintf(os.Stderr, "stub %s: receiving messages from %s...\n", stub.GetID(), stub.GetConnString())
 		rawMsg, err := in.RecvMessageBytes(0)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "%s\n", ReceiveMessageError.ComposeError(err))
 			continue
 		}
-		_, _ = fmt.Fprintf(os.Stderr, "stub %s: message received in %s!\n", stub.GetID(), stub.GetConnID())
+		_, _ = fmt.Fprintf(os.Stderr, "stub %s: message received in %s!\n", stub.GetID(), stub.GetConnString())
 		_, _ = fmt.Fprintf(os.Stderr, "stub %s: parsing message...\n", stub.GetID())
 		msg, err := MessageFromBytes(rawMsg)
 		if err != nil {
@@ -98,30 +104,30 @@ func (stub *NodeStub) StartAndWait(connStr, connPubKey string) error {
 		switch msg.Type {
 		case network.SendKeyShare:
 			_, _ = fmt.Fprintf(os.Stderr, "stub %s: parsing keyshare...\n", stub.GetID())
-			if err = gob.NewDecoder(bytes.NewBuffer(msg.Data[0])).Decode(keyShare); err != nil {
+			keyShareBuffer := bytes.NewBuffer(msg.Data[0])
+			keyShareDecoder := gob.NewDecoder(keyShareBuffer)
+			if err = keyShareDecoder.Decode(&keyShare); err != nil {
 				resp.Error = KeyShareDecodeError
 				break
 			}
+			keyMetaBuffer := bytes.NewBuffer(msg.Data[1])
+			keyMetaDecoder := gob.NewDecoder(keyMetaBuffer)
 			_, _ = fmt.Fprintf(os.Stderr, "stub %s: parsing keymeta...\n", stub.GetID())
-			if err = gob.NewDecoder(bytes.NewBuffer(msg.Data[1])).Decode(keyMeta); err != nil {
+			if err = keyMetaDecoder.Decode(&keyMeta); err != nil {
 				resp.Error = KeyMetaDecodeError
 				break
 			}
 		case network.AskForSigShare:
-			if keyShare == nil || keyMeta == nil {
+			if keyShare.Si == nil || keyMeta.PublicKey == nil {
 				_, _ = fmt.Fprintf(os.Stderr, "stub %s: not initialized ...\n", stub.GetID())
 				resp.Error = NotInitializedError
 				break
 			}
-			var doc []byte
-			_, _ = fmt.Fprintf(os.Stderr, "stub %s: parsing message...\n", stub.GetID())
-			if err = gob.NewDecoder(bytes.NewBuffer(msg.Data[0])).Decode(&doc); err != nil {
-				resp.Error = DocDecodeError
-				break
-			}
+			// doc is already binary!
+			doc := msg.Data[0]
 			// Sign
 			_, _ = fmt.Fprintf(os.Stderr, "stub %s: signing message ...\n", stub.GetID())
-			sigShare, err := keyShare.Sign(doc, crypto.SHA256, keyMeta)
+			sigShare, err := keyShare.Sign(doc, crypto.SHA256, &keyMeta)
 			if err != nil {
 				resp.Error = DocSignError
 				break
@@ -132,6 +138,7 @@ func (stub *NodeStub) StartAndWait(connStr, connPubKey string) error {
 				resp.Error = SigShareEncodeError
 				break
 			}
+			resp.AddMessage(keyBuffer.Bytes())
 		default:
 			resp.Error = UnknownError
 		}
@@ -139,10 +146,10 @@ func (stub *NodeStub) StartAndWait(connStr, connPubKey string) error {
 			_, _ = fmt.Fprintf(os.Stderr, resp.Error.ComposeError(err))
 		}
 		_, _ = fmt.Fprintf(os.Stderr, "stub %s: sending message ...\n", stub.GetID())
-		_, err = out.SendMessage(resp)
+		_, err = out.SendMessage(resp.GetBytesLists()...)
 		if err != nil {
 			resp.Error = SendResponseError
-			_, _ = fmt.Fprintf(os.Stderr, resp.Error.ComposeError(err))
+			_, _ = fmt.Fprintf(os.Stderr, "%s\n", resp.Error.ComposeError(err))
 		}
 		// In this mock up, we stop the server after signing and sending successfully
 		if resp.Error == NoError && resp.Type == network.AskForSigShare {
@@ -180,10 +187,11 @@ func getNodeStubs(num uint16) (nodeStubs []*NodeStub, err error) {
 func getExampleConfig(numNodes uint16) (config *Config, stubs []*NodeStub, err error) {
 	config = &Config{
 		IP:      testIP,
-		Port:    2030,
+		Port:    initPort,
 		Nodes:   make([]*NodeConfig, numNodes),
 		Timeout: testTimeout,
 	}
+	initPort++
 	pubKey, privKey, err := zmq4.NewCurveKeypair()
 	if err != nil {
 		return
@@ -242,20 +250,10 @@ func TestZMQ_Connect(t *testing.T) {
 		t.Errorf("%v", err)
 		return
 	}
+	// We add our pub key
+	zmq4.AuthCurveAdd("*", conn.pubKey)
+	zmq4.AuthAllow(conn.ip.String())
 
-	// We start the nodes
-	_, _ = fmt.Fprintf(os.Stderr, "server: starting the nodes...\n")
-	for i := 0; i < len(nodes); i++ {
-		node := nodes[i]
-		zmq4.AuthAllow(node.GetID(), "127.0.0.1")
-		zmq4.AuthCurveAdd(node.GetID(), conn.pubKey)
-		go func() {
-			err := node.StartAndWait(conn.GetConnString(), conn.pubKey)
-			if err != nil {
-				t.Errorf("%v", err)
-			}
-		}()
-	}
 
 	// and open the connection
 	_, _ = fmt.Fprintf(os.Stderr, "server: starting the server node...\n")
@@ -266,6 +264,24 @@ func TestZMQ_Connect(t *testing.T) {
 		return
 	}
 
+	// We start the client nodes and add their IP and keys
+	_, _ = fmt.Fprintf(os.Stderr, "server: starting the nodes...\n")
+	for i := 0; i < len(nodes); i++ {
+		node := nodes[i]
+		zmq4.AuthAllow(TchsmDomain, node.ip)
+		zmq4.AuthCurveAdd(TchsmDomain, conn.pubKey)
+		go func() {
+			err := node.StartAndWait(conn)
+			if err != nil {
+				t.Errorf("%v", err)
+			}
+		}()
+	}
+	_, _ = fmt.Fprintf(os.Stderr, "server: waiting 3 seconds before key sending...\n")
+	time.Sleep(3*time.Second)
+	// Sending keys
+	_, _ = fmt.Fprintf(os.Stderr, "server: sending the keys...\n")
+
 	// Extracted from libtdc documentation
 	_, _ = fmt.Fprintf(os.Stderr, "server: creating the keys...\n")
 	keyShares, keyMeta, err := tcrsa.NewKey(512, uint16(testK), uint16(testL), nil)
@@ -274,8 +290,7 @@ func TestZMQ_Connect(t *testing.T) {
 		return
 	}
 
-	// Sending keys
-	_, _ = fmt.Fprintf(os.Stderr, "server: sending the keys...\n")
+
 	if err := conn.SendKeyShares(keyShares, keyMeta); err != nil {
 		t.Errorf("cannot send key shares: %v", err)
 		return
@@ -332,7 +347,7 @@ func TestZMQ_Connect(t *testing.T) {
 
 	_, _ = fmt.Fprintf(os.Stderr, "server: verifying signature...\n")
 	if err := rsa.VerifyPKCS1v15(keyMeta.PublicKey, crypto.SHA256, docHash[:], signature); err != nil {
-		t.Errorf(fmt.Sprintf("%v", err))
+		t.Errorf(fmt.Sprintf("%v\n", err))
 		return
 	}
 

@@ -10,19 +10,17 @@ import (
 	"github.com/pebbe/zmq4"
 	"log"
 	"net"
-	"os"
 )
 
 type NodeState int
 
 // A node represents a remote machine
 type Node struct {
-	ip              net.IP
-	id              string
-	port            uint16
-	pubKey          string
-	socket          *zmq4.Socket
-	ctx             *zmq4.Context
+	ip              net.IP // IP of remote node
+	id              string // internal ID for remote node
+	port            uint16 // Port of remote node SUB
+	pubKey          string // Public key of remote node
+	socket          *zmq4.Socket // zmq4 Socket
 	conn            *ZMQ
 	Err             error
 }
@@ -35,24 +33,12 @@ func (node *Node) connect() {
 		return
 	}
 
-	// config timeout as conn timeout
-	if err = pubSock.SetSndtimeo(node.conn.timeout); err != nil {
-		return
-	}
-
-	// Config CURVE
-	nodePublic, err := zmq4.AuthCurvePublic(node.pubKey)
-	if err != nil {
-		node.Err = err
-		return
-	}
 	node.socket = pubSock
-	if err = node.socket.ClientAuthCurve(nodePublic, node.conn.pubKey, node.conn.privKey); err != nil {
+	if err = node.socket.ClientAuthCurve(node.pubKey, node.conn.pubKey, node.conn.privKey); err != nil {
 		node.Err = err
 		return
 	}
 	// connect
-	_, _ = fmt.Fprintf(os.Stderr, "connecting to %s\n", node.GetConnString())
 	if err = node.socket.Connect(node.GetConnString()); err != nil {
 		node.Err = err
 		return
@@ -88,7 +74,8 @@ func (node *Node) sendKeyShare(key *tcrsa.KeyShare, meta *tcrsa.KeyMeta) (*Messa
 		return nil, err
 	}
 	log.Printf("Sending message to %s\n", node.GetConnString())
-	if _, err = node.socket.SendMessage(message.GetBytesLists()...); err != nil {
+	_, err = node.socket.SendMessage(message.GetBytesLists()...)
+	if err != nil {
 		return nil, err
 	}
 	return message, nil
@@ -100,7 +87,7 @@ func (node *Node) AskForSigShare(doc []byte) (message *Message, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err := node.socket.SendMessage(message.GetBytesLists()); err != nil {
+	if _, err := node.socket.SendMessage(message.GetBytesLists()...); err != nil {
 		return nil, err
 	}
 	return message, nil
