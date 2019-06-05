@@ -3,6 +3,7 @@ package zmq
 import (
 	"bytes"
 	"dtcmaster/network"
+	"dtcmaster/network/zmq/message"
 	"encoding/gob"
 	"fmt"
 	"github.com/niclabs/tcrsa"
@@ -35,10 +36,10 @@ type ZMQ struct {
 	ctx          *zmq4.Context // ZMQ Context
 	serverSocket *zmq4.Socket  // ROUTER socket which receives the responses from the nodes
 	// message related structs
-	channel         chan *Message       // The channel where all the responses from router are sent.
-	pendingMessages map[string]*Message // A map with requests without response. To know what messages I'm expecting.
-	mutex           sync.Mutex          // A mutex to operate the pendingMessages map.
-	currentMessage  network.MessageType // A label which indicates the operation the connection is doing right now. It avoids inconsistent states (i.e. ask for a type of resource and then collect another one).
+	channel         chan *message.Message       // The channel where all the responses from router are sent.
+	pendingMessages map[string]*message.Message // A map with requests without response. To know what messages I'm expecting.
+	mutex           sync.Mutex                  // A mutex to operate the pendingMessages map.
+	currentMessage  message.MessageType         // A label which indicates the operation the connection is doing right now. It avoids inconsistent states (i.e. ask for a type of resource and then collect another one).
 }
 
 // New returns a new ZMQ connection based in the configuration provided.
@@ -54,8 +55,8 @@ func New(config *Config) (conn *ZMQ, err error) {
 		pubKey:          config.PublicKey,
 		timeout:         time.Duration(config.Timeout) * time.Second,
 		ctx:             context,
-		channel:         make(chan *Message, 8), // TODO: change this
-		pendingMessages: make(map[string]*Message),
+		channel:         make(chan *message.Message, 8), // TODO: change this
+		pendingMessages: make(map[string]*message.Message),
 	}
 	nodes := make([]*Node, len(config.Nodes))
 	for i := 0; i < len(config.Nodes); i++ {
@@ -121,8 +122,7 @@ func (conn *ZMQ) Open() (err error) {
 			if err != nil {
 				continue
 			}
-			// It was sent to a ROUTER socket, so the first part is its ID, the rest is our message.
-			msg, err := MessageFromBytes(rawMsg[1:])
+			msg, err := message.FromBytes(rawMsg)
 			if err != nil {
 				log.Printf("cannot parse messages: %s\n", err)
 				continue
@@ -191,7 +191,7 @@ func (conn *ZMQ) SendKeyShares(keys tcrsa.KeyShareList, meta *tcrsa.KeyMeta) err
 	if len(keys) != len(conn.nodes) {
 		return fmt.Errorf("number of keys is not equal to number of nodes")
 	}
-	if conn.currentMessage != network.None {
+	if conn.currentMessage != message.None {
 		return fmt.Errorf("cannot send key shares in a currentMessage state different to None")
 	}
 	for i, node := range conn.nodes {
@@ -201,7 +201,7 @@ func (conn *ZMQ) SendKeyShares(keys tcrsa.KeyShareList, meta *tcrsa.KeyMeta) err
 		}
 		conn.pendingMessages[message.ID] = message
 	}
-	conn.currentMessage = network.SendKeyShare
+	conn.currentMessage = message.SendKeyShare
 	return nil
 }
 
@@ -211,11 +211,11 @@ func (conn *ZMQ) SendKeyShares(keys tcrsa.KeyShareList, meta *tcrsa.KeyMeta) err
 func (conn *ZMQ) AckKeyShares() error {
 	conn.mutex.Lock()
 	defer func() {
-		conn.pendingMessages = make(map[string]*Message)
-		conn.currentMessage = network.None
+		conn.pendingMessages = make(map[string]*message.Message)
+		conn.currentMessage = message.None
 		conn.mutex.Unlock()
 	}()
-	if conn.currentMessage != network.SendKeyShare {
+	if conn.currentMessage != message.SendKeyShare {
 		return fmt.Errorf("cannot ack key shares in a currentMessage state different to sendKeyShare")
 	}
 	acked := 0
@@ -246,7 +246,7 @@ func (conn *ZMQ) AckKeyShares() error {
 func (conn *ZMQ) AskForSigShares(hash []byte) error {
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
-	if conn.currentMessage != network.None {
+	if conn.currentMessage != message.None {
 		return fmt.Errorf("cannot ask for sig shares in a currentMessage state different to None")
 	}
 	for _, node := range conn.nodes {
@@ -256,7 +256,7 @@ func (conn *ZMQ) AskForSigShares(hash []byte) error {
 		}
 		conn.pendingMessages[message.ID] = message
 	}
-	conn.currentMessage = network.AskForSigShare
+	conn.currentMessage = message.AskForSigShare
 	return nil
 }
 
@@ -265,11 +265,11 @@ func (conn *ZMQ) AskForSigShares(hash []byte) error {
 func (conn *ZMQ) GetSigShares() (tcrsa.SigShareList, error) {
 	conn.mutex.Lock()
 	defer func() {
-		conn.pendingMessages = make(map[string]*Message)
-		conn.currentMessage = network.None
+		conn.pendingMessages = make(map[string]*message.Message)
+		conn.currentMessage = message.None
 		conn.mutex.Unlock()
 	}()
-	if conn.currentMessage != network.AskForSigShare {
+	if conn.currentMessage != message.AskForSigShare {
 		return nil, fmt.Errorf("cannot get sig shares in a currentMessage state different to askForSigShare")
 	}
 	sigShares := make(tcrsa.SigShareList, 0)

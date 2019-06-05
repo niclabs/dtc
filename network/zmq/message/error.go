@@ -1,4 +1,4 @@
-package zmq
+package message
 
 import "fmt"
 
@@ -7,6 +7,8 @@ type NodeError uint8
 const (
 	// c'est ne pas un err
 	Ok NodeError = iota
+	// Invalid message
+	InvalidMessageError
 	// Network Errors
 	ReceiveMessageError
 	ParseMessageError
@@ -25,6 +27,7 @@ const (
 
 var ErrorToString = map[NodeError]string{
 	Ok:                  "not an error",
+	InvalidMessageError:	"invalid message",
 	ReceiveMessageError: "cannot receive message",
 	ParseMessageError:   "cannot parse received message",
 	SendResponseError:   "cannot send response",
@@ -32,8 +35,8 @@ var ErrorToString = map[NodeError]string{
 	KeyShareDecodeError: "cannot decode received Key Share",
 	KeyMetaDecodeError:  "cannot decode received Key Metainformation",
 	NotInitializedError: "node not initialized with the server",
-	SigShareEncodeError: "cannot encode the signature to a message",
 	DocSignError:        "cannot sign the document",
+	SigShareEncodeError: "cannot encode the signature to a message",
 	UnknownError:        "unknown error",
 }
 

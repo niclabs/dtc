@@ -1,34 +1,32 @@
-package zmq
+package message
 
 import (
-	"dtcmaster/network"
-	"dtcmaster/utils"
 	"fmt"
 )
 
 type Message struct {
-	ID     string
-	Type   network.MessageType
 	NodeID string
+	ID     string
+	Type   MessageType
 	Error  NodeError
 	Data   [][]byte
 }
 
-func MessageFromBytes(rawMsg [][]byte) (*Message, error) {
-	if len(rawMsg) < 4 {
+func FromBytes(rawMsg [][]byte) (*Message, error) {
+	if len(rawMsg) < 4 { // header is dealer ID, rest is message struct.
 		return nil, fmt.Errorf("bad byte array length")
 	}
 	return &Message{
-		ID:     string(rawMsg[0]),
-		Type:   network.MessageType(rawMsg[1][0]),
-		NodeID: string(rawMsg[2]),
+		NodeID: string(rawMsg[0]), // Provided by
+		ID:     string(rawMsg[1]),
+		Type:   MessageType(rawMsg[2][0]),
 		Error:  NodeError(rawMsg[3][0]),
 		Data:   rawMsg[4:],
 	}, nil
 }
 
-func NewMessage(rType network.MessageType, nodeID string, msgs ...[]byte) (*Message, error) {
-	id, err := utils.GetRandomHexString(6)
+func NewMessage(rType MessageType, nodeID string, msgs ...[]byte) (*Message, error) {
+	id, err := GetRandomHexString(6)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +44,6 @@ func (message *Message) GetBytesLists() []interface{} {
 	b := []interface{}{
 		[]byte(message.ID),
 		[]byte{byte(message.Type)},
-		[]byte(message.NodeID),
 		[]byte{byte(message.Error)},
 	}
 	for _, datum := range message.Data {

@@ -2,8 +2,7 @@ package zmq
 
 import (
 	"bytes"
-	"dtcmaster/network"
-	"dtcmaster/utils"
+	"dtcmaster/network/zmq/message"
 	"encoding/gob"
 	"fmt"
 	"github.com/niclabs/tcrsa"
@@ -17,7 +16,6 @@ type NodeState int
 // A node represents a remote machine
 type Node struct {
 	ip              net.IP // IP of remote node
-	id              string // internal ID for remote node
 	port            uint16 // Port of remote node SUB
 	pubKey          string // Public key of remote node
 	socket          *zmq4.Socket // zmq4 Socket
@@ -27,8 +25,13 @@ type Node struct {
 
 func (node *Node) connect() {
 	// Create and name socket
-	pubSock, err := node.conn.ctx.NewSocket(zmq4.PUSH)
+	pubSock, err := node.conn.ctx.NewSocket(zmq4.DEALER)
 	if err != nil {
+		node.Err = err
+		return
+	}
+
+	if err := pubSock.SetIdentity(node.pubKey); err != nil {
 		node.Err = err
 		return
 	}
@@ -43,20 +46,13 @@ func (node *Node) connect() {
 		node.Err = err
 		return
 	}
-	// Put an ID to the node
-	id, err := utils.GetRandomHexString(16)
-	if err != nil {
-		node.Err = err
-		return
-	}
-	node.id = id
 }
 
 func (node *Node) GetID() string {
-	return node.id
+	return node.pubKey
 }
 
-func (node *Node) sendKeyShare(key *tcrsa.KeyShare, meta *tcrsa.KeyMeta) (*Message, error) {
+func (node *Node) sendKeyShare(key *tcrsa.KeyShare, meta *tcrsa.KeyMeta) (*message.Message, error) {
 	var keyBuffer bytes.Buffer
 	keyEncoder := gob.NewEncoder(&keyBuffer)
 	var metaBuffer bytes.Buffer
@@ -69,7 +65,7 @@ func (node *Node) sendKeyShare(key *tcrsa.KeyShare, meta *tcrsa.KeyMeta) (*Messa
 	}
 	keyBinary := keyBuffer.Bytes()
 	metaBinary := metaBuffer.Bytes()
-	message, err := NewMessage(network.SendKeyShare, node.GetID(), keyBinary, metaBinary)
+	message, err := message.NewMessage(message.SendKeyShare, node.GetID(), keyBinary, metaBinary)
 	if err != nil {
 		return nil, err
 	}
@@ -82,15 +78,15 @@ func (node *Node) sendKeyShare(key *tcrsa.KeyShare, meta *tcrsa.KeyMeta) (*Messa
 }
 
 
-func (node *Node) AskForSigShare(doc []byte) (message *Message, err error) {
-	message, err = NewMessage(network.AskForSigShare, node.GetID(), doc)
+func (node *Node) AskForSigShare(doc []byte) (msg *message.Message, err error) {
+	msg, err = message.NewMessage(message.AskForSigShare, node.GetID(), doc)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := node.socket.SendMessage(message.GetBytesLists()...); err != nil {
+	if _, err := node.socket.SendMessage(msg.GetBytesLists()...); err != nil {
 		return nil, err
 	}
-	return message, nil
+	return msg, nil
 }
 
 

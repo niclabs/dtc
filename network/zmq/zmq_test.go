@@ -5,7 +5,7 @@ import (
 	"crypto"
 	"crypto/rsa"
 	"crypto/sha256"
-	"dtcmaster/network"
+	"dtcmaster/network/zmq/message"
 	"encoding/gob"
 	"fmt"
 	"github.com/niclabs/tcrsa"
@@ -19,6 +19,7 @@ const testK = 6
 const testL = 10
 const testIP = "0.0.0.0"
 const testTimeout = 300
+
 
 var initPort uint16 = 2030
 
@@ -36,7 +37,7 @@ func init() {
 }
 
 func (stub *NodeStub) GetID() string {
-	return fmt.Sprintf("node-%d", stub.port)
+	return stub.pubKey
 }
 
 func (stub *NodeStub) GetConnString() string {
@@ -45,7 +46,7 @@ func (stub *NodeStub) GetConnString() string {
 
 // This should be launched as goroutine
 func (stub *NodeStub) StartAndWait(server *ZMQ) error {
-	in, err := stub.context.NewSocket(zmq4.PULL)
+	in, err := stub.context.NewSocket(zmq4.ROUTER)
 	if err != nil {
 		return err
 	}
@@ -59,10 +60,6 @@ func (stub *NodeStub) StartAndWait(server *ZMQ) error {
 		out.SetLinger(0)
 		out.Close()
 	}()
-
-	if err := in.SetIdentity(stub.GetID()); err != nil {
-		return err
-	}
 	if err := in.ServerAuthCurve(TchsmDomain, stub.privKey); err != nil {
 		return err
 	}
@@ -88,39 +85,40 @@ func (stub *NodeStub) StartAndWait(server *ZMQ) error {
 	for {
 		_, _ = fmt.Fprintf(os.Stderr, "stub %s: receiving messages from %s...\n", stub.GetID(), stub.GetConnString())
 		rawMsg, err := in.RecvMessageBytes(0)
+		_, _ = fmt.Fprintf(os.Stderr, "message from node %s\n", rawMsg[0])
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "%s\n", ReceiveMessageError.ComposeError(err))
+			_, _ = fmt.Fprintf(os.Stderr, "%s\n", message.ReceiveMessageError.ComposeError(err))
 			continue
 		}
 		_, _ = fmt.Fprintf(os.Stderr, "stub %s: message received in %s!\n", stub.GetID(), stub.GetConnString())
 		_, _ = fmt.Fprintf(os.Stderr, "stub %s: parsing message...\n", stub.GetID())
-		msg, err := MessageFromBytes(rawMsg)
+		msg, err := message.FromBytes(rawMsg)
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "%s\n", ParseMessageError.ComposeError(err))
+			_, _ = fmt.Fprintf(os.Stderr, "%s\n", message.ParseMessageError.ComposeError(err))
 			continue
 		}
 		_, _ = fmt.Fprintf(os.Stderr, "stub %s: copying response...\n", stub.GetID())
-		resp := msg.CopyWithoutData(NoError)
+		resp := msg.CopyWithoutData(message.Ok)
 		switch msg.Type {
-		case network.SendKeyShare:
+		case message.SendKeyShare:
 			_, _ = fmt.Fprintf(os.Stderr, "stub %s: parsing keyshare...\n", stub.GetID())
 			keyShareBuffer := bytes.NewBuffer(msg.Data[0])
 			keyShareDecoder := gob.NewDecoder(keyShareBuffer)
 			if err = keyShareDecoder.Decode(&keyShare); err != nil {
-				resp.Error = KeyShareDecodeError
+				resp.Error = message.KeyShareDecodeError
 				break
 			}
 			keyMetaBuffer := bytes.NewBuffer(msg.Data[1])
 			keyMetaDecoder := gob.NewDecoder(keyMetaBuffer)
 			_, _ = fmt.Fprintf(os.Stderr, "stub %s: parsing keymeta...\n", stub.GetID())
 			if err = keyMetaDecoder.Decode(&keyMeta); err != nil {
-				resp.Error = KeyMetaDecodeError
+				resp.Error = message.KeyMetaDecodeError
 				break
 			}
-		case network.AskForSigShare:
+		case message.AskForSigShare:
 			if keyShare.Si == nil || keyMeta.PublicKey == nil {
 				_, _ = fmt.Fprintf(os.Stderr, "stub %s: not initialized ...\n", stub.GetID())
-				resp.Error = NotInitializedError
+				resp.Error = message.NotInitializedError
 				break
 			}
 			// doc is already binary!
@@ -129,30 +127,30 @@ func (stub *NodeStub) StartAndWait(server *ZMQ) error {
 			_, _ = fmt.Fprintf(os.Stderr, "stub %s: signing message ...\n", stub.GetID())
 			sigShare, err := keyShare.Sign(doc, crypto.SHA256, &keyMeta)
 			if err != nil {
-				resp.Error = DocSignError
+				resp.Error = message.DocSignError
 				break
 			}
 			var keyBuffer bytes.Buffer
 			_, _ = fmt.Fprintf(os.Stderr, "stub %s: encoding sigshare ...\n", stub.GetID())
 			if err := gob.NewEncoder(&keyBuffer).Encode(sigShare); err != nil {
-				resp.Error = SigShareEncodeError
+				resp.Error = message.SigShareEncodeError
 				break
 			}
 			resp.AddMessage(keyBuffer.Bytes())
 		default:
-			resp.Error = UnknownError
+			resp.Error = message.UnknownError
 		}
-		if resp.Error != NoError {
+		if resp.Error != message.Ok {
 			_, _ = fmt.Fprintf(os.Stderr, resp.Error.ComposeError(err))
 		}
 		_, _ = fmt.Fprintf(os.Stderr, "stub %s: sending message ...\n", stub.GetID())
 		_, err = out.SendMessage(resp.GetBytesLists()...)
 		if err != nil {
-			resp.Error = SendResponseError
+			resp.Error = message.SendResponseError
 			_, _ = fmt.Fprintf(os.Stderr, "%s\n", resp.Error.ComposeError(err))
 		}
 		// In this mock up, we stop the server after signing and sending successfully
-		if resp.Error == NoError && resp.Type == network.AskForSigShare {
+		if resp.Error == message.Ok && resp.Type == message.AskForSigShare {
 			break
 		}
 	}
