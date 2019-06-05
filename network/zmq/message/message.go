@@ -75,16 +75,16 @@ func (message *Message) Ok(message2 *Message, minDataLen int) error {
 		return fmt.Errorf("ID mismatch: got: %s, expected: %s", message.ID, message2.ID)
 	}
 	if message.NodeID != message2.NodeID {
-		return fmt.Errorf("Node ID mismatch: got: %s, expected: %s", message.NodeID, message2.NodeID)
+		return fmt.Errorf("node ID mismatch: got: %s, expected: %s", message.NodeID, message2.NodeID)
 	}
 	if message.Type != message2.Type {
-		return fmt.Errorf("Type mismatch: got: %s, expected: %s", message.Type, message2.Type)
+		return fmt.Errorf("type mismatch: got: %s, expected: %s", message.Type, message2.Type)
 	}
-	if message.Error != NoError {
-		return fmt.Errorf("Response has error: %s", message.Error.Error())
+	if message.Error != Ok {
+		return fmt.Errorf("response has error: %s", message.Error.Error())
 	}
 	if len(message.Data) < minDataLen {
-		return fmt.Errorf("Data Length mismatch: got: %d, expected at least: %d", len(message.Data), minDataLen)
+		return fmt.Errorf("data length mismatch: got: %d, expected at least: %d", len(message.Data), minDataLen)
 	}
 	return nil
 }

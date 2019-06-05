@@ -6,17 +6,17 @@ type NodeError uint8
 
 const (
 	// c'est ne pas un err
-	NoError NodeError = iota
+	Ok NodeError = iota
 	// Network Errors
 	ReceiveMessageError
 	ParseMessageError
 	SendResponseError
 	// Signature Reception Errors
+	AlreadyInitializedError
 	KeyShareDecodeError
 	KeyMetaDecodeError
 	// Signing Errors
 	NotInitializedError
-	DocDecodeError
 	DocSignError
 	SigShareEncodeError
 	// Invalid error number (keep at the end)
@@ -24,15 +24,15 @@ const (
 )
 
 var ErrorToString = map[NodeError]string{
-	NoError:             "not an error",
-	ReceiveMessageError: "cannot receive currentMessage",
-	ParseMessageError:   "cannot parse received currentMessage",
+	Ok:                  "not an error",
+	ReceiveMessageError: "cannot receive message",
+	ParseMessageError:   "cannot parse received message",
 	SendResponseError:   "cannot send response",
-	KeyShareDecodeError: "cannot decode received keyshare",
-	KeyMetaDecodeError:  "cannot decode received keymeta",
+	AlreadyInitializedError:   "Node was already initialized",
+	KeyShareDecodeError: "cannot decode received Key Share",
+	KeyMetaDecodeError:  "cannot decode received Key Metainformation",
 	NotInitializedError: "node not initialized with the server",
-	DocDecodeError:      "cannot decode the document to sign",
-	SigShareEncodeError: "cannot encode the signature to a currentMessage",
+	SigShareEncodeError: "cannot encode the signature to a message",
 	DocSignError:        "cannot sign the document",
 	UnknownError:        "unknown error",
 }
