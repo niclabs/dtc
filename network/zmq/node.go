@@ -12,12 +12,12 @@ type NodeState int
 
 // A node represents a remote machine
 type Node struct {
-	ip              net.IP // IP of remote node
-	port            uint16 // Port of remote node SUB
-	pubKey          string // Public key of remote node
-	socket          *zmq4.Socket // zmq4 Socket
-	conn            *ZMQ
-	Err             error
+	ip     net.IP       // IP of remote node
+	port   uint16       // Port of remote node SUB
+	pubKey string       // Public key of remote node
+	socket *zmq4.Socket // zmq4 Socket
+	conn   *ZMQ
+	Err    error
 }
 
 func (node *Node) connect() {
@@ -49,7 +49,7 @@ func (node *Node) GetID() string {
 	return node.pubKey
 }
 
-func (node *Node) sendKeyShare(key *tcrsa.KeyShare, meta *tcrsa.KeyMeta) (*message.Message, error) {
+func (node *Node) sendKeyShare(id string, key *tcrsa.KeyShare, meta *tcrsa.KeyMeta) (*message.Message, error) {
 	keyBinary, err := message.EncodeKeyShare(key)
 	if err != nil {
 		return nil, err
@@ -58,20 +58,19 @@ func (node *Node) sendKeyShare(key *tcrsa.KeyShare, meta *tcrsa.KeyMeta) (*messa
 	if err != nil {
 		return nil, err
 	}
-	message, err := message.NewMessage(message.SendKeyShare, node.GetID(), keyBinary, metaBinary)
+	msg, err := message.NewMessage(message.SendKeyShare, node.GetID(), []byte(id), keyBinary, metaBinary)
 	if err != nil {
 		return nil, err
 	}
-	_, err = node.socket.SendMessage(message.GetBytesLists()...)
+	_, err = node.socket.SendMessage(msg.GetBytesLists()...)
 	if err != nil {
 		return nil, err
 	}
-	return message, nil
+	return msg, nil
 }
 
-
-func (node *Node) AskForSigShare(doc []byte) (msg *message.Message, err error) {
-	msg, err = message.NewMessage(message.AskForSigShare, node.GetID(), doc)
+func (node *Node) AskForSigShare(id string, doc []byte) (msg *message.Message, err error) {
+	msg, err = message.NewMessage(message.AskForSigShare, node.GetID(), []byte(id), doc)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +79,6 @@ func (node *Node) AskForSigShare(doc []byte) (msg *message.Message, err error) {
 	}
 	return msg, nil
 }
-
 
 func (node *Node) GetError() error {
 	return node.Err
@@ -91,7 +89,7 @@ func (node *Node) IsConnected() bool {
 }
 
 func (node *Node) GetConnString() string {
-	return fmt.Sprintf("%s://%s:%d", TchsmProtocol,  node.ip, node.port)
+	return fmt.Sprintf("%s://%s:%d", TchsmProtocol, node.ip, node.port)
 }
 
 func (node *Node) Disconnect() error {

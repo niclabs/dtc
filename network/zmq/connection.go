@@ -182,7 +182,7 @@ func (conn *ZMQ) GetActiveNodes() (nodes []network.Node) {
 // SendKeyShares send a list of keys to all the connected nodes.
 // It requieres that the number of connected nodes is equal to the number of connected shares.
 // If that is not the case, it returns an error.
-func (conn *ZMQ) SendKeyShares(keys tcrsa.KeyShareList, meta *tcrsa.KeyMeta) error {
+func (conn *ZMQ) SendKeyShares(keyID string, keys tcrsa.KeyShareList, meta *tcrsa.KeyMeta) error {
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 	if len(keys) != len(conn.nodes) {
@@ -192,7 +192,7 @@ func (conn *ZMQ) SendKeyShares(keys tcrsa.KeyShareList, meta *tcrsa.KeyMeta) err
 		return fmt.Errorf("cannot send key shares in a currentMessage state different to None")
 	}
 	for i, node := range conn.nodes {
-		message, err := node.sendKeyShare(keys[i], meta)
+		message, err := node.sendKeyShare(keyID, keys[i], meta)
 		if err != nil {
 			return fmt.Errorf("error with node %d: %s", i, err)
 		}
@@ -238,15 +238,15 @@ func (conn *ZMQ) AckKeyShares() error {
 	}
 }
 
-// AskForSigShares asks for the signature shares over a given hash.
-func (conn *ZMQ) AskForSigShares(hash []byte) error {
+// AskForSigShares asks for the signature shares over a given hash with a specific Key
+func (conn *ZMQ) AskForSigShares(keyID string, hash []byte) error {
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 	if conn.currentMessage != message.None {
 		return fmt.Errorf("cannot ask for sig shares in a currentMessage state different to None")
 	}
 	for _, node := range conn.nodes {
-		message, err := node.AskForSigShare(hash)
+		message, err := node.AskForSigShare(keyID, hash)
 		if err != nil {
 			return fmt.Errorf("error asking sigshare with node %s: %s", node.GetID(), err)
 		}
@@ -287,7 +287,7 @@ L:
 					log.Printf("corrupt key: %v\n", msg)
 					// Ask for it again?
 					node := conn.GetNodeByID(msg.NodeID)
-					newRequest, err := node.AskForSigShare(pending.Data[0])
+					newRequest, err := node.AskForSigShare(string(pending.Data[0]), pending.Data[1])
 					if err != nil {
 						log.Printf("error asking signature share to node %s: %s\n", node.GetID(), err)
 					}

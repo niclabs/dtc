@@ -15,11 +15,10 @@ import (
 const testK = 6
 const testL = 10
 const testIP = "0.0.0.0"
-const testTimeout = 300
-
+const testTimeout = 5
+const testKeyID = "testkey"
 
 var initPort uint16 = 2030
-
 
 type NodeStub struct {
 	privKey string
@@ -38,7 +37,7 @@ func (stub *NodeStub) GetID() string {
 }
 
 func (stub *NodeStub) GetConnString() string {
-	return fmt.Sprintf("%s://%s:%d", TchsmProtocol,  stub.ip, stub.port)
+	return fmt.Sprintf("%s://%s:%d", TchsmProtocol, stub.ip, stub.port)
 }
 
 // This should be launched as goroutine
@@ -74,7 +73,6 @@ func (stub *NodeStub) StartAndWait(server *ZMQ, t *testing.T) error {
 		return err
 	}
 
-
 	var keyShare *tcrsa.KeyShare
 	var keyMeta *tcrsa.KeyMeta
 	for {
@@ -89,23 +87,27 @@ func (stub *NodeStub) StartAndWait(server *ZMQ, t *testing.T) error {
 		resp := msg.CopyWithoutData(message.Ok)
 		switch msg.Type {
 		case message.SendKeyShare:
-			keyShare, err = message.DecodeKeyShare(msg.Data[0])
+			if len(msg.Data) != 3 || string(msg.Data[0]) != testKeyID {
+				resp.Error = message.InvalidMessageError
+				break
+			}
+			keyShare, err = message.DecodeKeyShare(msg.Data[1])
 			if err != nil {
 				resp.Error = message.KeyShareDecodeError
 				break
 			}
-			keyMeta, err = message.DecodeKeyMeta(msg.Data[1])
+			keyMeta, err = message.DecodeKeyMeta(msg.Data[2])
 			if err != nil {
 				resp.Error = message.KeyMetaDecodeError
 				break
 			}
 		case message.AskForSigShare:
-			if keyShare == nil || keyMeta == nil {
+			if len(msg.Data) != 2 || keyShare == nil || keyMeta == nil || string(msg.Data[0]) != testKeyID {
 				resp.Error = message.NotInitializedError
 				break
 			}
 			// doc is already binary!
-			doc := msg.Data[0]
+			doc := msg.Data[1]
 			// Sign
 			sigShare, err := keyShare.Sign(doc, crypto.SHA256, keyMeta)
 			if err != nil {
@@ -231,7 +233,6 @@ func TestZMQ_Connect(t *testing.T) {
 	zmq4.AuthCurveAdd("*", conn.pubKey)
 	zmq4.AuthAllow(conn.ip.String())
 
-
 	// and open the connection
 	err = conn.Open()
 	defer conn.Close()
@@ -252,7 +253,7 @@ func TestZMQ_Connect(t *testing.T) {
 			}
 		}()
 	}
-	time.Sleep(3*time.Second)
+	time.Sleep(3 * time.Second)
 	// Sending keys
 
 	// Extracted from libtdc documentation
@@ -262,8 +263,7 @@ func TestZMQ_Connect(t *testing.T) {
 		return
 	}
 
-
-	if err := conn.SendKeyShares(keyShares, keyMeta); err != nil {
+	if err := conn.SendKeyShares(testKeyID, keyShares, keyMeta); err != nil {
 		t.Errorf("cannot send key shares: %v", err)
 		return
 	}
@@ -286,13 +286,13 @@ func TestZMQ_Connect(t *testing.T) {
 	}
 
 	// Asking for signatures
-	if err := conn.AskForSigShares(docPKCS1); err != nil {
+	if err := conn.AskForSigShares(testKeyID, docPKCS1); err != nil {
 		t.Errorf("error asking for sigshares: %v", err)
 		return
 	}
 
 	// Retrieving signatures
-	sigShares, err :=  conn.GetSigShares()
+	sigShares, err := conn.GetSigShares()
 	if err != nil {
 		t.Errorf("error retrieving sigshares: %v", err)
 		return
