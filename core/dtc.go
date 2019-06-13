@@ -39,3 +39,23 @@ func (dtc *DTC) CreateNewKey(keyID string, bitSize int, args *tcrsa.KeyMetaArgs)
 	}
 	return keyMeta, nil
 }
+
+func (dtc *DTC) SignData(keyName string, meta *tcrsa.KeyMeta, data []byte) ([]byte, error) {
+	if err := dtc.Messenger.AskForSigShares(keyName, data); err != nil {
+		return nil, err
+	}
+	// We get the sig shares
+	sigShareList, err := dtc.Messenger.GetSigShares();
+	if err != nil {
+		return nil, err
+	}
+
+	// We verify them
+	for _, sigShare := range sigShareList {
+		if err := sigShare.Verify(data, meta); err != nil {
+			return nil, err
+		}
+	}
+	// Finally We merge and return them
+	return sigShareList.Join(data, meta)
+}

@@ -6,11 +6,15 @@ package objects
 import "C"
 import (
 	"bytes"
+	"crypto"
 	"dtcmaster/network/zmq/message"
 	"encoding/binary"
 	"encoding/gob"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/niclabs/tcrsa"
+	"hash"
+	"math/rand"
 	"reflect"
 	"sync"
 	"unsafe"
@@ -22,18 +26,34 @@ type CState = C.CK_STATE
 type CFlags = C.CK_FLAGS
 
 const AttrTypeKeyHandler = 1 << 31
-const AttrTypeKeyMeta = 1 << 31 + 1
+const AttrTypeKeyMeta = 1<<31 + 1
 
 type Session struct {
 	sync.Mutex
-	Slot            *Slot
-	Handle          CSessionHandle
-	flags           CFlags
-	KeyMetaInfo     tcrsa.KeyMeta
+	Slot           *Slot
+	Handle         CSessionHandle
+	flags          CFlags
+	refreshedToken bool
+	// finding things
 	findInitialized bool
-	refreshedToken  bool
 	foundObjects    []CCryptoObjectHandle
+	// signing things
+	signMechanism   *Mechanism
+	signKeyName     string
+	signKeyMeta     *tcrsa.KeyMeta
+	signData        []byte
 	signInitialized bool
+	// verifying things
+	verifyMechanism   *Mechanism
+	verifyKeyName     string
+	verifyKeyMeta     *tcrsa.KeyMeta
+	verifyData        []byte
+	verifyInitialized bool
+	// hashing things
+	digestHash        hash.Hash
+	digestInitialized bool
+	// random
+	randSrc *rand.Rand
 }
 
 type Sessions map[CSessionHandle]*Session
@@ -42,10 +62,12 @@ var SessionHandle = CSessionHandle(0)
 
 func NewSession(flags C.CK_FLAGS, currentSlot *Slot) *Session {
 	SessionHandle++
+
 	return &Session{
-		Slot:   currentSlot,
-		Handle: SessionHandle,
-		flags:  flags,
+		Slot:    currentSlot,
+		Handle:  SessionHandle,
+		flags:   flags,
+		randSrc: rand.New(rand.NewSource(int64(rand.Int()))),
 	}
 }
 
@@ -95,7 +117,7 @@ func (session *Session) CreateObject(attrs Attributes) (*CryptoObject, error) {
 	}
 
 	object := &CryptoObject{
-		Type: objType,
+		Type:       objType,
 		Attributes: attrs,
 	}
 
@@ -103,7 +125,6 @@ func (session *Session) CreateObject(attrs Attributes) (*CryptoObject, error) {
 	isPrivate := C.CK_TRUE
 	oClass := C.CKO_VENDOR_DEFINED
 	keyType := C.CKK_VENDOR_DEFINED
-
 
 	privAttr, err := object.Attributes.GetAttributeByType(C.CKA_PRIVATE)
 	if err == nil && len(privAttr.Value) > 0 {
@@ -317,7 +338,6 @@ func (session *Session) GenerateKeyPair(mechanism *Mechanism, pkAttrs, skAttrs A
 		return
 	}
 
-
 	bitSize := binary.LittleEndian.Uint64(bitSizeAttr.Value)
 
 	switch mechanism.Type {
@@ -356,6 +376,10 @@ func (session *Session) SignInit(mechanism *Mechanism, hKey CCryptoObjectHandle)
 	if session.signInitialized {
 		return NewError("Session.SignInit", "operation active", C.CKR_OPERATION_ACTIVE)
 	}
+	if mechanism == nil {
+		return NewError("Session.SignInit", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
+	}
+
 	keyObject, err := session.GetObject(hKey)
 	if err != nil {
 		return err
@@ -369,14 +393,169 @@ func (session *Session) SignInit(mechanism *Mechanism, hKey CCryptoObjectHandle)
 		return NewError("Session.SignInit", "object handle does not contain any key metainfo", C.CKR_ARGUMENTS_BAD)
 	}
 
-	keyNameStr := string(keyNameAttr.Value)
-	keyMeta, err := message.DecodeKeyMeta(keyNameAttr.Value)
+	session.signKeyMeta, err = message.DecodeKeyMeta(keyMetaAttr.Value)
 	if err != nil {
 		return NewError("Session.SignInit", "key metainfo is corrupt", C.CKR_ARGUMENTS_BAD)
 	}
-	signMechanism := mechanism.Get
-
+	session.signKeyName = string(keyNameAttr.Value)
+	session.signMechanism = mechanism
+	session.signData = make([]byte, 0)
+	session.signInitialized = true
 	return nil
+}
+
+func (session *Session) SignLength() (uint64, error) {
+	if !session.signInitialized {
+		return 0, NewError("Session.SignLength", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
+	}
+	return uint64(session.signKeyMeta.PublicKey.Size()), nil
+}
+
+func (session *Session) SignUpdate(data []byte) error {
+	if !session.signInitialized {
+		return NewError("Session.SignLength", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
+	}
+	session.signData = append(session.signData, data...)
+	return nil
+}
+
+func (session *Session) SignFinal() ([]byte, error) {
+	if !session.signInitialized {
+		return nil, NewError("Session.SignFinal", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
+	}
+	// First we prepare the data
+	prepared, err := session.signMechanism.Prepare(
+		session.randSrc,
+		session.signKeyMeta.PublicKey.Size(),
+		session.signData,
+	)
+	if err != nil {
+		return nil, err
+	}
+	// Now we sign the data with our nodes and return the signature
+	sign, err := session.Slot.Application.DTC.SignData(session.signKeyName, session.signKeyMeta, prepared)
+	if err != nil {
+		return nil, err
+	}
+	session.signKeyMeta = nil
+	session.signKeyName = ""
+	session.signData = nil
+	session.signInitialized = false // TODO: should this be restarted if error, too?
+	return sign, nil
+}
+
+func (session *Session) VerifyInit(mechanism *Mechanism, hKey CCryptoObjectHandle) error {
+	if session.verifyInitialized {
+		return NewError("Session.VerifyInit", "operation active", C.CKR_OPERATION_ACTIVE)
+	}
+	if mechanism == nil {
+		return NewError("Session.VerifyInit", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
+	}
+
+	keyObject, err := session.GetObject(hKey)
+	if err != nil {
+		return err
+	}
+	keyNameAttr := keyObject.FindAttribute(AttrTypeKeyHandler)
+	if keyNameAttr == nil {
+		return NewError("Session.VerifyInit", "object handle does not contain any key", C.CKR_ARGUMENTS_BAD)
+	}
+	keyMetaAttr := keyObject.FindAttribute(AttrTypeKeyMeta)
+	if keyMetaAttr == nil {
+		return NewError("Session.VerifyInit", "object handle does not contain any key metainfo", C.CKR_ARGUMENTS_BAD)
+	}
+
+	session.signKeyMeta, err = message.DecodeKeyMeta(keyMetaAttr.Value)
+	if err != nil {
+		return NewError("Session.VerifyInit", "key metainfo is corrupt", C.CKR_ARGUMENTS_BAD)
+	}
+	session.signKeyName = string(keyNameAttr.Value)
+	session.signMechanism = mechanism
+	session.signData = make([]byte, 0)
+	session.signInitialized = true
+	return nil
+}
+
+func (session *Session) VerifyLength() (uint64, error) {
+	if !session.verifyInitialized {
+		return 0, NewError("Session.verifyLength", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
+	}
+	return uint64(session.verifyKeyMeta.PublicKey.Size()), nil
+}
+
+func (session *Session) VerifyUpdate(data []byte) error {
+	if !session.verifyInitialized {
+		return NewError("Session.VerifyLength", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
+	}
+	session.verifyData = append(session.signData, data...)
+	return nil
+}
+
+func (session *Session) VerifyFinal(signature []byte) error {
+	if !session.verifyInitialized {
+		return NewError("Session.VerifyFinal", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
+	}
+	err := session.verifyMechanism.Verify(
+		session.verifyKeyMeta.PublicKey,
+		session.verifyData,
+		signature,
+	)
+	session.verifyKeyMeta = nil
+	session.verifyKeyName = ""
+	session.verifyData = nil
+	session.verifyInitialized = false
+	return err
+}
+
+func (session *Session) DigestInit(mechanism *Mechanism) error {
+	if session.digestInitialized {
+		return NewError("Session.DigestInit", "operation active", C.CKR_OPERATION_ACTIVE)
+	}
+	if mechanism == nil {
+		return NewError("Session.DigestInit", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
+	}
+
+	hashType, err := mechanism.GetHashType()
+	if err != nil {
+		return err
+	}
+
+	if hashType <= 0 || hashType >= crypto.BLAKE2b_512 {
+		return NewError("Session.DigestInit", "mechanism invalid", C.CKR_MECHANISM_INVALID)
+	}
+
+	session.digestHash = hashType.New()
+	session.digestInitialized = true
+	return nil
+}
+
+func (session *Session) Digest(data []byte) ([]byte, error) {
+	if !session.digestInitialized {
+		return nil, NewError("Session.DigestInit", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
+	}
+	if data == nil {
+		return nil, NewError("Session.DigestInit", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
+	}
+	hashed := session.digestHash.Sum(data)
+	session.digestInitialized = false
+	session.digestHash = nil
+	return hashed, nil
+}
+
+func (session *Session) GenerateRandom(size int) ([]byte, error) {
+	out := make([]byte, size)
+	randLen, err := session.randSrc.Read(out)
+	if err != nil {
+		return nil, NewError("Session.GenerateRandom", fmt.Sprintf("%s", err.Error()), C.CKR_DEVICE_ERROR)
+	}
+	if randLen != size {
+		return nil, NewError("Session.GenerateRandom", "random data acquired is not as big as requested", C.CKR_DEVICE_ERROR)
+	}
+	return out, nil
+}
+
+func (session *Session) SeedRandom(seed int) {
+	session.randSrc.Seed(int64(seed))
 }
 
 func createPublicKey(keyID string, pkAttrs Attributes, keyMeta *tcrsa.KeyMeta) (Attributes, error) {
@@ -401,8 +580,8 @@ func createPublicKey(keyID string, pkAttrs Attributes, keyMeta *tcrsa.KeyMeta) (
 	pkAttrs.SetIfUndefined(&Attribute{C.CKA_VERIFY_RECOVER, []byte{C.CK_TRUE}})
 	pkAttrs.SetIfUndefined(&Attribute{C.CKA_WRAP, []byte{C.CK_TRUE}})
 	pkAttrs.SetIfUndefined(&Attribute{C.CKA_TRUSTED, []byte{C.CK_FALSE}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_START_DATE, make([]byte,8)})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_END_DATE, make([]byte,8)})
+	pkAttrs.SetIfUndefined(&Attribute{C.CKA_START_DATE, make([]byte, 8)})
+	pkAttrs.SetIfUndefined(&Attribute{C.CKA_END_DATE, make([]byte, 8)})
 	pkAttrs.SetIfUndefined(&Attribute{C.CKA_MODULUS_BITS, nil})
 
 	// E and N from PK
@@ -417,7 +596,7 @@ func createPublicKey(keyID string, pkAttrs Attributes, keyMeta *tcrsa.KeyMeta) (
 
 	encodedKeyMeta, err := encodeKeyMeta(keyMeta)
 	if err != nil {
-		return nil, err
+		return nil, NewError("Session.createPublicKey", fmt.Sprintf("%s", err.Error()), C.CKR_ARGUMENTS_BAD)
 	}
 
 	pkAttrs.SetIfUndefined(&Attribute{CAttrType(AttrTypeKeyHandler), []byte(keyID)})
@@ -426,7 +605,7 @@ func createPublicKey(keyID string, pkAttrs Attributes, keyMeta *tcrsa.KeyMeta) (
 	return pkAttrs, nil
 }
 
-func createPrivateKey(keyID string,skAttrs Attributes, keyMeta *tcrsa.KeyMeta) (Attributes, error) {
+func createPrivateKey(keyID string, skAttrs Attributes, keyMeta *tcrsa.KeyMeta) (Attributes, error) {
 
 	// This fields are defined in SoftHSM implementation
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_CLASS, []byte{C.CKO_PRIVATE_KEY}})
@@ -456,8 +635,8 @@ func createPrivateKey(keyID string,skAttrs Attributes, keyMeta *tcrsa.KeyMeta) (
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_EXTRACTABLE, []byte{C.CK_FALSE}})
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_NEVER_EXTRACTABLE, []byte{C.CK_TRUE}})
 
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_START_DATE, make([]byte,8)})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_END_DATE, make([]byte,8)})
+	skAttrs.SetIfUndefined(&Attribute{C.CKA_START_DATE, make([]byte, 8)})
+	skAttrs.SetIfUndefined(&Attribute{C.CKA_END_DATE, make([]byte, 8)})
 
 	// E and N from PK
 
@@ -471,7 +650,7 @@ func createPrivateKey(keyID string,skAttrs Attributes, keyMeta *tcrsa.KeyMeta) (
 
 	encodedKeyMeta, err := encodeKeyMeta(keyMeta)
 	if err != nil {
-		return nil, err
+		return nil, NewError("Session.createPublicKey", fmt.Sprintf("%s", err.Error()), C.CKR_ARGUMENTS_BAD)
 	}
 
 	skAttrs.SetIfUndefined(&Attribute{CAttrType(AttrTypeKeyHandler), []byte(keyID)})
@@ -488,7 +667,6 @@ func encodeKeyMeta(meta *tcrsa.KeyMeta) ([]byte, error) {
 	}
 	return buffer.Bytes(), nil
 }
-
 
 func GetUserAuthorization(state CState, isToken, isPrivate C.CK_BBOOL, userAction bool) bool {
 	switch state {
