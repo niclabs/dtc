@@ -2,11 +2,18 @@ dtc:
   messaging_type: zmq
   instance_id: libdtc
   timeout: 10
-
-criptoki:
-  database_type: sqlite3
   nodes_number: 10
   threshold: 8
+
+criptoki:
+  manufacturer_id: "NICLabs"
+  model: "TCHSM"
+  version_major: 2
+  version_minor: 0
+  min_pin_len: 3
+  max_pin_len: 10
+  max_session_count: 5
+  database_type: sqlite3
   slots:
     - label: slot1
 
@@ -20,9 +27,7 @@ zmq:
   router_port: 2031 # Router port
   push_port: 3031 # Router port
   nodes:
-    - network:
-      ip: 1.2.3.4
+    - ip: 1.2.3.4
       public_key: PubK
-    - network:
-      ip: 1.2.3.4
+    - ip: 1.2.3.4
       public_key: PubK

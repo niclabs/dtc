@@ -9,17 +9,21 @@ import (
 	"unsafe"
 )
 
+type CAttr = C.CK_ATTRIBUTE
+type CAttrPointer = C.CK_ATTRIBUTE_PTR
+type CAttrType = C.CK_ATTRIBUTE_TYPE
+
 // An attribute related to a crypto object.
 type Attribute struct {
-	Type  C.CK_ATTRIBUTE_TYPE
+	Type  CAttrType
 	Value []byte
 }
 
 // A map of attributes
-type Attributes map[C.CK_ATTRIBUTE_TYPE]*Attribute
+type Attributes map[CAttrType]*Attribute
 
-func CToAttributes(pAttributes C.CK_ATTRIBUTE_PTR, ulCount C.CK_ULONG) Attributes {
-	cAttrSlice := (*[1 << 30]C.CK_ATTRIBUTE)(unsafe.Pointer(pAttributes))[:ulCount:ulCount]
+func CToAttributes(pAttributes CAttrPointer, ulCount C.CK_ULONG) Attributes {
+	cAttrSlice := (*[1 << 30]CAttr)(unsafe.Pointer(pAttributes))[:ulCount:ulCount]
 
 	attributes := make(Attributes, ulCount)
 	for _, cAttr := range cAttrSlice {
@@ -46,32 +50,41 @@ func (attributes Attributes) Equals(attributes2 Attributes) bool {
 	return true
 }
 
+// Adds an attribute only if it doesn't exist
+func (attributes Attributes) SetIfUndefined(attr *Attribute) bool {
+	if _, ok := attributes[attr.Type]; !ok {
+		attributes[attr.Type] = attr
+		return true
+	}
+	return false
+}
+
 // Equals returns true if the attributes are equal.
 func (attribute *Attribute) Equals(attribute2 *Attribute) bool {
 	return attribute.Type == attribute2.Type &&
 		bytes.Compare(attribute.Value, attribute2.Value) == 0
 }
 
-func CToAttribute(cAttr C.CK_ATTRIBUTE) *Attribute {
+func CToAttribute(cAttr CAttr) *Attribute {
 	attrType := cAttr._type
-	attrVal := C.GoStringN(cAttr.pValue, cAttr.ulValueLen)
+	attrVal := C.GoBytes(unsafe.Pointer(cAttr.pValue), C.int(cAttr.ulValueLen))
 	return &Attribute{
 		Type:  attrType,
 		Value: attrVal,
 	}
 }
 
-func (attribute *Attribute) ToC(cDst C.CK_ATTRIBUTE_PTR) error {
+func (attribute *Attribute) ToC(cDst CAttrPointer) error {
 	if cDst.pValue == nil {
 		cDst.ulValueLen = len(attribute.Value)
 		return nil
 	}
 	if cDst.ulValueLen >= len(attribute.Value) {
 		cValue := C.CString(attribute.Value)
-		cValueLen := len(attribute.Value)
+		cValueLen := C.ulong(len(attribute.Value))
 		cDst._type = attribute.Type
 		cDst.ulValueLen = cValueLen
-		C.memcpy(cValue, cDst.pValue, cValueLen)
+		C.memcpy(unsafe.Pointer(cDst.pValue), unsafe.Pointer(cValue), cValueLen)
 		C.free(unsafe.Pointer(cValue))
 	} else {
 		return NewError("Attribute.ToC", "Buffer too small", C.CKR_BUFFER_TOO_SMALL)
@@ -80,10 +93,10 @@ func (attribute *Attribute) ToC(cDst C.CK_ATTRIBUTE_PTR) error {
 }
 
 
-func (attributes Attributes) GetAttributeByType(cAttr C.CK_ATTRIBUTE_TYPE) (*Attribute, error) {
+func (attributes Attributes) GetAttributeByType(cAttr CAttrType) (*Attribute, error) {
 	attr, ok := attributes[cAttr]
 	if ok {
 		return attr, nil
 	}
-	return nil, NewError("Attributes.GetAttributeByType", "attribute doesn't exist", C.CKR_ATTRIBUTE_VALUE_INVALID) // is this error code ok?
+	return nil, NewError("Attributes.GetAttributeByType", "attribute doesn't exist", C.CKR_ATTRIBUTE_VALUE_INVALID) // TODO: is this error code ok?
 }

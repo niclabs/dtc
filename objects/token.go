@@ -6,6 +6,7 @@ package objects
 import "C"
 import (
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 )
@@ -22,6 +23,7 @@ const (
 
 // A token of the PKCS11 device.
 type Token struct {
+	sync.Mutex
 	Label         string
 	Pin           string
 	SoPin         string
@@ -29,9 +31,10 @@ type Token struct {
 	tokenFlags    uint64
 	securityLevel SecurityLevel
 	loggedIn      bool
+	slot          *Slot
 }
 
-func NewToken(label, userPin, soPin string) (*Token, error) {
+func NewToken(slot *Slot, label, userPin, soPin string) (*Token, error) {
 	if len(label) > 32 {
 		return nil, NewError("objects.NewToken", "Label with more than 32 chars", C.CKR_ARGUMENTS_BAD)
 	}
@@ -44,6 +47,7 @@ func NewToken(label, userPin, soPin string) (*Token, error) {
 			C.CKF_LOGIN_REQUIRED |
 			C.CKF_USER_PIN_INITIALIZED |
 			C.CKF_TOKEN_INITIALIZED,
+		slot: slot,
 	}
 	return newToken, nil
 }
@@ -70,39 +74,49 @@ func (token *Token) GetInfo(pInfo C.CK_TOKEN_INFO_PTR) error {
 		C.memset(info.label, cLabel, len(token.Label))
 	}
 
-	manufacturerID := "NICLabs"
-	manufacturerID += strings.Repeat(" ", 32 - len(manufacturerID))
+	if token.slot == nil {
+		return NewError("token.GetInfo", "cannot get info: token is not bound to a slot", C.CKR_ARGUMENTS_BAD)
+	}
+
+	manufacturerID := token.slot.Application.Config.Criptoki.ManufacturerID
+	if len(manufacturerID) > 32 {
+		manufacturerID = manufacturerID[:32]
+	}
+	manufacturerID += strings.Repeat(" ", 32-len(manufacturerID))
 	cManufacturerID := C.CString(manufacturerID)
 	defer C.free(unsafe.Pointer(cManufacturerID))
 	C.strncpy(info.manufacturerID, cManufacturerID, 32)
 
-	model := "TCHSM"
-	model += strings.Repeat(" ", 16 - len(manufacturerID))
+	model := token.slot.Application.Config.Criptoki.Model
+	if len(model) > 16 {
+		model = model[:16]
+	}
+	model += strings.Repeat(" ", 16-len(manufacturerID))
 	cModel := C.CString(model)
 	defer C.free(unsafe.Pointer(cModel))
 	C.strncpy(info.model, cModel, 16)
 
 	serialNumber := "1"
-	serialNumber += strings.Repeat(" ", 16 - len(manufacturerID))
+	serialNumber += strings.Repeat(" ", 16-len(manufacturerID))
 	cSerialNumber := C.CString(serialNumber)
 	defer C.free(unsafe.Pointer(cSerialNumber))
 	C.strncpy(info.serialNumber, cSerialNumber, 16)
 
 	info.flags = token.tokenFlags
-	info.ulMaxSessionCount = MaxPinLen
+	info.ulMaxSessionCount = token.slot.Application.Config.Criptoki.MaxSessionCount
 	info.ulSessionCount = C.CK_UNAVAILABLE_INFORMATION
-	info.ulMaxRwSessionCount = MaxSessionCount
+	info.ulMaxRwSessionCount = token.slot.Application.Config.Criptoki.MaxSessionCount
 	info.ulRwSessionCount = C.CK_UNAVAILABLE_INFORMATION
-	info.ulMaxPinLen = MaxPinLen
-	info.ulMinPinLen = MinPinLen
+	info.ulMaxPinLen = token.slot.Application.Config.Criptoki.MaxPinLength
+	info.ulMinPinLen = token.slot.Application.Config.Criptoki.MinPinLength
 	info.ulTotalPublicMemory = C.CK_UNAVAILABLE_INFORMATION
 	info.ulFreePublicMemory = C.CK_UNAVAILABLE_INFORMATION
 	info.ulTotalPrivateMemory = C.CK_UNAVAILABLE_INFORMATION
 	info.ulFreePrivateMemory = C.CK_UNAVAILABLE_INFORMATION
-	info.hardwareVersion.major = VersionMajor
-	info.hardwareVersion.minor = VersionMinor
-	info.firmwareVersion.major = VersionMajor
-	info.firmwareVersion.minor = VersionMinor
+	info.hardwareVersion.major = token.slot.Application.Config.Criptoki.VersionMajor
+	info.hardwareVersion.minor = token.slot.Application.Config.Criptoki.VersionMinor
+	info.firmwareVersion.major = token.slot.Application.Config.Criptoki.VersionMajor
+	info.firmwareVersion.minor = token.slot.Application.Config.Criptoki.VersionMinor
 
 	now := time.Now()
 	cTimeStr := C.CString(now.Format("20060102150405") + "00")
@@ -204,11 +218,10 @@ func (token *Token) Logout() {
 }
 
 // Adds a cryptoObject to the token
-func (token *Token) AddObject(object *CryptoObject) C.CK_OBJECT_HANDLE {
-	handle := object.GetHandle()
+func (token *Token) AddObject(object *CryptoObject) {
+	handle := object.Handle
 	// TODO: mutex?
 	token.Objects[handle] = object
-	return handle
 }
 
 // Returns the label of the token (should remove. Label is a public property!
@@ -217,20 +230,31 @@ func (token *Token) GetLabel() string {
 }
 
 // Returns an object that uses the handle provided.
-func (token *Token) GetObject(handle C.CK_OBJECT_HANDLE) (*CryptoObject, error) {
-	// TODO: mutex?
-	if object, ok := token.Objects[handle]; !ok {
-		return nil, NewError("Session.DestroyObject", "object not found", C.CKR_OBJECT_HANDLE_INVALID)
-	} else {
-		return object, nil
+func (token *Token) GetObject(handle CCryptoObjectHandle) (*CryptoObject, error) {
+	token.Lock()
+	defer token.Unlock()
+	for _, object := range token.Objects {
+		if object.Handle == handle {
+			return object, nil
+		}
 	}
+	return nil, NewError("Session.DestroyObject", "object not found", C.CKR_OBJECT_HANDLE_INVALID)
 }
 
-func (token *Token) DeleteObject(handle C.CK_OBJECT_HANDLE) error  {
-	if _, ok := token.Objects[handle]; !ok {
+func (token *Token) DeleteObject(handle CCryptoObjectHandle) error {
+	token.Lock()
+	defer token.Unlock()
+	objPos := -1
+	for i, object := range token.Objects {
+		if object.Handle == handle {
+			objPos = i
+			break
+		}
+	}
+	if objPos == -1 {
 		return NewError("Session.DestroyObject", "object not found", C.CKR_OBJECT_HANDLE_INVALID)
 	}
-	delete(token.Objects, handle)
+	token.Objects = append(token.Objects[:objPos], token.Objects[objPos+1:]...)
 	return nil
 }
 

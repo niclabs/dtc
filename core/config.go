@@ -23,14 +23,21 @@ type Config struct {
 type DTCConfig struct {
 	MessagingType string
 	InstanceID    string
+	NodesNumber   uint16
+	Threshold     uint16
 	Timeout       uint16
 }
 
 type CriptokiConfig struct {
-	DatabaseType string
-	NodesNumber  uint16
-	Threshold    uint16
-	Slots        []*SlotsConfig
+	ManufacturerID  string
+	Model           string
+	VersionMajor    uint16
+	VersionMinor    uint16
+	MinPinLength    uint8
+	MaxPinLength    uint8
+	MaxSessionCount uint16
+	DatabaseType    string
+	Slots           []*SlotsConfig
 }
 
 type SlotsConfig struct {

@@ -1,4 +1,5 @@
 package objects
+
 /*
 #include "../criptoki/pkcs11go.h"
 */
@@ -9,19 +10,19 @@ import (
 	"io"
 )
 
-type Application struct{
+type Application struct {
 	Database storage.TokenStorage
-	Slots []*Slot
-	Config *core.Config
+	DTC      *core.DTC
+	Slots    []*Slot
+	Config   *core.Config
 }
-
 
 func NewApplication(out io.Writer) (app *Application, err error) {
 	config, err := core.GetConfig()
 	if err != nil {
 		return
 	}
-	db, err := storage.NewDatabase(config.Criptoki.DatabaseType)
+	db, err := core.NewDatabase(config.Criptoki.DatabaseType)
 	if err != nil {
 		err = NewError("NewApplication", err.Error(), C.CKR_DEVICE_ERROR)
 		return
@@ -31,7 +32,7 @@ func NewApplication(out io.Writer) (app *Application, err error) {
 
 	for i, slotConf := range config.Criptoki.Slots {
 		slot := &Slot{
-			ID: C.CK_SLOT_ID(i),
+			ID:          C.CK_SLOT_ID(i),
 			Application: app,
 		}
 		token, err := db.GetToken(slotConf.Label)
@@ -45,8 +46,8 @@ func NewApplication(out io.Writer) (app *Application, err error) {
 	// TODO colocar el contexto del DTC
 	app = &Application{
 		Database: db,
-		Slots: slots,
-		Config: config,
+		Slots:    slots,
+		Config:   config,
 	}
 	return
 }

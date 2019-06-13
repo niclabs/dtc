@@ -8,9 +8,9 @@ type Connection interface {
 	Open() error
 	GetNodes() []Node
 	GetActiveNodes() []Node
-	SendKeyShares(keys tcrsa.KeyShareList, meta *tcrsa.KeyMeta) error
+	SendKeyShares(id string, keys tcrsa.KeyShareList, meta *tcrsa.KeyMeta) error
 	AckKeyShares() error
-	AskForSigShares(hash []byte) error
+	AskForSigShares(id string, hash []byte) error
 	GetSigShares() (tcrsa.SigShareList, error)
 	Close() error
 }

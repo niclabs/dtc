@@ -66,7 +66,11 @@ func (db DB) SaveToken(token *objects.Token) error {
 	}
 	// Saving the CryptoObjects
 	for _, object := range token.Objects {
-		if _, err := objectStmt.Exec(token.Label, object.Handle); err != nil {
+		if _, err := objectStmt.Exec(token.Label); err != nil {
+			return err
+		}
+		object.Handle, err = db.GetMaxHandle()
+		if err != nil {
 			return err
 		}
 		// Saving the attributes
@@ -95,6 +99,7 @@ func (db DB) GetToken(label string) (token *objects.Token, err error) {
 		Label: label,
 		Pin:   pin,
 		SoPin: soPin,
+		Objects: make(objects.CryptoObjects, 0),
 	}
 
 	attrsStmt, err := db.Prepare(GetCryptoObjectAttrsQuery)
@@ -106,38 +111,26 @@ func (db DB) GetToken(label string) (token *objects.Token, err error) {
 		return
 	}
 	defer rows.Close()
-	cryptoObjects := make(objects.CryptoObjects)
 	var aHandle int
 	var aType sql.NullInt64
 	var aValue []byte
 	var object *objects.CryptoObject
-	var ok bool
 	for rows.Next() {
 		err = rows.Scan(&aHandle, &aType, &aValue)
 		if err != nil {
 			return
 		}
-		if object, ok = cryptoObjects[aHandle]; !ok {
-			object = &objects.CryptoObject{
-				Handle:     aHandle,
-				Attributes: make(objects.Attributes),
-			}
-			cryptoObjects[aHandle] = object
+		object = &objects.CryptoObject{
+			Handle:     aHandle,
+			Attributes: make(objects.Attributes),
 		}
+		token.Objects = append(token.Objects, object)
 		if aType.Valid && aValue != nil {
 			object.Attributes[aType.Int64] = &objects.Attribute{
 				Type:  aType.Int64,
 				Value: aValue,
 			}
 		}
-	}
-
-	// Append crypto_objects to token
-	token.Objects = make(objects.CryptoObjects)
-	i := 0
-	for _, cryptoObject := range cryptoObjects {
-		token.Objects[cryptoObject.Handle] = cryptoObject
-		i++
 	}
 	return
 }

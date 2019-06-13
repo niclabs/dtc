@@ -9,6 +9,9 @@ import (
 	"unsafe"
 )
 
+type CSlotInfoPointer = C.CK_SLOT_INFO_PTR
+type CSlotInfo = C.CK_SLOT_INFO
+
 type Slot struct {
 	ID       int64
 	flags    uint64
@@ -22,7 +25,7 @@ func (slot *Slot) IsTokenPresent() bool {
 }
 
 
-func (slot *Slot) OpenSession(flags C.CK_FLAGS) (C.CK_SESSION_HANDLE, error) {
+func (slot *Slot) OpenSession(flags CFlags) (CSessionHandle, error) {
 	if slot.IsTokenPresent() {
 		return 0, NewError("Slot.OpenSession", "token not present", C.CKR_TOKEN_NOT_PRESENT)
 	}
@@ -35,7 +38,7 @@ func (slot *Slot) OpenSession(flags C.CK_FLAGS) (C.CK_SESSION_HANDLE, error) {
 	return handle, nil
 }
 
-func (slot *Slot) CloseSession(handle C.CK_SESSION_HANDLE) error {
+func (slot *Slot) CloseSession(handle CSessionHandle) error {
 	if slot.IsTokenPresent() {
 		return NewError("Slot.CloseSession", "token not present", C.CKR_TOKEN_NOT_PRESENT)
 	}
@@ -50,7 +53,7 @@ func (slot *Slot) CloseAllSessions() {
 	slot.Sessions = make(Sessions, 0)
 }
 
-func (slot *Slot) GetSession(handle C.CK_SESSION_HANDLE) (*Session, error) {
+func (slot *Slot) GetSession(handle CSessionHandle) (*Session, error) {
 	if slot.IsTokenPresent() {
 		return nil, NewError("Slot.GetSession", "token not present", C.CKR_TOKEN_NOT_PRESENT)
 	}
@@ -61,17 +64,17 @@ func (slot *Slot) GetSession(handle C.CK_SESSION_HANDLE) (*Session, error) {
 	}
 }
 
-func (slot *Slot) hasSession(handle C.CK_SESSION_HANDLE) bool {
+func (slot *Slot) hasSession(handle CSessionHandle) bool {
 	_, ok := slot.Sessions[handle]
 	return ok
 }
 
 
-func (slot *Slot) GetInfo (pInfo C.CK_SLOT_INFO_PTR) error {
+func (slot *Slot) GetInfo (pInfo CSlotInfoPointer) error {
 	if pInfo == nil {
 		return NewError("Slot.GetInfo", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
 	}
-	info := (C.CK_SLOT_INFO)(unsafe.Pointer(pInfo))
+	info := (CSlotInfo)(unsafe.Pointer(pInfo))
 
 	description := "TCHSM Slot"
 	description += strings.Repeat(" ", 64 - len(description)) // spaces
@@ -86,10 +89,10 @@ func (slot *Slot) GetInfo (pInfo C.CK_SLOT_INFO_PTR) error {
 	C.strncpy(info.manufacturerID, cManufacturerID, 32)
 
 	pInfo.flags = slot.flags
-	pInfo.hardwareVersion.major = VersionMajor
-	pInfo.hardwareVersion.minor = VersionMinor
-	pInfo.firmwareVersion.major = VersionMajor
-	pInfo.firmwareVersion.minor = VersionMinor
+	pInfo.hardwareVersion.major = slot.Application.Config.Criptoki.VersionMajor
+	pInfo.hardwareVersion.minor = slot.Application.Config.Criptoki.VersionMinor
+	pInfo.firmwareVersion.major = slot.Application.Config.Criptoki.VersionMajor
+	pInfo.firmwareVersion.minor = slot.Application.Config.Criptoki.VersionMinor
 	return nil
 }
 

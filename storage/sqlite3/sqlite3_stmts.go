@@ -20,13 +20,13 @@ const GetTokenQuery = `
 const CreateCryptoObjectTable = `
     CREATE TABLE IF NOT EXISTS crypto_object (
         token_label		TEXT,
-        handle			INTEGER,
+        handle			INTEGER AUTOINCREMENT, // Auto handle management
         PRIMARY KEY (token_label, handle)
     )`
 
 const InsertCryptoObjectQuery = `
-	INSERT OR IGNORE INTO crypto_object (token_label, handle)
-	VALUES (?, ?)
+	INSERT OR IGNORE INTO crypto_object (token_label)
+	VALUES (?)
 `
 
 const CleanCryptoObjectsQuery = `

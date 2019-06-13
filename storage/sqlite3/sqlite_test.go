@@ -68,7 +68,7 @@ func TestDB_SaveToken(t *testing.T) {
 		Label:TestOtherTokenLabel,
 		Pin: "1234",
 		SoPin: "1234",
-		Objects: make(objects.CryptoObjects),
+		Objects: make(objects.CryptoObjects, 0),
 	}
 	actualHandle, err := db.GetMaxHandle()
 	if err != nil {
