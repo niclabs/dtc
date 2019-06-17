@@ -2,8 +2,7 @@ package sqlite3
 
 import (
 	"database/sql"
-	"dtcmaster/objects"
-	"dtcmaster/storage"
+	"dtc/objects"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -85,7 +84,7 @@ func (db DB) SaveToken(token *objects.Token) error {
 }
 
 func (db DB) GetToken(label string) (token *objects.Token, err error) {
-	// Retreive token
+	// Retrieve token
 	tokenStmt, err := db.Prepare(GetTokenQuery)
 	if err != nil {
 		return
@@ -147,7 +146,7 @@ func (db DB) CloseStorage() error {
 	return db.Close()
 }
 
-func GetDatabase(path string) (storage.TokenStorage, error) {
+func GetDatabase(path string) (objects.TokenStorage, error) {
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
 		return nil, err

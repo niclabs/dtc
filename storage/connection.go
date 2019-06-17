@@ -1,12 +1,12 @@
-package core
+package storage
 
 import (
-	"dtcmaster/storage"
-	"dtcmaster/storage/sqlite3"
+	"dtc/objects"
+	"dtc/storage/sqlite3"
 	"fmt"
 )
 
-func NewDatabase(dbType string) (storage.TokenStorage, error) {
+func NewDatabase(dbType string) (objects.TokenStorage, error) {
 	switch dbType {
 	case "sqlite3":
 		sqliteConfig, err := sqlite3.GetConfig()

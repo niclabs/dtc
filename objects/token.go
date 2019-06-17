@@ -34,7 +34,7 @@ type Token struct {
 	slot          *Slot
 }
 
-func NewToken(slot *Slot, label, userPin, soPin string) (*Token, error) {
+func NewToken(label, userPin, soPin string) (*Token, error) {
 	if len(label) > 32 {
 		return nil, NewError("objects.NewToken", "Label with more than 32 chars", C.CKR_ARGUMENTS_BAD)
 	}
@@ -47,7 +47,6 @@ func NewToken(slot *Slot, label, userPin, soPin string) (*Token, error) {
 			C.CKF_LOGIN_REQUIRED |
 			C.CKF_USER_PIN_INITIALIZED |
 			C.CKF_TOKEN_INITIALIZED,
-		slot: slot,
 	}
 	return newToken, nil
 }
@@ -60,11 +59,11 @@ func (token *Token) Equals(token2 *Token) bool {
 		token.Objects.Equals(token2.Objects)
 }
 
-func (token *Token) GetInfo(pInfo C.CK_TOKEN_INFO_PTR) error {
+func (token *Token) GetInfo(pInfo CTokenInfoPtr) error {
 	if pInfo == nil {
 		return NewError("token.GetInfo", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
 	}
-	info := (C.CK_TOKEN_INFO_PTR)(unsafe.Pointer(pInfo))
+	info := (*CTokenInfoPtr)(unsafe.Pointer(pInfo))
 
 	if len(token.Label) == 0 {
 		C.memset(info.label, " ", 32)
@@ -104,15 +103,15 @@ func (token *Token) GetInfo(pInfo C.CK_TOKEN_INFO_PTR) error {
 
 	info.flags = token.tokenFlags
 	info.ulMaxSessionCount = token.slot.Application.Config.Criptoki.MaxSessionCount
-	info.ulSessionCount = C.CK_UNAVAILABLE_INFORMATION
+	info.ulSessionCount = CUnavailableInfo
 	info.ulMaxRwSessionCount = token.slot.Application.Config.Criptoki.MaxSessionCount
-	info.ulRwSessionCount = C.CK_UNAVAILABLE_INFORMATION
+	info.ulRwSessionCount = CUnavailableInfo
 	info.ulMaxPinLen = token.slot.Application.Config.Criptoki.MaxPinLength
 	info.ulMinPinLen = token.slot.Application.Config.Criptoki.MinPinLength
-	info.ulTotalPublicMemory = C.CK_UNAVAILABLE_INFORMATION
-	info.ulFreePublicMemory = C.CK_UNAVAILABLE_INFORMATION
-	info.ulTotalPrivateMemory = C.CK_UNAVAILABLE_INFORMATION
-	info.ulFreePrivateMemory = C.CK_UNAVAILABLE_INFORMATION
+	info.ulTotalPublicMemory = CUnavailableInfo
+	info.ulFreePublicMemory = CUnavailableInfo
+	info.ulTotalPrivateMemory = CUnavailableInfo
+	info.ulFreePrivateMemory = CUnavailableInfo
 	info.hardwareVersion.major = token.slot.Application.Config.Criptoki.VersionMajor
 	info.hardwareVersion.minor = token.slot.Application.Config.Criptoki.VersionMinor
 	info.firmwareVersion.major = token.slot.Application.Config.Criptoki.VersionMajor
@@ -142,8 +141,7 @@ func (token *Token) GetSecurityLevel() SecurityLevel {
 }
 
 // Checks if the pin provided is the user pin
-func (token *Token) CheckUserPin(pPin C.CK_UTF8CHAR_PTR, ulPinLen C.CK_ULONG) (SecurityLevel, error) {
-	pin := C.GoStringN(pPin, ulPinLen)
+func (token *Token) CheckUserPin(pin string) (SecurityLevel, error) {
 	if token.Pin == pin {
 		return User, nil
 	} else {
@@ -152,8 +150,7 @@ func (token *Token) CheckUserPin(pPin C.CK_UTF8CHAR_PTR, ulPinLen C.CK_ULONG) (S
 }
 
 // Checks if the pin provided is the SO pin.
-func (token *Token) CheckSecurityOfficerPin(pPin C.CK_UTF8CHAR_PTR, ulPinLen C.CK_ULONG) (SecurityLevel, error) {
-	pin := C.GoStringN(pPin, ulPinLen)
+func (token *Token) CheckSecurityOfficerPin(pin string) (SecurityLevel, error) {
 	if token.SoPin == pin {
 		return User, nil
 	} else {
@@ -162,26 +159,22 @@ func (token *Token) CheckSecurityOfficerPin(pPin C.CK_UTF8CHAR_PTR, ulPinLen C.C
 }
 
 // Logs into the token, or returns an error if something goes wrong.
-func (token *Token) Login(userType C.CK_USER_TYPE, pPin C.CK_UTF8CHAR_PTR, ulPinLen C.CK_ULONG) error {
+func (token *Token) Login(userType CUserType, pin string) error {
 	if token.loggedIn &&
 		(userType == C.CKU_USER && token.securityLevel == SecurityOfficer) ||
 		(userType == C.CKU_SO && token.securityLevel == User) {
 		return NewError("token.Login", "another user already logged in", C.CKR_ANOTHER_USER_ALREADY_LOGGED_IN)
 	}
 
-	if pPin == nil {
-		return NewError("token.Login", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
-	}
-
 	switch userType {
 	case C.CKU_SO:
-		securityLevel, err := token.CheckSecurityOfficerPin(pPin, ulPinLen)
+		securityLevel, err := token.CheckSecurityOfficerPin(pin)
 		if err != nil {
 			return err
 		}
 		token.securityLevel = securityLevel
 	case C.CKU_USER:
-		securityLevel, err := token.CheckUserPin(pPin, ulPinLen)
+		securityLevel, err := token.CheckUserPin(pin)
 		if err != nil {
 			return err
 		}
@@ -191,13 +184,13 @@ func (token *Token) Login(userType C.CK_USER_TYPE, pPin C.CK_UTF8CHAR_PTR, ulPin
 		case Public:
 			return NewError("token.Login", "Bad userType", C.CKR_OPERATION_NOT_INITIALIZED)
 		case User:
-			securityLevel, err := token.CheckUserPin(pPin, ulPinLen)
+			securityLevel, err := token.CheckUserPin(pin)
 			if err != nil {
 				return err
 			}
 			token.securityLevel = securityLevel
 		case SecurityOfficer:
-			securityLevel, err := token.CheckSecurityOfficerPin(pPin, ulPinLen)
+			securityLevel, err := token.CheckSecurityOfficerPin(pin)
 			if err != nil {
 				return err
 			}
@@ -219,9 +212,9 @@ func (token *Token) Logout() {
 
 // Adds a cryptoObject to the token
 func (token *Token) AddObject(object *CryptoObject) {
-	handle := object.Handle
-	// TODO: mutex?
-	token.Objects[handle] = object
+	token.Lock()
+	defer token.Unlock()
+	token.Objects[object.Handle] = object
 }
 
 // Returns the label of the token (should remove. Label is a public property!
@@ -230,7 +223,7 @@ func (token *Token) GetLabel() string {
 }
 
 // Returns an object that uses the handle provided.
-func (token *Token) GetObject(handle CCryptoObjectHandle) (*CryptoObject, error) {
+func (token *Token) GetObject(handle CObjectHandle) (*CryptoObject, error) {
 	token.Lock()
 	defer token.Unlock()
 	for _, object := range token.Objects {
@@ -241,7 +234,7 @@ func (token *Token) GetObject(handle CCryptoObjectHandle) (*CryptoObject, error)
 	return nil, NewError("Session.DestroyObject", "object not found", C.CKR_OBJECT_HANDLE_INVALID)
 }
 
-func (token *Token) DeleteObject(handle CCryptoObjectHandle) error {
+func (token *Token) DeleteObject(handle CObjectHandle) error {
 	token.Lock()
 	defer token.Unlock()
 	objPos := -1

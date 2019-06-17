@@ -6,11 +6,9 @@ package objects
 import "C"
 import (
 	"strings"
+	"sync"
 	"unsafe"
 )
-
-type CSlotInfoPointer = C.CK_SLOT_INFO_PTR
-type CSlotInfo = C.CK_SLOT_INFO
 
 type Slot struct {
 	ID       int64
@@ -18,6 +16,7 @@ type Slot struct {
 	token    *Token
 	Sessions Sessions
 	Application *Application
+	sync.Mutex
 }
 
 func (slot *Slot) IsTokenPresent() bool {
@@ -33,8 +32,9 @@ func (slot *Slot) OpenSession(flags CFlags) (CSessionHandle, error) {
 		flags: flags,
 	}
 	handle := session.GetHandle()
+	slot.Lock()
+	defer slot.Unlock()
 	slot.Sessions[handle] = session
-	// TODO: mutex?
 	return handle, nil
 }
 
@@ -45,11 +45,15 @@ func (slot *Slot) CloseSession(handle CSessionHandle) error {
 	if _, err := slot.GetSession(handle); err != nil {
 		return err
 	}
+	slot.Lock()
+	defer slot.Unlock()
 	delete(slot.Sessions, handle)
 	return nil
 }
 
 func (slot *Slot) CloseAllSessions() {
+	slot.Lock()
+	defer slot.Unlock()
 	slot.Sessions = make(Sessions, 0)
 }
 
@@ -57,6 +61,8 @@ func (slot *Slot) GetSession(handle CSessionHandle) (*Session, error) {
 	if slot.IsTokenPresent() {
 		return nil, NewError("Slot.GetSession", "token not present", C.CKR_TOKEN_NOT_PRESENT)
 	}
+	slot.Lock()
+	defer slot.Unlock()
 	if session, ok := slot.Sessions[handle]; ok {
 		return nil, NewError("Slot.CloseSession", "session handle doesn't exist in this slot", C.CKR_SESSION_HANDLE_INVALID)
 	} else {
@@ -64,7 +70,9 @@ func (slot *Slot) GetSession(handle CSessionHandle) (*Session, error) {
 	}
 }
 
-func (slot *Slot) hasSession(handle CSessionHandle) bool {
+func (slot *Slot) HasSession(handle CSessionHandle) bool {
+	slot.Lock()
+	defer slot.Unlock()
 	_, ok := slot.Sessions[handle]
 	return ok
 }
@@ -106,4 +114,5 @@ func (slot *Slot) GetToken() (*Token, error) {
 
 func (slot *Slot) InsertToken(token *Token) {
 	slot.token = token
+	token.slot = slot
 }

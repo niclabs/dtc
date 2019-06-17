@@ -1,7 +1,9 @@
 package core
 
 import (
-	"dtcmaster/network"
+	"dtc/network"
+	"dtc/network/zmq"
+	"fmt"
 	"github.com/niclabs/tcrsa"
 	"os"
 )
@@ -15,18 +17,44 @@ type DTC struct {
 	Nodes        uint16
 }
 
+func NewConnection(dbType string) (conn network.Connection, err error) {
+	switch dbType {
+	case "zmq":
+		zmqConfig, err1 := zmq.GetConfig()
+		if err1 != nil {
+			err = err1
+			return
+		}
+		conn, err1 = zmq.New(zmqConfig)
+		if err1 != nil {
+			err = err1
+			return
+		}
+		return conn, nil
+	default:
+		err = fmt.Errorf("storage option not found")
+		return
+	}
+	// TODO: More network options.
+}
+
 func getConnectionID() int {
 	return os.Getpid()
 }
 
-func NewDTC(config DTCConfig) *DTC {
+func NewDTC(config DTCConfig) (*DTC, error) {
+	connection, err := NewConnection(config.MessagingType)
+	if err != nil {
+		return nil, err
+	}
 	return &DTC{
 		InstanceID:   config.InstanceID,
 		ConnectionID: getConnectionID(),
 		Timeout:      config.Timeout,
 		Threshold:    config.Threshold,
 		Nodes:        config.NodesNumber,
-	}
+		Messenger:    connection,
+	}, nil
 }
 
 func (dtc *DTC) CreateNewKey(keyID string, bitSize int, args *tcrsa.KeyMetaArgs) (*tcrsa.KeyMeta, error) {

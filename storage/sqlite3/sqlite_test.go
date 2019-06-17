@@ -1,8 +1,7 @@
 package sqlite3
 
 import (
-	"dtcmaster/objects"
-	"dtcmaster/storage"
+	"dtc/objects"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -11,7 +10,7 @@ import (
 const TestFirstTokenLabel = "TCBHSM"
 const TestOtherTokenLabel = "LABEL2"
 
-func initDB() (storage.TokenStorage, error) {
+func initDB() (objects.TokenStorage, error) {
 	db, err := GetDatabase(":memory:")
 	if err != nil {
 		return nil, fmt.Errorf("couldn't get database: %v", err)

@@ -1,5 +1,9 @@
 package objects
 
+
+/**
+#include "../criptoki/pkcs11go.h"
+ */
 import "C"
 import (
 	"crypto"
@@ -7,10 +11,6 @@ import (
 	"io"
 	"unsafe"
 )
-
-type CMechanism = C.CK_MECHANISM
-type CMechanismPtr = C.CK_MECHANISM_PTR
-type CMechanismType = C.CK_MECHANISM_TYPE
 
 type Mechanism struct {
 	Type      CMechanismType
@@ -28,8 +28,17 @@ func CToMechanism(pMechanism CMechanismPtr) *Mechanism {
 
 }
 
-func (mechanism *Mechanism) ToC(pMechanism C.CK_MECHANISM_PTR) error {
-	// TODO: implement this ASAP
+func (mechanism *Mechanism) ToC(cDst CMechanismPtr) error {
+	cMechanism := (*CMechanism)(unsafe.Pointer(cDst))
+	if cMechanism.ulValueLen >= len(mechanism.Parameter) {
+		cMechanism._type = mechanism.Type
+		cMechanism.ulValueLen = C.int(len(mechanism.Parameter))
+		cParameter := C.CBytes(mechanism.Parameter)
+		defer C.free(unsafe.Pointer(cParameter))
+		C.memcpy(cMechanism.pValue, cParameter, cMechanism.ulValueLen)
+	} else {
+		return NewError("Mechanism.ToC", "Buffer too small", C.CKR_BUFFER_TOO_SMALL)
+	}
 	return nil
 }
 
@@ -41,11 +50,11 @@ func (mechanism *Mechanism) GetHashType() (h crypto.Hash, err error) {
 		h = crypto.MD5
 	case C.CKM_SHA1_RSA_PKCS_PSS, C.CKM_SHA1_RSA_PKCS, C.CKM_SHA_1:
 		h = crypto.SHA1
-	case C.CKM_SHA256_RSA_PKCS_PSS, C.CKM_SHA256_RSA_PKCS, C.CKM_SHA_256:
+	case C.CKM_SHA256_RSA_PKCS_PSS, C.CKM_SHA256_RSA_PKCS, C.CKM_SHA256:
 		h = crypto.SHA256
-	case C.CKM_SHA384_RSA_PKCS_PSS, C.CKM_SHA384_RSA_PKCS, C.CKM_SHA_384:
+	case C.CKM_SHA384_RSA_PKCS_PSS, C.CKM_SHA384_RSA_PKCS, C.CKM_SHA384:
 		h = crypto.SHA384
-	case C.CKM_SHA512_RSA_PKCS_PSS, C.CKM_SHA512_RSA_PKCS, C.CKM_SHA_512:
+	case C.CKM_SHA512_RSA_PKCS_PSS, C.CKM_SHA512_RSA_PKCS, C.CKM_SHA512:
 		h = crypto.SHA512
 	default:
 		err = NewError("Mechanism.Sign", "mechanism not supported yet for hashing", C.CKR_MECHANISM_INVALID)

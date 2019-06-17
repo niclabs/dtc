@@ -4,13 +4,10 @@ package objects
 #include "../criptoki/pkcs11go.h"
 */
 import "C"
-import "unsafe"
-
-// The type of the cryptoObject
-type CryptoObjectType int
-
-// Type of handle
-type CCryptoObjectHandle = C.CK_OBJECT_HANDLE
+import (
+	"bytes"
+	"unsafe"
+)
 
 const (
 	SessionObject CryptoObjectType = iota
@@ -19,7 +16,7 @@ const (
 
 // A cryptoObject related to a token.
 type CryptoObject struct {
-	Handle     CCryptoObjectHandle
+	Handle     CObjectHandle
 	Type       CryptoObjectType
 	Attributes Attributes
 }
@@ -27,15 +24,18 @@ type CryptoObject struct {
 // A map of cryptoobjects
 type CryptoObjects []*CryptoObject
 
-func CToCryptoObject(pAttributes CAttrPointer, ulCount C.CK_ULONG) (*CryptoObject, error) {
-	attrSlice := CToAttributes(pAttributes, ulCount)
-	var coType CryptoObjectType
-	tokenAttr, ok := attrSlice[C.CKA_TOKEN]
-	if !ok {
-		return nil, NewError("CToCryptoObject", "Token attribute not found", C.CK_ATTRIBUTE_VALUE_INVALID)
+func CToCryptoObject(pAttributes CAttrPointer, ulCount CULong) (*CryptoObject, error) {
+	attrSlice, err := CToAttributes(pAttributes, ulCount)
+	if err != nil {
+		return nil, err
 	}
-	isToken := C.CK_BBOOL(tokenAttr.Value[0])
-	if isToken == C.CK_FALSE {
+	var coType CryptoObjectType
+	tokenAttr, ok := attrSlice[CToken]
+	if !ok {
+		return nil, NewError("CToCryptoObject", "Token attribute not found", C.CKR_ATTRIBUTE_VALUE_INVALID)
+	}
+	isToken := CBool(tokenAttr.Value[0])
+	if isToken == CFalse {
 		coType = SessionObject
 	} else {
 		coType = TokenObject
@@ -78,13 +78,10 @@ func (object *CryptoObject) Equals(object2 *CryptoObject) bool {
 }
 
 // https://stackoverflow.com/questions/28925179/cgo-how-to-pass-struct-array-from-c-to-go#28933938
-func (object *CryptoObject) Match(pTemplate CAttrPointer, ulCount C.CK_ULONG) bool {
-	templateSlice := (*[1 << 30]CAttr)(unsafe.Pointer(pTemplate))[:ulCount:ulCount]
-
-	for _, cTmpl := range templateSlice {
-		ourAttr, ok := object.Attributes[cTmpl._type]
-		theirTempVal := C.GoStringN(cTmpl.pValue, cTmpl.ulValueLen)
-		if !ok || ourAttr.Value == theirTempVal {
+func (object *CryptoObject) Match(attrs Attributes) bool {
+	for _, theirAttr := range attrs {
+		ourAttr, ok := object.Attributes[theirAttr.Type]
+		if !ok || bytes.Compare(ourAttr.Value, theirAttr.Value) != 0 {
 			return false
 		}
 	}
@@ -99,11 +96,11 @@ func (object *CryptoObject) FindAttribute(attrType CAttrType) *Attribute {
 }
 
 // https://stackoverflow.com/questions/28925179/cgo-how-to-pass-struct-array-from-c-to-go#28933938
-func (object *CryptoObject) CopyAttributes(pTemplate CAttrPointer, ulCount C.CK_ULONG) error {
+func (object *CryptoObject) CopyAttributes(pTemplate CAttrPointer, ulCount CULong) error {
 	if pTemplate == nil {
 		return NewError("CryptoObject.CopyAttributes", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
 	}
-	templateSlice := (*[1 << 30]C.CK_ATTRIBUTE)(unsafe.Pointer(pTemplate))[:ulCount:ulCount]
+	templateSlice := (*[1 << 30]CAttr)(unsafe.Pointer(pTemplate))[:ulCount:ulCount]
 
 	for i := 0; i < len(templateSlice); i++ {
 		src := object.FindAttribute(templateSlice[i])

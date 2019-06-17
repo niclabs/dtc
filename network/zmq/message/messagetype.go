@@ -1,26 +1,23 @@
 package message
 
-
-type MessageType byte
+type Type byte
 
 const (
-	None MessageType = iota
+	None Type = iota
 	SendKeyShare
 	AskForSigShare
 )
 
-var TypeToString = map[MessageType]string{
-	None: "Undefined type",
-	SendKeyShare: "Send Key Share",
+var TypeToString = map[Type]string{
+	None:           "Undefined type",
+	SendKeyShare:   "Send Key Share",
 	AskForSigShare: "Ask for Signature Share",
 }
 
-func (mType MessageType) String() string {
+func (mType Type) String() string {
 	if name, ok := TypeToString[mType]; ok {
 		return name
 	} else {
 		return "Unknown Message"
 	}
 }
-
-

@@ -9,7 +9,7 @@ import "fmt"
 type TcbError struct {
 	Who         string
 	Description string
-	Code        uint64
+	Code        C.CK_RV
 }
 
 func NewError(who, description string, code C.CK_RV) *TcbError {

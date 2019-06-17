@@ -9,10 +9,6 @@ import (
 	"unsafe"
 )
 
-type CAttr = C.CK_ATTRIBUTE
-type CAttrPointer = C.CK_ATTRIBUTE_PTR
-type CAttrType = C.CK_ATTRIBUTE_TYPE
-
 // An attribute related to a crypto object.
 type Attribute struct {
 	Type  CAttrType
@@ -22,7 +18,11 @@ type Attribute struct {
 // A map of attributes
 type Attributes map[CAttrType]*Attribute
 
-func CToAttributes(pAttributes CAttrPointer, ulCount C.CK_ULONG) Attributes {
+func CToAttributes(pAttributes CAttrPointer, ulCount CULong) (Attributes, error) {
+	if !ulCount > 0 {
+		return nil, NewError("CToAttributes", "cannot transform: ulcount is not greater than 0", C.CKR_BUFFER_TOO_SMALL)
+	}
+
 	cAttrSlice := (*[1 << 30]CAttr)(unsafe.Pointer(pAttributes))[:ulCount:ulCount]
 
 	attributes := make(Attributes, ulCount)
@@ -30,7 +30,7 @@ func CToAttributes(pAttributes CAttrPointer, ulCount C.CK_ULONG) Attributes {
 		attr := CToAttribute(cAttr)
 		attributes[attr.Type] = attr
 	}
-	return attributes
+	return attributes, nil
 }
 
 // Equals returns true if the maps of attributes are equal.
@@ -57,12 +57,6 @@ func (attributes Attributes) SetIfUndefined(attr *Attribute) bool {
 		return true
 	}
 	return false
-}
-
-// Equals returns true if the attributes are equal.
-func (attribute *Attribute) Equals(attribute2 *Attribute) bool {
-	return attribute.Type == attribute2.Type &&
-		bytes.Compare(attribute.Value, attribute2.Value) == 0
 }
 
 func CToAttribute(cAttr CAttr) *Attribute {
@@ -92,6 +86,11 @@ func (attribute *Attribute) ToC(cDst CAttrPointer) error {
 	return nil
 }
 
+// Equals returns true if the attributes are equal.
+func (attribute *Attribute) Equals(attribute2 *Attribute) bool {
+	return attribute.Type == attribute2.Type &&
+		bytes.Compare(attribute.Value, attribute2.Value) == 0
+}
 
 func (attributes Attributes) GetAttributeByType(cAttr CAttrType) (*Attribute, error) {
 	attr, ok := attributes[cAttr]

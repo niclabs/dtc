@@ -7,7 +7,7 @@ import "C"
 import (
 	"bytes"
 	"crypto"
-	"dtcmaster/network/zmq/message"
+	"dtc/network/zmq/message"
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
@@ -20,11 +20,6 @@ import (
 	"unsafe"
 )
 
-type CSessionHandle = C.CK_SESSION_HANDLE
-type CSessionInfoPointer = C.CK_SESSION_INFO_PTR
-type CState = C.CK_STATE
-type CFlags = C.CK_FLAGS
-
 const AttrTypeKeyHandler = 1 << 31
 const AttrTypeKeyMeta = 1<<31 + 1
 
@@ -36,7 +31,7 @@ type Session struct {
 	refreshedToken bool
 	// finding things
 	findInitialized bool
-	foundObjects    []CCryptoObjectHandle
+	foundObjects    []CObjectHandle
 	// signing things
 	signMechanism   *Mechanism
 	signKeyName     string
@@ -60,7 +55,7 @@ type Sessions map[CSessionHandle]*Session
 
 var SessionHandle = CSessionHandle(0)
 
-func NewSession(flags C.CK_FLAGS, currentSlot *Slot) *Session {
+func NewSession(flags CFlags, currentSlot *Slot) *Session {
 	SessionHandle++
 
 	return &Session{
@@ -85,10 +80,10 @@ func (session *Session) GetInfo(pInfo CSessionInfoPointer) error {
 		if err != nil {
 			return err
 		}
-		info := (C.CK_SESSION_INFO)(unsafe.Pointer(pInfo))
-		info.slotID = C.CK_SLOT_ID(session.Slot.ID)
-		info.state = C.CK_STATE(state)
-		info.flags = C.CK_FLAGS(session.flags)
+		info := (*CSessionInfo)(unsafe.Pointer(pInfo))
+		info.slotID = CSlotID(session.Slot.ID)
+		info.state = CState(state)
+		info.flags = CFlags(session.flags)
 		return nil
 
 	} else {
@@ -122,18 +117,18 @@ func (session *Session) CreateObject(attrs Attributes) (*CryptoObject, error) {
 	}
 
 	token := session.Slot.token
-	isPrivate := C.CK_TRUE
+	isPrivate := CTrue
 	oClass := C.CKO_VENDOR_DEFINED
 	keyType := C.CKK_VENDOR_DEFINED
 
 	privAttr, err := object.Attributes.GetAttributeByType(C.CKA_PRIVATE)
 	if err == nil && len(privAttr.Value) > 0 {
-		isPrivate = C.CK_BBOOL(privAttr.Value[0]) == C.CK_TRUE
+		isPrivate = CBool(privAttr.Value[0]) == CTrue
 	}
 
 	classAttr, err := object.Attributes.GetAttributeByType(C.CKA_CLASS)
 	if err == nil && len(classAttr.Value) > 0 {
-		oClass = C.CK_OBJECT_CLASS(classAttr.Value[0])
+		oClass = CObjectClass(classAttr.Value[0])
 	}
 
 	keyTypeAttr, err := object.Attributes.GetAttributeByType(C.CKA_KEY_TYPE)
@@ -141,7 +136,7 @@ func (session *Session) CreateObject(attrs Attributes) (*CryptoObject, error) {
 		keyType = C.CK_KEY_TYPE(keyTypeAttr.Value[0])
 	}
 
-	if isToken == C.CK_TRUE && session.isReadOnly() {
+	if isToken == CTrue && session.isReadOnly() {
 		return nil, NewError("Session.CreateObject", "session is read only", C.CKR_SESSION_READ_ONLY)
 	}
 	state, err := session.GetState()
@@ -169,7 +164,7 @@ func (session *Session) CreateObject(attrs Attributes) (*CryptoObject, error) {
 	// TODO: Verificar que los objetos sean válidos
 }
 
-func (session *Session) DestroyObject(hObject CCryptoObjectHandle) error {
+func (session *Session) DestroyObject(hObject CObjectHandle) error {
 	token, err := session.Slot.GetToken()
 	if err != nil {
 		return err
@@ -181,7 +176,7 @@ func (session *Session) DestroyObject(hObject CCryptoObjectHandle) error {
 		if attr != nil {
 			privateAttr := object.FindAttribute(C.CKA_PRIVATE)
 			if privateAttr != nil {
-				isPrivate := C.CK_BBOOL(privateAttr.Value[0]) == C.CK_TRUE
+				isPrivate := CBool(privateAttr.Value[0]) == CTrue
 				if isPrivate {
 					// TODO: Delete key shares from DTC core
 				}
@@ -196,30 +191,26 @@ func (session *Session) DestroyObject(hObject CCryptoObjectHandle) error {
 	}
 }
 
-func (session *Session) FindObjectsInit(pTemplate CAttrPointer, ulCount C.CK_ULONG) error {
+func (session *Session) FindObjectsInit(attrs Attributes) error {
 	if session.findInitialized {
 		return NewError("Session.FindObjectsInit", "operation already initialized", C.CKR_OPERATION_ACTIVE)
 	}
-	if pTemplate == nil {
-		return NewError("Session.FindObjectsInit", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
-	}
-
 	token, err := session.GetCurrentSlot().GetToken()
 	if err != nil {
 		return err
 	}
 
-	if uint64(ulCount) == 0 {
-		session.foundObjects = make([]CCryptoObjectHandle, len(token.Objects))
+	if len(attrs) == 0 {
+		session.foundObjects = make([]CObjectHandle, len(token.Objects))
 		i := 0
 		for handle, _ := range token.Objects {
 			session.foundObjects[i] = handle
 			i++
 		}
 	} else {
-		session.foundObjects = make([]CCryptoObjectHandle, 0)
+		session.foundObjects = make([]CObjectHandle, 0)
 		for handle, object := range token.Objects {
-			if object.Match(pTemplate, ulCount) {
+			if object.Match(attrs) {
 				session.foundObjects = append(session.foundObjects, handle)
 			}
 		}
@@ -227,7 +218,7 @@ func (session *Session) FindObjectsInit(pTemplate CAttrPointer, ulCount C.CK_ULO
 
 	// Si no se encontro el objecto, recargar la base de datos y buscar de
 	// nuevo, puede que el objeto haya sido creado por otra instancia.
-	if ulCount != 0 && len(session.foundObjects) == 0 && !session.refreshedToken {
+	if len(attrs) == 0 && len(session.foundObjects) == 0 && !session.refreshedToken {
 		session.refreshedToken = true
 		slot := session.GetCurrentSlot()
 		token, err := slot.GetToken()
@@ -241,7 +232,7 @@ func (session *Session) FindObjectsInit(pTemplate CAttrPointer, ulCount C.CK_ULO
 		}
 		token.CopyState(newToken)
 		slot.InsertToken(newToken)
-		return session.FindObjectsInit(pTemplate, ulCount)
+		return session.FindObjectsInit(attrs)
 	}
 
 	// TODO: Verificar permisos de acceso
@@ -249,7 +240,7 @@ func (session *Session) FindObjectsInit(pTemplate CAttrPointer, ulCount C.CK_ULO
 	return nil
 }
 
-func (session *Session) FindObjects(maxObjectCount C.CK_ULONG) ([]CCryptoObjectHandle, error) {
+func (session *Session) FindObjects(maxObjectCount CULong) ([]CObjectHandle, error) {
 	if !session.findInitialized {
 		return nil, NewError("Session.FindObjects", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
 	}
@@ -272,7 +263,7 @@ func (session *Session) FindObjectsFinal() error {
 	return nil
 }
 
-func (session *Session) GetObject(handle CCryptoObjectHandle) (*CryptoObject, error) {
+func (session *Session) GetObject(handle CObjectHandle) (*CryptoObject, error) {
 	token, err := session.Slot.GetToken()
 	if err != nil {
 		return nil, err
@@ -301,19 +292,19 @@ func (session *Session) GetState() (CState, error) {
 			return C.CKS_RW_PUBLIC_SESSION, nil
 		}
 	}
-	return 0, NewError("Session.GetState", "invalid security level", C.CK_ARGUMENTS_BAD)
+	return 0, NewError("Session.GetState", "invalid security level", C.CKR_ARGUMENTS_BAD)
 }
 
 func (session *Session) isReadOnly() bool {
 	return (session.flags & C.CKF_RW_SESSION) != C.CKF_RW_SESSION
 }
 
-func (session *Session) Login(userType C.CK_USER_TYPE, pPin C.CK_UTF8CHAR_PTR, ulPinLen C.CK_ULONG) error {
+func (session *Session) Login(userType CUserType, pin string) error {
 	token, err := session.Slot.GetToken()
 	if err != nil {
 		return err
 	}
-	return token.Login(userType, pPin, ulPinLen)
+	return token.Login(userType, pin)
 }
 
 func (session *Session) Logout() error {
@@ -372,7 +363,7 @@ func (session *Session) GenerateKeyPair(mechanism *Mechanism, pkAttrs, skAttrs A
 	return pkObject, skObject, nil
 }
 
-func (session *Session) SignInit(mechanism *Mechanism, hKey CCryptoObjectHandle) error {
+func (session *Session) SignInit(mechanism *Mechanism, hKey CObjectHandle) error {
 	if session.signInitialized {
 		return NewError("Session.SignInit", "operation active", C.CKR_OPERATION_ACTIVE)
 	}
@@ -444,7 +435,7 @@ func (session *Session) SignFinal() ([]byte, error) {
 	return sign, nil
 }
 
-func (session *Session) VerifyInit(mechanism *Mechanism, hKey CCryptoObjectHandle) error {
+func (session *Session) VerifyInit(mechanism *Mechanism, hKey CObjectHandle) error {
 	if session.verifyInitialized {
 		return NewError("Session.VerifyInit", "operation active", C.CKR_OPERATION_ACTIVE)
 	}
@@ -554,8 +545,19 @@ func (session *Session) GenerateRandom(size int) ([]byte, error) {
 	return out, nil
 }
 
-func (session *Session) SeedRandom(seed int) {
-	session.randSrc.Seed(int64(seed))
+func (session *Session) SeedRandom(seed []byte) {
+	seedInt := int64(0)
+	for i := 0; i < len(seed); i += 8 {
+		var f int
+		if len(seed) < i+8 {
+			f = len(seed)
+		} else {
+			f = i+8
+		}
+		slice := seed[i:f]
+		seedInt += int64(binary.LittleEndian.Uint64(slice)) // it overflows
+	}
+	session.randSrc.Seed(seedInt)
 }
 
 func createPublicKey(keyID string, pkAttrs Attributes, keyMeta *tcrsa.KeyMeta) (Attributes, error) {
@@ -564,22 +566,22 @@ func createPublicKey(keyID string, pkAttrs Attributes, keyMeta *tcrsa.KeyMeta) (
 	pkAttrs.SetIfUndefined(&Attribute{C.CKA_CLASS, []byte{C.CKO_PUBLIC_KEY}})
 	pkAttrs.SetIfUndefined(&Attribute{C.CKA_KEY_TYPE, []byte{C.CKK_RSA}})
 	pkAttrs.SetIfUndefined(&Attribute{C.CKA_KEY_GEN_MECHANISM, []byte{C.CKM_RSA_PKCS_KEY_PAIR_GEN}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_LOCAL, []byte{C.CK_TRUE}})
+	pkAttrs.SetIfUndefined(&Attribute{C.CKA_LOCAL, []byte{CTrue}})
 
 	// This fields are our defaults
 
 	pkAttrs.SetIfUndefined(&Attribute{C.CKA_LABEL, nil})
 	pkAttrs.SetIfUndefined(&Attribute{C.CKA_ID, nil})
 	pkAttrs.SetIfUndefined(&Attribute{C.CKA_SUBJECT, nil})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_PRIVATE, []byte{C.CK_FALSE}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_MODIFIABLE, []byte{C.CK_TRUE}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_TOKEN, []byte{C.CK_FALSE}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_DERIVE, []byte{C.CK_FALSE}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_ENCRYPT, []byte{C.CK_TRUE}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_VERIFY, []byte{C.CK_TRUE}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_VERIFY_RECOVER, []byte{C.CK_TRUE}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_WRAP, []byte{C.CK_TRUE}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_TRUSTED, []byte{C.CK_FALSE}})
+	pkAttrs.SetIfUndefined(&Attribute{C.CKA_PRIVATE, []byte{CFalse}})
+	pkAttrs.SetIfUndefined(&Attribute{C.CKA_MODIFIABLE, []byte{CTrue}})
+	pkAttrs.SetIfUndefined(&Attribute{C.CKA_TOKEN, []byte{CFalse}})
+	pkAttrs.SetIfUndefined(&Attribute{C.CKA_DERIVE, []byte{CFalse}})
+	pkAttrs.SetIfUndefined(&Attribute{C.CKA_ENCRYPT, []byte{CTrue}})
+	pkAttrs.SetIfUndefined(&Attribute{C.CKA_VERIFY, []byte{CTrue}})
+	pkAttrs.SetIfUndefined(&Attribute{C.CKA_VERIFY_RECOVER, []byte{CTrue}})
+	pkAttrs.SetIfUndefined(&Attribute{C.CKA_WRAP, []byte{CTrue}})
+	pkAttrs.SetIfUndefined(&Attribute{C.CKA_TRUSTED, []byte{CFalse}})
 	pkAttrs.SetIfUndefined(&Attribute{C.CKA_START_DATE, make([]byte, 8)})
 	pkAttrs.SetIfUndefined(&Attribute{C.CKA_END_DATE, make([]byte, 8)})
 	pkAttrs.SetIfUndefined(&Attribute{C.CKA_MODULUS_BITS, nil})
@@ -611,29 +613,29 @@ func createPrivateKey(keyID string, skAttrs Attributes, keyMeta *tcrsa.KeyMeta) 
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_CLASS, []byte{C.CKO_PRIVATE_KEY}})
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_KEY_TYPE, []byte{C.CKK_RSA}})
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_KEY_GEN_MECHANISM, []byte{C.CKM_RSA_PKCS_KEY_PAIR_GEN}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_LOCAL, []byte{C.CK_TRUE}})
+	skAttrs.SetIfUndefined(&Attribute{C.CKA_LOCAL, []byte{CTrue}})
 
 	// This fields are our defaults
 
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_LABEL, nil})
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_ID, nil})
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_SUBJECT, nil})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_PRIVATE, []byte{C.CK_FALSE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_MODIFIABLE, []byte{C.CK_TRUE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_TOKEN, []byte{C.CK_FALSE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_DERIVE, []byte{C.CK_FALSE}})
+	skAttrs.SetIfUndefined(&Attribute{C.CKA_PRIVATE, []byte{CFalse}})
+	skAttrs.SetIfUndefined(&Attribute{C.CKA_MODIFIABLE, []byte{CTrue}})
+	skAttrs.SetIfUndefined(&Attribute{C.CKA_TOKEN, []byte{CFalse}})
+	skAttrs.SetIfUndefined(&Attribute{C.CKA_DERIVE, []byte{CFalse}})
 
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_WRAP_WITH_TRUSTED, []byte{C.CK_TRUE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_ALWAYS_AUTHENTICATE, []byte{C.CK_FALSE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_SENSITIVE, []byte{C.CK_TRUE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_ALWAYS_SENSITIVE, []byte{C.CK_TRUE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_DECRYPT, []byte{C.CK_TRUE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_SIGN, []byte{C.CK_TRUE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_DECRYPT, []byte{C.CK_TRUE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_SIGN_RECOVER, []byte{C.CK_TRUE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_UNWRAP, []byte{C.CK_TRUE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_EXTRACTABLE, []byte{C.CK_FALSE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_NEVER_EXTRACTABLE, []byte{C.CK_TRUE}})
+	skAttrs.SetIfUndefined(&Attribute{C.CKA_WRAP_WITH_TRUSTED, []byte{CTrue}})
+	skAttrs.SetIfUndefined(&Attribute{C.CKA_ALWAYS_AUTHENTICATE, []byte{CFalse}})
+	skAttrs.SetIfUndefined(&Attribute{C.CKA_SENSITIVE, []byte{CTrue}})
+	skAttrs.SetIfUndefined(&Attribute{C.CKA_ALWAYS_SENSITIVE, []byte{CTrue}})
+	skAttrs.SetIfUndefined(&Attribute{C.CKA_DECRYPT, []byte{CTrue}})
+	skAttrs.SetIfUndefined(&Attribute{C.CKA_SIGN, []byte{CTrue}})
+	skAttrs.SetIfUndefined(&Attribute{C.CKA_DECRYPT, []byte{CTrue}})
+	skAttrs.SetIfUndefined(&Attribute{C.CKA_SIGN_RECOVER, []byte{CTrue}})
+	skAttrs.SetIfUndefined(&Attribute{C.CKA_UNWRAP, []byte{CTrue}})
+	skAttrs.SetIfUndefined(&Attribute{C.CKA_EXTRACTABLE, []byte{CFalse}})
+	skAttrs.SetIfUndefined(&Attribute{C.CKA_NEVER_EXTRACTABLE, []byte{CTrue}})
 
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_START_DATE, make([]byte, 8)})
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_END_DATE, make([]byte, 8)})
@@ -668,20 +670,20 @@ func encodeKeyMeta(meta *tcrsa.KeyMeta) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func GetUserAuthorization(state CState, isToken, isPrivate C.CK_BBOOL, userAction bool) bool {
+func GetUserAuthorization(state CState, isToken, isPrivate CBool, userAction bool) bool {
 	switch state {
 	case C.CKS_RW_SO_FUNCTIONS:
-		return isPrivate == C.CK_FALSE
+		return isPrivate == CFalse
 	case C.CKS_RW_USER_FUNCTIONS:
 		return true
 	case C.CKS_RO_USER_FUNCTIONS:
-		if isToken == C.CK_TRUE {
+		if isToken == CTrue {
 			return !userAction
 		} else {
 			return true
 		}
 	case C.CKS_RW_PUBLIC_SESSION:
-		return isPrivate == C.CK_FALSE
+		return isPrivate == CFalse
 	case C.CKS_RO_PUBLIC_SESSION:
 		return false
 	}

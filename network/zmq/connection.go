@@ -1,8 +1,8 @@
 package zmq
 
 import (
-	"dtcmaster/network"
-	"dtcmaster/network/zmq/message"
+	"dtc/network"
+	"dtc/network/zmq/message"
 	"fmt"
 	"github.com/niclabs/tcrsa"
 	"github.com/pebbe/zmq4"
@@ -37,7 +37,7 @@ type ZMQ struct {
 	channel         chan *message.Message       // The channel where all the responses from router are sent.
 	pendingMessages map[string]*message.Message // A map with requests without response. To know what messages I'm expecting.
 	mutex           sync.Mutex                  // A mutex to operate the pendingMessages map.
-	currentMessage  message.MessageType         // A label which indicates the operation the connection is doing right now. It avoids inconsistent states (i.e. ask for a type of resource and then collect another one).
+	currentMessage  message.Type                // A label which indicates the operation the connection is doing right now. It avoids inconsistent states (i.e. ask for a type of resource and then collect another one).
 }
 
 // New returns a new ZMQ connection based in the configuration provided.
@@ -304,7 +304,7 @@ L:
 				log.Printf("unexpected message: %v\n", msg)
 			}
 		case <-timer:
-			log.Printf("timeout: %d out of %d sigs retrieved\n", len(sigShares), len (conn.nodes))
+			log.Printf("timeout: %d out of %d sigs retrieved\n", len(sigShares), len(conn.nodes))
 			break L
 		}
 	}

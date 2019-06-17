@@ -4,7 +4,7 @@ import (
 	"crypto"
 	"crypto/rsa"
 	"crypto/sha256"
-	"dtcmaster/network/zmq/message"
+	"dtc/network/zmq/message"
 	"fmt"
 	"github.com/niclabs/tcrsa"
 	"github.com/pebbe/zmq4"

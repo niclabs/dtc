@@ -1,7 +1,7 @@
 package zmq
 
 import (
-	"dtcmaster/network/zmq/message"
+	"dtc/network/zmq/message"
 	"fmt"
 	"github.com/niclabs/tcrsa"
 	"github.com/pebbe/zmq4"

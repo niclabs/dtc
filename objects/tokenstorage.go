@@ -1,18 +1,14 @@
-package storage
-
-import (
-	"dtcmaster/objects"
-)
+package objects
 
 type TokenStorage interface {
 	// Executes the logic necessary to initialize the storage.
 	InitStorage() error
 
 	// Saves a token into the storage, or returns an error.
-	SaveToken(*objects.Token) error
+	SaveToken(*Token) error
 
 	// Retrieves a token from the storage or returns an error.
-	GetToken(string) (*objects.Token, error)
+	GetToken(string) (*Token, error)
 
 	// Returns the biggest number of a handle in the storage.
 	GetMaxHandle() (int, error)

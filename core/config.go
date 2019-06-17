@@ -31,6 +31,7 @@ type DTCConfig struct {
 type CriptokiConfig struct {
 	ManufacturerID  string
 	Model           string
+	Description     string
 	VersionMajor    uint16
 	VersionMinor    uint16
 	MinPinLength    uint8
