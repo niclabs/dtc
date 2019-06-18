@@ -1,9 +1,10 @@
 package objects
 
-
-/**
+/*
+#include <stdlib.h>
+#include <string.h>
 #include "../criptoki/pkcs11go.h"
- */
+*/
 import "C"
 import (
 	"crypto"
@@ -19,23 +20,23 @@ type Mechanism struct {
 
 func CToMechanism(pMechanism CMechanismPtr) *Mechanism {
 	cMechanism := (*CMechanism)(unsafe.Pointer(pMechanism))
-	mechanismType := cMechanism._type
-	mechanismVal := C.GoStringN(unsafe.Pointer(cMechanism.pValue), C.int(cMechanism.ulValueLen))
-	return &CMechanism{
-		Type:  mechanismType,
-		Value: mechanismVal,
+	mechanismType := cMechanism.mechanism
+	mechanismVal := C.GoBytes(unsafe.Pointer(cMechanism.pParameter), C.int(cMechanism.ulParameterLen))
+	return &Mechanism{
+		Type:      mechanismType,
+		Parameter: mechanismVal,
 	}
 
 }
 
 func (mechanism *Mechanism) ToC(cDst CMechanismPtr) error {
 	cMechanism := (*CMechanism)(unsafe.Pointer(cDst))
-	if cMechanism.ulValueLen >= len(mechanism.Parameter) {
-		cMechanism._type = mechanism.Type
-		cMechanism.ulValueLen = C.int(len(mechanism.Parameter))
+	if cMechanism.ulParameterLen >= CULong(len(mechanism.Parameter)) {
+		cMechanism.mechanism = mechanism.Type
+		cMechanism.ulParameterLen = CULong(len(mechanism.Parameter))
 		cParameter := C.CBytes(mechanism.Parameter)
 		defer C.free(unsafe.Pointer(cParameter))
-		C.memcpy(cMechanism.pValue, cParameter, cMechanism.ulValueLen)
+		C.memcpy(unsafe.Pointer(cMechanism.pParameter), cParameter, cMechanism.ulParameterLen)
 	} else {
 		return NewError("Mechanism.ToC", "Buffer too small", C.CKR_BUFFER_TOO_SMALL)
 	}

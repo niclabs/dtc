@@ -11,7 +11,7 @@ type TokenStorage interface {
 	GetToken(string) (*Token, error)
 
 	// Returns the biggest number of a handle in the storage.
-	GetMaxHandle() (int, error)
+	GetMaxHandle() (CULong, error)
 
 	// Finalizes the use of the storage. The storage is not usable
 	// If this method is called.

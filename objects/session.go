@@ -117,9 +117,9 @@ func (session *Session) CreateObject(attrs Attributes) (*CryptoObject, error) {
 	}
 
 	token := session.Slot.token
-	isPrivate := CTrue
-	oClass := C.CKO_VENDOR_DEFINED
-	keyType := C.CKK_VENDOR_DEFINED
+	isPrivate := true
+	oClass := CObjectClass(C.CKO_VENDOR_DEFINED)
+	keyType := C.CK_KEY_TYPE(C.CKK_VENDOR_DEFINED)
 
 	privAttr, err := object.Attributes.GetAttributeByType(C.CKA_PRIVATE)
 	if err == nil && len(privAttr.Value) > 0 {
@@ -136,7 +136,7 @@ func (session *Session) CreateObject(attrs Attributes) (*CryptoObject, error) {
 		keyType = C.CK_KEY_TYPE(keyTypeAttr.Value[0])
 	}
 
-	if isToken == CTrue && session.isReadOnly() {
+	if isToken && session.isReadOnly() {
 		return nil, NewError("Session.CreateObject", "session is read only", C.CKR_SESSION_READ_ONLY)
 	}
 	state, err := session.GetState()
@@ -203,15 +203,15 @@ func (session *Session) FindObjectsInit(attrs Attributes) error {
 	if len(attrs) == 0 {
 		session.foundObjects = make([]CObjectHandle, len(token.Objects))
 		i := 0
-		for handle, _ := range token.Objects {
-			session.foundObjects[i] = handle
+		for _, object := range token.Objects {
+			session.foundObjects[i] = object.Handle
 			i++
 		}
 	} else {
 		session.foundObjects = make([]CObjectHandle, 0)
-		for handle, object := range token.Objects {
+		for _, object := range token.Objects {
 			if object.Match(attrs) {
-				session.foundObjects = append(session.foundObjects, handle)
+				session.foundObjects = append(session.foundObjects, object.Handle)
 			}
 		}
 	}
@@ -670,20 +670,20 @@ func encodeKeyMeta(meta *tcrsa.KeyMeta) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func GetUserAuthorization(state CState, isToken, isPrivate CBool, userAction bool) bool {
+func GetUserAuthorization(state CState, isToken, isPrivate, userAction bool) bool {
 	switch state {
 	case C.CKS_RW_SO_FUNCTIONS:
-		return isPrivate == CFalse
+		return !isPrivate
 	case C.CKS_RW_USER_FUNCTIONS:
 		return true
 	case C.CKS_RO_USER_FUNCTIONS:
-		if isToken == CTrue {
+		if isToken {
 			return !userAction
 		} else {
 			return true
 		}
 	case C.CKS_RW_PUBLIC_SESSION:
-		return isPrivate == CFalse
+		return !isPrivate
 	case C.CKS_RO_PUBLIC_SESSION:
 		return false
 	}

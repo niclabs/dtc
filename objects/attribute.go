@@ -1,6 +1,8 @@
 package objects
 
 /*
+#include <stdlib.h>
+#include <string.h>
 #include "../criptoki/pkcs11go.h"
 */
 import "C"
@@ -19,7 +21,7 @@ type Attribute struct {
 type Attributes map[CAttrType]*Attribute
 
 func CToAttributes(pAttributes CAttrPointer, ulCount CULong) (Attributes, error) {
-	if !ulCount > 0 {
+	if ulCount <= 0 {
 		return nil, NewError("CToAttributes", "cannot transform: ulcount is not greater than 0", C.CKR_BUFFER_TOO_SMALL)
 	}
 
@@ -70,12 +72,12 @@ func CToAttribute(cAttr CAttr) *Attribute {
 
 func (attribute *Attribute) ToC(cDst CAttrPointer) error {
 	if cDst.pValue == nil {
-		cDst.ulValueLen = len(attribute.Value)
+		cDst.ulValueLen = CULong(len(attribute.Value))
 		return nil
 	}
-	if cDst.ulValueLen >= len(attribute.Value) {
-		cValue := C.CString(attribute.Value)
-		cValueLen := C.ulong(len(attribute.Value))
+	if cDst.ulValueLen >= CULong(len(attribute.Value)) {
+		cValue := C.CBytes(attribute.Value)
+		cValueLen := CULong(len(attribute.Value))
 		cDst._type = attribute.Type
 		cDst.ulValueLen = cValueLen
 		C.memcpy(unsafe.Pointer(cDst.pValue), unsafe.Pointer(cValue), cValueLen)

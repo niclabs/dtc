@@ -1,6 +1,8 @@
 package objects
 
 /*
+#include <stdlib.h>
+#include <string.h>
 #include "../criptoki/pkcs11go.h"
 */
 import "C"
@@ -11,7 +13,7 @@ import (
 )
 
 type Slot struct {
-	ID       int64
+	ID       CSlotID
 	flags    uint64
 	token    *Token
 	Sessions Sessions
@@ -82,25 +84,31 @@ func (slot *Slot) GetInfo (pInfo CSlotInfoPointer) error {
 	if pInfo == nil {
 		return NewError("Slot.GetInfo", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
 	}
-	info := (CSlotInfo)(unsafe.Pointer(pInfo))
+	info := (*CSlotInfo)(unsafe.Pointer(pInfo))
 
-	description := "TCHSM Slot"
+	description := slot.Application.Config.Criptoki.Description
+	if len(description) > 64 {
+		description = description[:64]
+	}
 	description += strings.Repeat(" ", 64 - len(description)) // spaces
-	cDescription := C.CString(description)
+	cDescription := C.CBytes([]byte(description), len(description))
 	defer C.free(unsafe.Pointer(cDescription))
-	C.strncpy(info.slotDescription, cDescription, 64)
+	C.memcpy(unsafe.Pointer(&info.slotDescription[0]), cDescription, 64)
 
-	manufacturerID := "Nic Chile Research Labs"
+	manufacturerID := slot.Application.Config.Criptoki.ManufacturerID
+	if len(manufacturerID) > 64 {
+		manufacturerID = manufacturerID[:64]
+	}
 	manufacturerID += strings.Repeat(" ", 32 - len(manufacturerID))
-	cManufacturerID := C.CString(manufacturerID)
+	cManufacturerID := C.CBytes([]byte(manufacturerID))
 	defer C.free(unsafe.Pointer(cManufacturerID))
-	C.strncpy(info.manufacturerID, cManufacturerID, 32)
+	C.memcpy(unsafe.Pointer(&info.manufacturerID[0]), cManufacturerID, 32)
 
-	pInfo.flags = slot.flags
-	pInfo.hardwareVersion.major = slot.Application.Config.Criptoki.VersionMajor
-	pInfo.hardwareVersion.minor = slot.Application.Config.Criptoki.VersionMinor
-	pInfo.firmwareVersion.major = slot.Application.Config.Criptoki.VersionMajor
-	pInfo.firmwareVersion.minor = slot.Application.Config.Criptoki.VersionMinor
+	pInfo.flags = CULong(slot.flags)
+	pInfo.hardwareVersion.major = C.uchar(slot.Application.Config.Criptoki.VersionMajor)
+	pInfo.hardwareVersion.minor = C.uchar(slot.Application.Config.Criptoki.VersionMinor)
+	pInfo.firmwareVersion.major = C.uchar(slot.Application.Config.Criptoki.VersionMajor)
+	pInfo.firmwareVersion.minor = C.uchar(slot.Application.Config.Criptoki.VersionMinor)
 	return nil
 }
 

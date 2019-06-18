@@ -1,6 +1,8 @@
 package main
 
 /*
+#include <stdlib.h>
+#include <string.h>
 #include "pkcs11go.h"
 */
 import "C"
@@ -116,12 +118,18 @@ func C_GetInfo(pInfo C.CK_INFO_PTR) C.CK_RV {
 	info := (*C.CK_INFO)(unsafe.Pointer(pInfo))
 
 	manufacturer := App.Config.Criptoki.ManufacturerID
+	if len(manufacturer) > 32 {
+		manufacturer = manufacturer[:32]
+	}
 	manufacturer += strings.Repeat(" ", 32-len(manufacturer))
 	cManufacturerID := C.CString(manufacturer)
 	defer C.free(unsafe.Pointer(cManufacturerID))
 	C.strncpy(info.manufacturerID, cManufacturerID, 32)
 
 	description := App.Config.Criptoki.Description
+	if len(description) > 32 {
+		description = description[:32]
+	}
 	description += strings.Repeat(" ", 32-len(description))
 	cDescription := C.CString(manufacturer)
 	defer C.free(unsafe.Pointer(cDescription))

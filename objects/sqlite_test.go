@@ -1,7 +1,6 @@
-package sqlite3
+package objects
 
 import (
-	"dtc/objects"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -10,7 +9,7 @@ import (
 const TestFirstTokenLabel = "TCBHSM"
 const TestOtherTokenLabel = "LABEL2"
 
-func initDB() (objects.TokenStorage, error) {
+func initDB() (TokenStorage, error) {
 	db, err := GetDatabase(":memory:")
 	if err != nil {
 		return nil, fmt.Errorf("couldn't get database: %v", err)
@@ -63,23 +62,23 @@ func TestDB_SaveToken(t *testing.T) {
 	if err != nil {
 		t.Errorf("init_storage: %v", err)
 	}
-	newToken := &objects.Token{
+	newToken := &Token{
 		Label:TestOtherTokenLabel,
 		Pin: "1234",
 		SoPin: "1234",
-		Objects: make(objects.CryptoObjects, 0),
+		Objects: make(CryptoObjects, 0),
 	}
 	actualHandle, err := db.GetMaxHandle()
 	if err != nil {
 		t.Errorf("max_handle: %v", err)
 	}
 	newHandle := actualHandle + 1
-	newToken.Objects[newHandle] = &objects.CryptoObject{
+	newToken.Objects[newHandle] = &CryptoObject{
 		Handle: newHandle,
-		Attributes: make(objects.Attributes),
+		Attributes: make(Attributes),
 	}
 	newAttrType := int64(0)
-	newToken.Objects[newHandle].Attributes[newAttrType] = &objects.Attribute{
+	newToken.Objects[newHandle].Attributes[newAttrType] = &Attribute{
 		Type: newAttrType,
 		Value: []byte("hello_world"),
 	}

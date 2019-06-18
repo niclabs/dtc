@@ -52,11 +52,11 @@ func (objects CryptoObjects) Equals(objects2 CryptoObjects) bool {
 	if len(objects) != len(objects2) {
 		return false
 	}
-	for handle, object := range objects {
+	for _, object := range objects {
 		ok := false
 		var object2 *CryptoObject
 		for _, object2 = range objects2 {
-			if object2.Handle == handle {
+			if object2.Handle == object.Handle {
 				ok = true
 				break
 			}
@@ -103,7 +103,7 @@ func (object *CryptoObject) CopyAttributes(pTemplate CAttrPointer, ulCount CULon
 	templateSlice := (*[1 << 30]CAttr)(unsafe.Pointer(pTemplate))[:ulCount:ulCount]
 
 	for i := 0; i < len(templateSlice); i++ {
-		src := object.FindAttribute(templateSlice[i])
+		src := object.FindAttribute(templateSlice[i]._type)
 		if src != nil {
 			err := src.ToC(&templateSlice[i])
 			if err != nil {

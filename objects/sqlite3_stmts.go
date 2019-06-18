@@ -1,4 +1,4 @@
-package sqlite3
+package objects
 
 const CreateTokenTable = `
     CREATE TABLE IF NOT EXISTS token (

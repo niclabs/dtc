@@ -10,7 +10,8 @@ criptoki:
   model: "TCHSM"
   description: "Implementación de PKCS11"
   version_major: 2
-  version_minor: 0
+  version_minor: 40
+  serialnumber: "1"
   min_pin_len: 3
   max_pin_len: 10
   max_session_count: 5

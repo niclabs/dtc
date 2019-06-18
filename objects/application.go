@@ -33,7 +33,8 @@ func NewApplication() (app *Application, err error) {
 			ID:          CSlotID(i),
 			Application: app,
 		}
-		token, err := db.GetToken(slotConf.Label)
+		var token *Token
+		token, err = db.GetToken(slotConf.Label)
 		if err != nil {
 			err = NewError("NewApplication", err.Error(), C.CKR_DEVICE_ERROR)
 			return

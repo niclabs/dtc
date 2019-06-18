@@ -1,6 +1,8 @@
 package objects
 
 /*
+#include <stdlib.h>
+#include <string.h>
 #include "../criptoki/pkcs11go.h"
 */
 import "C"
@@ -63,14 +65,14 @@ func (token *Token) GetInfo(pInfo CTokenInfoPtr) error {
 	if pInfo == nil {
 		return NewError("token.GetInfo", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
 	}
-	info := (*CTokenInfoPtr)(unsafe.Pointer(pInfo))
+	info := (*CTokenInfo)(unsafe.Pointer(pInfo))
 
 	if len(token.Label) == 0 {
-		C.memset(info.label, " ", 32)
+		C.memset(unsafe.Pointer(&info.label[0]), ' ', 32)
 	} else {
-		cLabel := C.Cstring(token.Label)
+		cLabel := C.CBytes([]byte(token.Label))
 		defer C.free(unsafe.Pointer(cLabel))
-		C.memset(info.label, cLabel, len(token.Label))
+		C.memcpy(unsafe.Pointer(&info.label[0]), cLabel, CULong(len(token.Label)))
 	}
 
 	if token.slot == nil {
@@ -81,27 +83,32 @@ func (token *Token) GetInfo(pInfo CTokenInfoPtr) error {
 	if len(manufacturerID) > 32 {
 		manufacturerID = manufacturerID[:32]
 	}
-	manufacturerID += strings.Repeat(" ", 32-len(manufacturerID))
-	cManufacturerID := C.CString(manufacturerID)
+
+	manufacturerID += strings.Repeat(" ", 32 - len(manufacturerID))
+	cManufacturerID := C.CBytes([]byte(manufacturerID))
 	defer C.free(unsafe.Pointer(cManufacturerID))
-	C.strncpy(info.manufacturerID, cManufacturerID, 32)
+	C.memcpy(unsafe.Pointer(&info.manufacturerID[0]), cManufacturerID, 32)
 
 	model := token.slot.Application.Config.Criptoki.Model
 	if len(model) > 16 {
 		model = model[:16]
 	}
-	model += strings.Repeat(" ", 16-len(manufacturerID))
-	cModel := C.CString(model)
+	model += strings.Repeat(" ", 16-len(model))
+	cModel := C.CBytes([]byte(model))
 	defer C.free(unsafe.Pointer(cModel))
-	C.strncpy(info.model, cModel, 16)
+	C.memcpy(unsafe.Pointer(&info.model[0]), cModel, 16)
 
-	serialNumber := "1"
-	serialNumber += strings.Repeat(" ", 16-len(manufacturerID))
-	cSerialNumber := C.CString(serialNumber)
-	defer C.free(unsafe.Pointer(cSerialNumber))
-	C.strncpy(info.serialNumber, cSerialNumber, 16)
+	serialNumber := token.slot.Application.Config.Criptoki.SerialNumber
+	if len(serialNumber) > 16 {
+		serialNumber = serialNumber[:16]
+	}
 
-	info.flags = token.tokenFlags
+	serialNumber += strings.Repeat(" ", 16-len(serialNumber))
+	cSerial := C.CBytes([]byte(model))
+	defer C.free(unsafe.Pointer(cSerial))
+	C.memcpy(unsafe.Pointer(&info.serialNumber[0]), cSerial, 16)
+
+	info.flags = CULong(token.tokenFlags)
 	info.ulMaxSessionCount = token.slot.Application.Config.Criptoki.MaxSessionCount
 	info.ulSessionCount = CUnavailableInfo
 	info.ulMaxRwSessionCount = token.slot.Application.Config.Criptoki.MaxSessionCount
@@ -112,15 +119,15 @@ func (token *Token) GetInfo(pInfo CTokenInfoPtr) error {
 	info.ulFreePublicMemory = CUnavailableInfo
 	info.ulTotalPrivateMemory = CUnavailableInfo
 	info.ulFreePrivateMemory = CUnavailableInfo
-	info.hardwareVersion.major = token.slot.Application.Config.Criptoki.VersionMajor
-	info.hardwareVersion.minor = token.slot.Application.Config.Criptoki.VersionMinor
-	info.firmwareVersion.major = token.slot.Application.Config.Criptoki.VersionMajor
-	info.firmwareVersion.minor = token.slot.Application.Config.Criptoki.VersionMinor
+	info.hardwareVersion.major = C.uchar(token.slot.Application.Config.Criptoki.VersionMajor)
+	info.hardwareVersion.minor = C.uchar(token.slot.Application.Config.Criptoki.VersionMinor)
+	info.firmwareVersion.major = C.uchar(token.slot.Application.Config.Criptoki.VersionMajor)
+	info.firmwareVersion.minor = C.uchar(token.slot.Application.Config.Criptoki.VersionMinor)
 
 	now := time.Now()
 	cTimeStr := C.CString(now.Format("20060102150405") + "00")
 	defer C.free(unsafe.Pointer(cTimeStr))
-	C.memcpy(info.utcTime, cTimeStr, 16)
+	C.memcpy(unsafe.Pointer(info.utcTime), cTimeStr, 16)
 
 	return nil
 }
@@ -163,7 +170,7 @@ func (token *Token) Login(userType CUserType, pin string) error {
 	if token.loggedIn &&
 		(userType == C.CKU_USER && token.securityLevel == SecurityOfficer) ||
 		(userType == C.CKU_SO && token.securityLevel == User) {
-		return NewError("token.Login", "another user already logged in", C.CKR_ANOTHER_USER_ALREADY_LOGGED_IN)
+		return NewError("token.Login", "another user already logged in", C.CKR_USER_ALREADY_LOGGED_IN)
 	}
 
 	switch userType {

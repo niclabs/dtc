@@ -34,6 +34,7 @@ type CriptokiConfig struct {
 	Description     string
 	VersionMajor    uint16
 	VersionMinor    uint16
+	SerialNumber	string
 	MinPinLength    uint8
 	MaxPinLength    uint8
 	MaxSessionCount uint16

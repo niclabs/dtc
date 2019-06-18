@@ -1,21 +1,34 @@
-package sqlite3
+package objects
 
 import (
 	"database/sql"
-	"dtc/objects"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/spf13/viper"
 )
 
-// DB is a wrapper over a sql.DB object, complying with storage
+type Sqlite3Config struct {
+	Path string
+}
+
+func GetSqlite3Config() (*Sqlite3Config, error) {
+	var conf Sqlite3Config
+	err := viper.UnmarshalKey("sqlite3", &conf)
+	if err != nil {
+		return nil, err
+	}
+	return &conf, nil
+}
+
+// Sqlite3DB is a wrapper over a sql.Sqlite3DB object, complying with storage
 // interface.
-type DB struct {
+type Sqlite3DB struct {
 	*sql.DB
 	ActualHandle int
 }
 
 // Creates the databases if they doesn't exist yet.
-func (db DB) InitStorage() error {
+func (db Sqlite3DB) InitStorage() error {
 	if err := db.createTables(); err != nil {
 		return fmt.Errorf("create tables: %v", err)
 	}
@@ -25,7 +38,7 @@ func (db DB) InitStorage() error {
 	return nil
 }
 
-func (db DB) SaveToken(token *objects.Token) error {
+func (db Sqlite3DB) SaveToken(token *Token) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -83,7 +96,7 @@ func (db DB) SaveToken(token *objects.Token) error {
 	return tx.Commit()
 }
 
-func (db DB) GetToken(label string) (token *objects.Token, err error) {
+func (db Sqlite3DB) GetToken(label string) (token *Token, err error) {
 	// Retrieve token
 	tokenStmt, err := db.Prepare(GetTokenQuery)
 	if err != nil {
@@ -94,11 +107,11 @@ func (db DB) GetToken(label string) (token *objects.Token, err error) {
 	if err != nil {
 		return
 	}
-	token = &objects.Token{
+	token = &Token{
 		Label: label,
 		Pin:   pin,
 		SoPin: soPin,
-		Objects: make(objects.CryptoObjects, 0),
+		Objects: make(CryptoObjects, 0),
 	}
 
 	attrsStmt, err := db.Prepare(GetCryptoObjectAttrsQuery)
@@ -113,20 +126,20 @@ func (db DB) GetToken(label string) (token *objects.Token, err error) {
 	var aHandle int
 	var aType sql.NullInt64
 	var aValue []byte
-	var object *objects.CryptoObject
+	var object *CryptoObject
 	for rows.Next() {
 		err = rows.Scan(&aHandle, &aType, &aValue)
 		if err != nil {
 			return
 		}
-		object = &objects.CryptoObject{
-			Handle:     aHandle,
-			Attributes: make(objects.Attributes),
+		object = &CryptoObject{
+			Handle:     CObjectHandle(aHandle),
+			Attributes: make(Attributes),
 		}
 		token.Objects = append(token.Objects, object)
 		if aType.Valid && aValue != nil {
-			object.Attributes[aType.Int64] = &objects.Attribute{
-				Type:  aType.Int64,
+			object.Attributes[CAttrType(aType.Int64)] = &Attribute{
+				Type:  CAttrType(aType.Int64),
 				Value: aValue,
 			}
 		}
@@ -134,29 +147,29 @@ func (db DB) GetToken(label string) (token *objects.Token, err error) {
 	return
 }
 
-func (db DB) GetMaxHandle() (int, error) {
+func (db Sqlite3DB) GetMaxHandle() (CULong, error) {
 	err := db.updateMaxHandle()
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
-	return db.ActualHandle, nil
+	return CULong(db.ActualHandle), nil
 }
 
-func (db DB) CloseStorage() error {
+func (db Sqlite3DB) CloseStorage() error {
 	return db.Close()
 }
 
-func GetDatabase(path string) (objects.TokenStorage, error) {
+func GetDatabase(path string) (TokenStorage, error) {
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
 		return nil, err
 	}
-	return &DB{
+	return &Sqlite3DB{
 		DB: db,
 	}, nil
 }
 
-func (db DB) createTables() error {
+func (db Sqlite3DB) createTables() error {
 	for _, stmt := range CreateStmts {
 		_, err := db.Exec(stmt)
 		if err != nil {
@@ -166,7 +179,7 @@ func (db DB) createTables() error {
 	return nil
 }
 
-func (db DB) insertFirstToken() error {
+func (db Sqlite3DB) insertFirstToken() error {
 	stmt, err := db.Prepare(InsertTokenQuery)
 	if err != nil {
 		return err
@@ -175,7 +188,7 @@ func (db DB) insertFirstToken() error {
 	return err
 }
 
-func (db DB) updateMaxHandle() error {
+func (db Sqlite3DB) updateMaxHandle() error {
 	rows, err := db.Query(GetMaxHandleQuery)
 	if err != nil {
 		return err

@@ -1,4 +1,9 @@
 package objects
+/*
+#include <stdlib.h>
+#include <string.h>
+#include "../criptoki/pkcs11go.h"
+*/
 import "C"
 
 type CULong = C.CK_ULONG
@@ -35,8 +40,9 @@ type CMechanismType = C.CK_MECHANISM_TYPE
 
 type CUserType = C.CK_USER_TYPE
 
-type CUTF8CharPtr = C.CK_UTF8_CHAR_PTR
+type CUTF8CharPtr = C.CK_UTF8CHAR_PTR
 
 const CUnavailableInfo = C.CK_UNAVAILABLE_INFORMATION
 
 type CTokenInfoPtr = C.CK_TOKEN_INFO_PTR
+type CTokenInfo = C.CK_TOKEN_INFO
