@@ -1,8 +1,8 @@
 package zmq
 
 import (
-	"dtc/network/zmq/message"
 	"fmt"
+	"github.com/niclabs/dtcnode/message"
 	"github.com/niclabs/tcrsa"
 	"github.com/pebbe/zmq4"
 	"net"

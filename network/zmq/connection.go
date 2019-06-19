@@ -2,8 +2,8 @@ package zmq
 
 import (
 	"dtc/network"
-	"dtc/network/zmq/message"
 	"fmt"
+	"github.com/niclabs/dtcnode/message"
 	"github.com/niclabs/tcrsa"
 	"github.com/pebbe/zmq4"
 	"log"
@@ -192,11 +192,11 @@ func (conn *ZMQ) SendKeyShares(keyID string, keys tcrsa.KeyShareList, meta *tcrs
 		return fmt.Errorf("cannot send key shares in a currentMessage state different to None")
 	}
 	for i, node := range conn.nodes {
-		message, err := node.sendKeyShare(keyID, keys[i], meta)
+		msg, err := node.sendKeyShare(keyID, keys[i], meta)
 		if err != nil {
 			return fmt.Errorf("error with node %d: %s", i, err)
 		}
-		conn.pendingMessages[message.ID] = message
+		conn.pendingMessages[msg.ID] = msg
 	}
 	conn.currentMessage = message.SendKeyShare
 	return nil
@@ -246,11 +246,11 @@ func (conn *ZMQ) AskForSigShares(keyID string, hash []byte) error {
 		return fmt.Errorf("cannot ask for sig shares in a currentMessage state different to None")
 	}
 	for _, node := range conn.nodes {
-		message, err := node.AskForSigShare(keyID, hash)
+		msg, err := node.AskForSigShare(keyID, hash)
 		if err != nil {
 			return fmt.Errorf("error asking sigshare with node %s: %s", node.GetID(), err)
 		}
-		conn.pendingMessages[message.ID] = message
+		conn.pendingMessages[msg.ID] = msg
 	}
 	conn.currentMessage = message.AskForSigShare
 	return nil
@@ -287,12 +287,12 @@ L:
 					log.Printf("corrupt key: %v\n", msg)
 					// Ask for it again?
 					node := conn.GetNodeByID(msg.NodeID)
-					newRequest, err := node.AskForSigShare(string(pending.Data[0]), pending.Data[1])
+					newMsg, err := node.AskForSigShare(string(pending.Data[0]), pending.Data[1])
 					if err != nil {
 						log.Printf("error asking signature share to node %s: %s\n", node.GetID(), err)
 					}
 					// save it in pending
-					conn.pendingMessages[newRequest.ID] = newRequest
+					conn.pendingMessages[newMsg.ID] = newMsg
 				} else {
 					sigShares = append(sigShares, sigShare)
 					if len(sigShares) == len(conn.nodes) {

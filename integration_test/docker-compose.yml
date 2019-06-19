@@ -1,0 +1,7 @@
+version: '3'
+services:
+  node1:
+    ports:
+      - "2030:2030"
+      - "2031:2031"
+
