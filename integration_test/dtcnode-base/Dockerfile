@@ -1,6 +1,6 @@
 FROM golang:alpine
 
-MAINTAINER Eduardo Riveros R. <eduardo@niclabs.cl>
+MAINTAINER Eduardo Riveros<eduardo@niclabs.cl>
 
 ENV DTC_NODE 0.0.0.0:2030
 ENV DTC_SERVERS localhost:2030
@@ -19,3 +19,5 @@ RUN go mod tidy
 RUN go build
 
 RUN mkdir /etc/dtcnode
+
+RUN apk del git pkgconfig gcc musl-dev

@@ -1,0 +1,45 @@
+dtc:
+  messaging_type: zmq
+  instance_id: "libdtc"
+  timeout: 10
+  nodes_number: 5
+  threshold: 3
+
+criptoki:
+  manufacturer_id: "NICLabs"
+  model: "TCHSM"
+  description: "Implementación de PKCS11"
+  version_major: 2
+  version_minor: 40
+  serialnumber: "1"
+  min_pin_len: 3
+  max_pin_len: 10
+  max_session_count: 5
+  database_type: sqlite3
+  slots:
+    - label: slot1
+
+sqlite3:
+  path: db.sqlite3
+
+zmq:
+  public_key: "{0j3IXL0Jw:)K$b1@(1=<8z/joPM.c+EXVBMS>7$"
+  private_key: "F(/uq@m$}KW>)X=0yKRh}lg!N![Efl<@3<Bbelp3"
+      ip: 0.0.0.0
+  port: 2031
+  nodes:
+    - ip: localhost
+      public_key: PubK
+      port: 9871
+    - ip: localhost
+      public_key: PubK
+      port: 9872
+    - ip: localhost
+      public_key: PubK
+      port: 9873
+    - ip: localhost
+      public_key: PubK
+      port: 9874
+    - ip: localhost
+      public_key: PubK
+      port: 9875
