@@ -601,8 +601,8 @@ func createPublicKey(keyID string, pkAttrs Attributes, keyMeta *tcrsa.KeyMeta) (
 		return nil, NewError("Session.createPublicKey", fmt.Sprintf("%s", err.Error()), C.CKR_ARGUMENTS_BAD)
 	}
 
-	pkAttrs.SetIfUndefined(&Attribute{C.CK_ATTRIBUTE_TYPE(AttrTypeKeyHandler), []byte(keyID)})
-	pkAttrs.SetIfUndefined(&Attribute{C.CK_ATTRIBUTE_TYPE(AttrTypeKeyMeta), encodedKeyMeta})
+	pkAttrs.SetIfUndefined(&Attribute{AttrTypeKeyHandler, []byte(keyID)})
+	pkAttrs.SetIfUndefined(&Attribute{AttrTypeKeyMeta, encodedKeyMeta})
 
 	return pkAttrs, nil
 }
@@ -655,8 +655,8 @@ func createPrivateKey(keyID string, skAttrs Attributes, keyMeta *tcrsa.KeyMeta) 
 		return nil, NewError("Session.createPublicKey", fmt.Sprintf("%s", err.Error()), C.CKR_ARGUMENTS_BAD)
 	}
 
-	skAttrs.SetIfUndefined(&Attribute{C.CK_ATTRIBUTE_TYPE(AttrTypeKeyHandler), []byte(keyID)})
-	skAttrs.SetIfUndefined(&Attribute{C.CK_ATTRIBUTE_TYPE(AttrTypeKeyMeta), encodedKeyMeta})
+	skAttrs.SetIfUndefined(&Attribute{AttrTypeKeyHandler, []byte(keyID)})
+	skAttrs.SetIfUndefined(&Attribute{AttrTypeKeyMeta, encodedKeyMeta})
 
 	return skAttrs, nil
 }
