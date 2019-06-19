@@ -1,9 +1,9 @@
 dtc:
   messaging_type: zmq
-  instance_id: libdtc
+  instance_id: "libdtc"
   timeout: 10
-  nodes_number: 10
-  threshold: 8
+  nodes_number: 5
+  threshold: 3
 
 criptoki:
   manufacturer_id: "NICLabs"
@@ -23,13 +23,23 @@ sqlite3:
   path: db.sqlite3
 
 zmq:
-  public_key: PubK
-  private_key: PrivK
-  ip: 1.2.3.4
-  router_port: 2031 # Router port
-  push_port: 3031 # Router port
+  public_key: "{0j3IXL0Jw:)K$b1@(1=<8z/joPM.c+EXVBMS>7$"
+  private_key: "F(/uq@m$}KW>)X=0yKRh}lg!N![Efl<@3<Bbelp3"
+      ip: 0.0.0.0
+  port: 2031
   nodes:
-    - ip: 1.2.3.4
+    - ip: localhost
       public_key: PubK
-    - ip: 1.2.3.4
+      port: 9871
+    - ip: localhost
       public_key: PubK
+      port: 9872
+    - ip: localhost
+      public_key: PubK
+      port: 9873
+    - ip: localhost
+      public_key: PubK
+      port: 9874
+    - ip: localhost
+      public_key: PubK
+      port: 9875

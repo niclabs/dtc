@@ -23,23 +23,23 @@ sqlite3:
   path: db.sqlite3
 
 zmq:
-  public_key: "{0j3IXL0Jw:)K$b1@(1=<8z/joPM.c+EXVBMS>7$"
-  private_key: "F(/uq@m$}KW>)X=0yKRh}lg!N![Efl<@3<Bbelp3"
+  public_key: "changeme"
+  private_key: "changeme"
       ip: 0.0.0.0
   port: 2031
   nodes:
-    - ip: localhost
-      public_key: PubK
+    - ip: 127.0.0.1
+      public_key: "changeme"
       port: 9871
-    - ip: localhost
-      public_key: PubK
+    - ip: 127.0.0.1
+      public_key: "changeme"
       port: 9872
-    - ip: localhost
-      public_key: PubK
+    - ip: 127.0.0.1
+      public_key: "changeme"
       port: 9873
-    - ip: localhost
-      public_key: PubK
+    - ip: 127.0.0.1
+      public_key: "changeme"
       port: 9874
-    - ip: localhost
-      public_key: PubK
+    - ip: 127.0.0.1
+      public_key: "changeme"
       port: 9875
