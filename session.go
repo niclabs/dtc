@@ -245,7 +245,7 @@ func (session *Session) FindObjects(maxObjectCount C.CK_ULONG) ([]C.CK_OBJECT_HA
 		return nil, NewError("Session.FindObjects", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
 	}
 	limit := len(session.foundObjects)
-	if int(maxObjectCount) >= limit {
+	if int(maxObjectCount) < limit {
 		limit = int(maxObjectCount)
 	}
 	resul := session.foundObjects[:limit]
@@ -316,6 +316,19 @@ func (session *Session) Logout() error {
 	return nil
 }
 
+func (session *Session) GetDTC() (*DTC, error) {
+	if session.Slot == nil {
+		return nil, NewError("Session.GetDTC", "slot null", C.CKR_DEVICE_ERROR)
+	} else if session.Slot.Application == nil {
+		return nil, NewError("Session.GetDTC", "application null in slot", C.CKR_DEVICE_ERROR)
+
+	} else if session.Slot.Application.DTC == nil {
+		return nil, NewError("Session.GetDTC", "dtc null in application", C.CKR_DEVICE_ERROR)
+	}
+	return session.Slot.Application.DTC, nil
+}
+
+
 func (session *Session) GenerateKeyPair(mechanism *Mechanism, pkAttrs, skAttrs Attributes) (pkObject, skObject *CryptoObject, err error) {
 	// TODO: Verify access permissions (in my defense, the original implementation didn't do that too)
 	if mechanism == nil || pkAttrs == nil || skAttrs == nil { // maybe this should be 0?
@@ -333,11 +346,16 @@ func (session *Session) GenerateKeyPair(mechanism *Mechanism, pkAttrs, skAttrs A
 
 	switch mechanism.Type {
 	case C.CKM_RSA_PKCS_KEY_PAIR_GEN:
-		keyID := uuid.New().String()
 		// TODO: check if this UUID had been used before (?)
+		keyID := uuid.New().String()
+		var dtc *DTC
+		dtc, err = session.GetDTC()
+		if err != nil {
+			return
+		}
 		var keyMeta *tcrsa.KeyMeta
 		var pk, sk Attributes
-		keyMeta, err = session.Slot.Application.DTC.CreateNewKey(keyID, int(bitSize), nil)
+		keyMeta, err = dtc.CreateNewKey(keyID, int(bitSize), nil)
 		if err != nil {
 			return
 		}

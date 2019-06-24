@@ -7,6 +7,7 @@ package main
 */
 import "C"
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"unsafe"
@@ -27,12 +28,10 @@ func (slot *Slot) IsTokenPresent() bool {
 
 
 func (slot *Slot) OpenSession(flags C.CK_FLAGS) (C.CK_SESSION_HANDLE, error) {
-	if slot.IsTokenPresent() {
+	if !slot.IsTokenPresent() {
 		return 0, NewError("Slot.OpenSession", "token not present", C.CKR_TOKEN_NOT_PRESENT)
 	}
-	session := &Session{
-		flags: flags,
-	}
+	session := NewSession(flags, slot)
 	handle := session.GetHandle()
 	slot.Lock()
 	defer slot.Unlock()
@@ -41,7 +40,7 @@ func (slot *Slot) OpenSession(flags C.CK_FLAGS) (C.CK_SESSION_HANDLE, error) {
 }
 
 func (slot *Slot) CloseSession(handle C.CK_SESSION_HANDLE) error {
-	if slot.IsTokenPresent() {
+	if !slot.IsTokenPresent() {
 		return NewError("Slot.CloseSession", "token not present", C.CKR_TOKEN_NOT_PRESENT)
 	}
 	if _, err := slot.GetSession(handle); err != nil {
@@ -60,13 +59,13 @@ func (slot *Slot) CloseAllSessions() {
 }
 
 func (slot *Slot) GetSession(handle C.CK_SESSION_HANDLE) (*Session, error) {
-	if slot.IsTokenPresent() {
+	if !slot.IsTokenPresent() {
 		return nil, NewError("Slot.GetSession", "token not present", C.CKR_TOKEN_NOT_PRESENT)
 	}
 	slot.Lock()
 	defer slot.Unlock()
-	if session, ok := slot.Sessions[handle]; ok {
-		return nil, NewError("Slot.CloseSession", "session handle doesn't exist in this slot", C.CKR_SESSION_HANDLE_INVALID)
+	if session, ok := slot.Sessions[handle]; !ok {
+		return nil, NewError("Slot.CloseSession", fmt.Sprintf("session handle '%s' doesn't exist in this slot", handle), C.CKR_SESSION_HANDLE_INVALID)
 	} else {
 		return session, nil
 	}

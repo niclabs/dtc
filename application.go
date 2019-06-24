@@ -23,12 +23,30 @@ func NewApplication() (app *Application, err error) {
 		return
 	}
 
+	if err = db.InitStorage(); err != nil {
+		err = NewError("NewApplication", err.Error(), C.CKR_DEVICE_ERROR)
+		return
+	}
+
 	slots := make([]*Slot, len(config.Criptoki.Slots))
+
+	dtc, err := NewDTC(config.DTC)
+	if err != nil {
+		return
+	}
+
+	app = &Application{
+		Database: db,
+		Slots:    slots,
+		Config:   config,
+		DTC:      dtc,
+	}
 
 	for i, slotConf := range config.Criptoki.Slots {
 		slot := &Slot{
 			ID:          C.CK_SLOT_ID(i),
 			Application: app,
+			Sessions:    make(Sessions, 0),
 		}
 		var token *Token
 		token, err = db.GetToken(slotConf.Label)
@@ -39,16 +57,7 @@ func NewApplication() (app *Application, err error) {
 		slot.InsertToken(token)
 		slots[i] = slot
 	}
-	dtc, err := NewDTC(config.DTC)
-	if err != nil {
-		return
-	}
-	app = &Application{
-		Database: db,
-		Slots:    slots,
-		Config:   config,
-		DTC:      dtc,
-	}
+
 	return
 }
 
@@ -74,7 +83,7 @@ func (app *Application) GetSession(handle C.CK_SESSION_HANDLE) (*Session, error)
 }
 
 func (app *Application) GetSlot(id C.CK_SLOT_ID) (*Slot, error) {
-	if int(id) < len(app.Slots) {
+	if int(id) >= len(app.Slots) {
 		return nil, NewError("Application.GetSlot", "index out of bounds", C.CKR_SLOT_ID_INVALID)
 	}
 	return app.Slots[int(id)], nil

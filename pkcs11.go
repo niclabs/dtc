@@ -8,11 +8,14 @@ package main
 import "C"
 import (
 	"github.com/spf13/viper"
+	"log"
 	"strings"
 	"unsafe"
 )
 
 func init() {
+	viper.AddConfigPath("./")
+	viper.AddConfigPath("/etc/dtc/")
 	viper.SetConfigName("config")
 }
 
@@ -24,9 +27,13 @@ func ErrorToRV(err error) C.CK_RV {
 	}
 	switch err.(type) {
 	case TcbError:
-		return C.CK_RV(err.(TcbError).Code)
+		tcb := err.(TcbError)
+		log.Printf("[%s] %s [Code %d]\n", tcb.Who, tcb.Description, int(tcb.Code))
+		return C.CK_RV(tcb.Code)
 	default:
-		return C.CK_RV(C.CKR_GENERAL_ERROR)
+		code := C.CKR_GENERAL_ERROR
+		log.Printf("[General error] %+v [Code %d]\n", err, int(code))
+		return C.CK_RV(code)
 	}
 }
 
@@ -37,8 +44,9 @@ func C_Initialize(pInitArgs C.CK_VOID_PTR) C.CK_RV {
 	if App != nil {
 		return C.CKR_CRYPTOKI_ALREADY_INITIALIZED
 	}
+
 	cInitArgs := (*C.CK_C_INITIALIZE_ARGS)(unsafe.Pointer(pInitArgs))
-	if (cInitArgs.flags & C.CKF_OS_LOCKING_OK == 0) || (cInitArgs.pReserved != nil) {
+	if (cInitArgs.flags&C.CKF_OS_LOCKING_OK == 0) || (cInitArgs.pReserved != nil) {
 		return C.CKR_ARGUMENTS_BAD
 	}
 	var err error
@@ -73,7 +81,7 @@ func C_InitToken(slotID C.CK_SLOT_ID, pPin C.CK_UTF8CHAR_PTR, ulPinLen C.CK_ULON
 	cLabel := (*C.CK_UTF8CHAR)(unsafe.Pointer(pLabel))
 	label := string(C.GoBytes(unsafe.Pointer(cLabel), 32))
 	cPin := (*C.CK_UTF8CHAR)(unsafe.Pointer(pLabel))
-	pin := string(C.GoBytes(unsafe.Pointer(cPin),C.int(ulPinLen)))
+	pin := string(C.GoBytes(unsafe.Pointer(cPin), C.int(ulPinLen)))
 	token, err := NewToken(label, pin, pin)
 	if err != nil {
 		return ErrorToRV(err)
@@ -503,8 +511,12 @@ func C_FindObjects(hSession C.CK_SESSION_HANDLE, phObject C.CK_OBJECT_HANDLE_PTR
 
 	cObjectSlice := (*[1 << 30]C.CK_OBJECT_HANDLE)(unsafe.Pointer(phObject))[:*pulObjectCount:*pulObjectCount]
 
-	for i, handle := range handles {
-		cObjectSlice[i] = handle
+	l := len(cObjectSlice)
+	if len(handles) < len(cObjectSlice) {
+		l = len(handles)
+	}
+	for i := 0; i < l; i++ {
+		cObjectSlice[i] = handles[i]
 	}
 	*pulObjectCount = C.ulong(len(handles))
 	return C.CKR_OK

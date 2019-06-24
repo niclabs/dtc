@@ -5,7 +5,7 @@ import (
 )
 
 type Config struct {
-	IP         string
+	Host       string
 	Port       uint16
 	PublicKey  string
 	PrivateKey string
@@ -15,7 +15,7 @@ type Config struct {
 
 type NodeConfig struct {
 	PublicKey string
-	IP        string
+	Host      string
 	Port      uint16
 }
 

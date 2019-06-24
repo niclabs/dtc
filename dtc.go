@@ -1,10 +1,12 @@
 package main
 
+import "C"
 import (
 	"dtc/network"
 	"dtc/network/zmq"
 	"fmt"
 	"github.com/niclabs/tcrsa"
+	"log"
 	"os"
 )
 
@@ -32,7 +34,7 @@ func NewConnection(dbType string) (conn network.Connection, err error) {
 		}
 		return conn, nil
 	default:
-		err = fmt.Errorf("storage option not found")
+		err = NewError("NewConnection", fmt.Sprintf("network option not found: '%s'", dbType), 0)
 		return
 	}
 	// TODO: More network options.
@@ -47,22 +49,33 @@ func NewDTC(config DTCConfig) (*DTC, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &DTC{
+	dtc := &DTC{
 		InstanceID:   config.InstanceID,
 		ConnectionID: getConnectionID(),
 		Timeout:      config.Timeout,
 		Threshold:    config.Threshold,
 		Nodes:        config.NodesNumber,
 		Messenger:    connection,
-	}, nil
+	}
+
+	if err = connection.Open(); err != nil {
+		return nil, err
+	}
+	return dtc, nil
 }
 
 func (dtc *DTC) CreateNewKey(keyID string, bitSize int, args *tcrsa.KeyMetaArgs) (*tcrsa.KeyMeta, error) {
+	log.Printf("Creating new key with bitsize=%d, threshold=%d and nodes=%d", bitSize, dtc.Threshold, dtc.Nodes)
 	keyShares, keyMeta, err := tcrsa.NewKey(bitSize, dtc.Threshold, dtc.Nodes, args)
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("Sending key shares with keyid=%s", keyID)
 	if err := dtc.Messenger.SendKeyShares(keyID, keyShares, keyMeta); err != nil {
+		return nil, err
+	}
+	log.Printf("Acking key shares related to keyid=%s", keyID)
+	if err := dtc.Messenger.AckKeyShares(); err != nil {
 		return nil, err
 	}
 	return keyMeta, nil
@@ -73,7 +86,7 @@ func (dtc *DTC) SignData(keyName string, meta *tcrsa.KeyMeta, data []byte) ([]by
 		return nil, err
 	}
 	// We get the sig shares
-	sigShareList, err := dtc.Messenger.GetSigShares();
+	sigShareList, err := dtc.Messenger.GetSigShares()
 	if err != nil {
 		return nil, err
 	}

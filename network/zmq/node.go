@@ -5,14 +5,13 @@ import (
 	"github.com/niclabs/dtcnode/message"
 	"github.com/niclabs/tcrsa"
 	"github.com/pebbe/zmq4"
-	"net"
 )
 
 type NodeState int
 
 // A node represents a remote machine
 type Node struct {
-	ip     net.IP       // IP of remote node
+	host   string       // Host of remote node
 	port   uint16       // Port of remote node SUB
 	pubKey string       // Public key of remote node
 	socket *zmq4.Socket // zmq4 Socket
@@ -89,7 +88,7 @@ func (node *Node) IsConnected() bool {
 }
 
 func (node *Node) GetConnString() string {
-	return fmt.Sprintf("%s://%s:%d", TchsmProtocol, node.ip, node.port)
+	return fmt.Sprintf("%s://%s:%d", TchsmProtocol, node.host, node.port)
 }
 
 func (node *Node) Disconnect() error {

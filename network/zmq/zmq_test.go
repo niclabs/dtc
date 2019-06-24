@@ -166,7 +166,7 @@ func getNodeStubs(num uint16) (nodeStubs []*NodeStub, err error) {
 
 func getExampleConfig(numNodes uint16) (config *Config, stubs []*NodeStub, err error) {
 	config = &Config{
-		IP:      testIP,
+		Host:    testIP,
 		Port:    initPort,
 		Nodes:   make([]*NodeConfig, numNodes),
 		Timeout: testTimeout,
@@ -184,7 +184,7 @@ func getExampleConfig(numNodes uint16) (config *Config, stubs []*NodeStub, err e
 	}
 	for i, stub := range stubs {
 		config.Nodes[i] = &NodeConfig{
-			IP:        stub.ip,
+			Host:      stub.ip,
 			Port:      stub.port,
 			PublicKey: stub.pubKey,
 		}
@@ -231,7 +231,7 @@ func TestZMQ_Connect(t *testing.T) {
 	}
 	// We add our pub key
 	zmq4.AuthCurveAdd("*", conn.pubKey)
-	zmq4.AuthAllow(conn.ip.String())
+	zmq4.AuthAllow(conn.host.String())
 
 	// and open the connection
 	err = conn.Open()
@@ -241,7 +241,7 @@ func TestZMQ_Connect(t *testing.T) {
 		return
 	}
 
-	// We start the client nodes and add their IP and keys
+	// We start the client nodes and add their Host and keys
 	for i := 0; i < len(nodes); i++ {
 		node := nodes[i]
 		zmq4.AuthAllow(TchsmDomain, node.ip)

@@ -13,6 +13,6 @@ func NewDatabase(dbType string) (TokenStorage, error) {
 		}
 		return GetDatabase(sqliteConfig.Path)
 	default:
-		return nil, fmt.Errorf("storage option not found")
+		return nil,NewError("NewDatabase", fmt.Sprintf("storage option not found: '%s'", dbType), 0)
 	}
 }
