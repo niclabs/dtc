@@ -72,14 +72,22 @@ func (mechanism *Mechanism) Prepare(randSrc io.Reader, nBits int, data []byte) (
 	switch mechanism.Type {
 	case C.CKM_RSA_PKCS, C.CKM_MD5_RSA_PKCS, C.CKM_SHA1_RSA_PKCS, C.CKM_SHA256_RSA_PKCS, C.CKM_SHA384_RSA_PKCS, C.CKM_SHA512_RSA_PKCS:
 		hashFunc := hashType.New()
-		hash := hashFunc.Sum(data)
+		_, err = hashFunc.Write(data)
+		if err != nil {
+			return
+		}
+		hash := hashFunc.Sum(nil)
 		return padPKCS1v15(hashType, nBits, hash)
 	case C.CKM_SHA1_RSA_PKCS_PSS, C.CKM_SHA256_RSA_PKCS_PSS, C.CKM_SHA384_RSA_PKCS_PSS, C.CKM_SHA512_RSA_PKCS_PSS:
 		if hashType < crypto.Hash(0) {
 			err = NewError("Mechanism.Sign", "mechanism hash type is not supported with PSS padding", C.CKR_MECHANISM_INVALID)
 		}
 		hashFunc := hashType.New()
-		hash := hashFunc.Sum(data)
+		_, err = hashFunc.Write(data)
+		if err != nil {
+			return
+		}
+		hash := hashFunc.Sum(nil)
 		return padPSS(randSrc, hashType, nBits, hash)
 	default:
 		err = NewError("Mechanism.Sign", "mechanism not supported yet for preparing", C.CKR_MECHANISM_INVALID)

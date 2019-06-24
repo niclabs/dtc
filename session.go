@@ -527,7 +527,11 @@ func (session *Session) Digest(data []byte) ([]byte, error) {
 	if data == nil {
 		return nil, NewError("Session.DigestInit", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
 	}
-	hashed := session.digestHash.Sum(data)
+	_, err := session.digestHash.Write(data)
+	if err != nil {
+		return nil, err
+	}
+	hashed := session.digestHash.Sum(nil)
 	session.digestInitialized = false
 	session.digestHash = nil
 	return hashed, nil
