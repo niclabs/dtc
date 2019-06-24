@@ -10,7 +10,7 @@ const TestFirstTokenLabel = "TCBHSM"
 const TestOtherTokenLabel = "LABEL2"
 
 func initDB() (TokenStorage, error) {
-	db, err := GetDatabase(":memory:")
+	db, err := GetDatabase("/tmp/dtctest.sqlite")
 	if err != nil {
 		return nil, fmt.Errorf("couldn't get database: %v", err)
 	}
@@ -68,20 +68,21 @@ func TestDB_SaveToken(t *testing.T) {
 		SoPin: "1234",
 		Objects: make(CryptoObjects, 0),
 	}
-	actualHandle, err := db.GetMaxHandle()
 	if err != nil {
 		t.Errorf("max_handle: %v", err)
 	}
-	newHandle := actualHandle + 1
-	newToken.Objects[newHandle] = &CryptoObject{
-		Handle: newHandle,
+
+	co := &CryptoObject{
 		Attributes: make(Attributes),
 	}
-	newAttrType := int64(0)
-	newToken.Objects[newHandle].Attributes[newAttrType] = &Attribute{
-		Type: newAttrType,
+
+	newToken.AddObject(co)
+
+	co.Attributes.SetIfUndefined(&Attribute{
+		Type: uint32(0),
 		Value: []byte("hello_world"),
-	}
+	})
+
 	err = db.SaveToken(newToken)
 	if err != nil {
 		t.Errorf("save_token: %v", err)

@@ -81,11 +81,15 @@ func (db Sqlite3DB) SaveToken(token *Token) error {
 	}
 	// Saving the CryptoObjects
 	for _, object := range token.Objects {
-		if _, err := objectStmt.Exec(token.Label); err != nil {
-			return err
+		if object.Handle == 0 {
+			actualHandle, err := db.GetMaxHandle()
+			if err != nil {
+				return err
+			}
+			object.Handle = actualHandle + 1
 		}
-		object.Handle, err = db.GetMaxHandle()
-		if err != nil {
+		if bla, err := objectStmt.Exec(token.Label, object.Handle); err != nil {
+			fmt.Printf("%+v", bla)
 			return err
 		}
 		// Saving the attributes
@@ -141,8 +145,8 @@ func (db Sqlite3DB) GetToken(label string) (token *Token, err error) {
 		}
 		token.Objects = append(token.Objects, object)
 		if aType.Valid && aValue != nil {
-			object.Attributes[C.CK_ATTRIBUTE_TYPE(aType.Int64)] = &Attribute{
-				Type:  C.CK_ATTRIBUTE_TYPE(aType.Int64),
+			object.Attributes[uint32(aType.Int64)] = &Attribute{
+				Type: uint32(aType.Int64),
 				Value: aValue,
 			}
 		}
@@ -198,11 +202,15 @@ func (db Sqlite3DB) updateMaxHandle() error {
 	}
 	defer rows.Close()
 	if rows.Next() {
-		var maxHandle int
+		var maxHandle sql.NullInt64
 		if err := rows.Scan(&maxHandle); err != nil {
 			return err
 		}
-		db.ActualHandle = maxHandle
+		if maxHandle.Valid {
+			db.ActualHandle = int(maxHandle.Int64)
+		} else {
+			db.ActualHandle = 0
+		}
 	} else {
 		return rows.Err()
 	}

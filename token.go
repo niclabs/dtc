@@ -221,7 +221,7 @@ func (token *Token) Logout() {
 func (token *Token) AddObject(object *CryptoObject) {
 	token.Lock()
 	defer token.Unlock()
-	token.Objects[object.Handle] = object
+	token.Objects = append(token.Objects, object)
 }
 
 // Returns the label of the token (should remove. Label is a public property!

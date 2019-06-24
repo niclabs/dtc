@@ -82,7 +82,7 @@ func (object *CryptoObject) Equals(object2 *CryptoObject) bool {
 // https://stackoverflow.com/questions/28925179/cgo-how-to-pass-struct-array-from-c-to-go#28933938
 func (object *CryptoObject) Match(attrs Attributes) bool {
 	for _, theirAttr := range attrs {
-		ourAttr, ok := object.Attributes[theirAttr.Type]
+		ourAttr, ok := object.Attributes[uint32(theirAttr.Type)]
 		if !ok || bytes.Compare(ourAttr.Value, ourAttr.Value) != 0 {
 			return false
 		}
@@ -91,7 +91,7 @@ func (object *CryptoObject) Match(attrs Attributes) bool {
 }
 
 func (object *CryptoObject) FindAttribute(attrType C.CK_ATTRIBUTE_TYPE) *Attribute {
-	if attr, ok := object.Attributes[attrType]; ok {
+	if attr, ok := object.Attributes[uint32(attrType)]; ok {
 		return attr
 	}
 	return nil

@@ -1,3 +1,6 @@
 .idea
 dtc
 config.yml
+dtcnode
+integration_test/dtcnode.env
+integration_test/nodeconfig/

@@ -13,12 +13,12 @@ import (
 
 // An attribute related to a crypto object.
 type Attribute struct {
-	Type  C.CK_ATTRIBUTE_TYPE
+	Type  uint32
 	Value []byte
 }
 
 // A map of attributes
-type Attributes map[C.CK_ATTRIBUTE_TYPE]*Attribute
+type Attributes map[uint32]*Attribute
 
 func CToAttributes(pAttributes C.CK_ATTRIBUTE_PTR, ulCount C.CK_ULONG) (Attributes, error) {
 	if ulCount <= 0 {
@@ -54,7 +54,7 @@ func (attributes Attributes) Equals(attributes2 Attributes) bool {
 
 // Adds an attribute only if it doesn't exist
 func (attributes Attributes) SetIfUndefined(attr *Attribute) bool {
-	if _, ok := attributes[attr.Type]; !ok {
+	if _, ok := attributes[uint32(attr.Type)]; !ok {
 		attributes[attr.Type] = attr
 		return true
 	}
@@ -65,7 +65,7 @@ func CToAttribute(cAttr C.CK_ATTRIBUTE) *Attribute {
 	attrType := cAttr._type
 	attrVal := C.GoBytes(unsafe.Pointer(cAttr.pValue), C.int(cAttr.ulValueLen))
 	return &Attribute{
-		Type:  attrType,
+		Type:  uint32(attrType),
 		Value: attrVal,
 	}
 }
@@ -78,7 +78,7 @@ func (attribute *Attribute) ToC(cDst C.CK_ATTRIBUTE_PTR) error {
 	if cDst.ulValueLen >= C.CK_ULONG(len(attribute.Value)) {
 		cValue := C.CBytes(attribute.Value)
 		cValueLen := C.CK_ULONG(len(attribute.Value))
-		cDst._type = attribute.Type
+		cDst._type = C.CK_ATTRIBUTE_TYPE(attribute.Type)
 		cDst.ulValueLen = cValueLen
 		C.memcpy(unsafe.Pointer(cDst.pValue), unsafe.Pointer(cValue), cValueLen)
 		C.free(unsafe.Pointer(cValue))
@@ -95,7 +95,7 @@ func (attribute *Attribute) Equals(attribute2 *Attribute) bool {
 }
 
 func (attributes Attributes) GetAttributeByType(cAttr C.CK_ATTRIBUTE_TYPE) (*Attribute, error) {
-	attr, ok := attributes[cAttr]
+	attr, ok := attributes[uint32(cAttr)]
 	if ok {
 		return attr, nil
 	}

@@ -7,11 +7,11 @@ import "C"
 import (
 	"bytes"
 	"crypto"
-	"dtc/network/zmq/message"
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/niclabs/dtcnode/message"
 	"github.com/niclabs/tcrsa"
 	"hash"
 	"math/rand"
@@ -216,7 +216,7 @@ func (session *Session) FindObjectsInit(attrs Attributes) error {
 		}
 	}
 
-	// Si no se encontro el objecto, recargar la base de datos y buscar de
+	// Si no se encontro el objeto, recargar la base de datos y buscar de
 	// nuevo, puede que el objeto haya sido creado por otra instancia.
 	if len(attrs) == 0 && len(session.foundObjects) == 0 && !session.refreshedToken {
 		session.refreshedToken = true
@@ -556,7 +556,7 @@ func (session *Session) SeedRandom(seed []byte) {
 		if len(seed) < i+8 {
 			f = len(seed)
 		} else {
-			f = i+8
+			f = i + 8
 		}
 		slice := seed[i:f]
 		seedInt += int64(binary.LittleEndian.Uint64(slice)) // it overflows
@@ -605,8 +605,8 @@ func createPublicKey(keyID string, pkAttrs Attributes, keyMeta *tcrsa.KeyMeta) (
 		return nil, NewError("Session.createPublicKey", fmt.Sprintf("%s", err.Error()), C.CKR_ARGUMENTS_BAD)
 	}
 
-	pkAttrs.SetIfUndefined(&Attribute{C.CK_ATTRIBUTE_TYPE(AttrTypeKeyHandler), []byte(keyID)})
-	pkAttrs.SetIfUndefined(&Attribute{C.CK_ATTRIBUTE_TYPE(AttrTypeKeyMeta), encodedKeyMeta})
+	pkAttrs.SetIfUndefined(&Attribute{AttrTypeKeyHandler, []byte(keyID)})
+	pkAttrs.SetIfUndefined(&Attribute{AttrTypeKeyMeta, encodedKeyMeta})
 
 	return pkAttrs, nil
 }
@@ -659,8 +659,8 @@ func createPrivateKey(keyID string, skAttrs Attributes, keyMeta *tcrsa.KeyMeta) 
 		return nil, NewError("Session.createPublicKey", fmt.Sprintf("%s", err.Error()), C.CKR_ARGUMENTS_BAD)
 	}
 
-	skAttrs.SetIfUndefined(&Attribute{C.CK_ATTRIBUTE_TYPE(AttrTypeKeyHandler), []byte(keyID)})
-	skAttrs.SetIfUndefined(&Attribute{C.CK_ATTRIBUTE_TYPE(AttrTypeKeyMeta), encodedKeyMeta})
+	skAttrs.SetIfUndefined(&Attribute{AttrTypeKeyHandler, []byte(keyID)})
+	skAttrs.SetIfUndefined(&Attribute{AttrTypeKeyMeta, encodedKeyMeta})
 
 	return skAttrs, nil
 }
