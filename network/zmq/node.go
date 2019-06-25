@@ -28,7 +28,7 @@ func (node *Node) connect() {
 		return
 	}
 
-	if err := pubSock.SetIdentity(node.pubKey); err != nil {
+	if err := pubSock.SetIdentity(node.conn.pubKey); err != nil {
 		node.Err = err
 		return
 	}
