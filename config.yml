@@ -1,45 +1,46 @@
-dtc:
-  messaging_type: zmq
-  instance_id: "libdtc"
-  timeout: 10
-  nodes_number: 5
-  threshold: 3
+general:
+  dtc:
+    messagingType: zmq
+    instanceId: "libdtc"
+    nodesNumber: 5
+    threshold: 3
 
-criptoki:
-  manufacturer_id: "NICLabs"
-  model: "TCHSM"
-  description: "Implementación de PKCS11"
-  version_major: 2
-  version_minor: 40
-  serialnumber: "1"
-  min_pin_len: 3
-  max_pin_len: 10
-  max_session_count: 5
-  database_type: sqlite3
-  slots:
-    - label: slot1
+  criptoki:
+    manufacturer_id: "NICLabs"
+    model: "TCHSM"
+    description: "Implementación de PKCS11"
+    versionMajor: 2
+    versionMinor: 40
+    serialnumber: "1"
+    minPinLen: 3
+    maxPinLen: 10
+    maxSessionCount: 5
+    databaseType: sqlite3
+    slots:
+      - label: TCBHSM
 
 sqlite3:
   path: db.sqlite3
 
 zmq:
-  public_key: "{0j3IXL0Jw:)K$b1@(1=<8z/joPM.c+EXVBMS>7$"
-  private_key: "F(/uq@m$}KW>)X=0yKRh}lg!N![Efl<@3<Bbelp3"
-      ip: 0.0.0.0
+  timeout: 10
+  publicKey: "{0j3IXL0Jw:)K$b1@(1=<8z/joPM.c+EXVBMS>7$"
+  privateKey: "F(/uq@m$}KW>)X=0yKRh}lg!N![Efl<@3<Bbelp3"
+  host: 0.0.0.0
   port: 2031
   nodes:
-    - ip: localhost
-      public_key: PubK
+    - host: localhost
+      publicKey: 1ssev9cQhx8#<&btv/Hyuw]Mpd!PdSvDW?1Cnzh=
       port: 9871
-    - ip: localhost
-      public_key: PubK
-      port: 9872
-    - ip: localhost
-      public_key: PubK
+    - host: localhost
+      publicKey:  3orVCWTf62)]XB<u9S+Kwcl!lb+Nj%L!&{ZDAz1b
       port: 9873
-    - ip: localhost
-      public_key: PubK
-      port: 9874
-    - ip: localhost
-      public_key: PubK
+    - host: localhost
+      publicKey: '}TzWtBXujH1d^YcXLygShCHAyr#WPib8zSojk.[?'
       port: 9875
+    - host: localhost
+      publicKey: 8J0v-vxvzx!KC]n+=n%r1>I6PcFZ^(NXAJ.ggykb
+      port: 9877
+    - host: localhost
+      publicKey: I](hGp3Bb]z4(w[9:<a]a+epEh:4iDyrm*Xi]pMI
+      port: 9879

@@ -12,8 +12,11 @@ type TcbError struct {
 	Code        C.CK_RV
 }
 
-func NewError(who, description string, code C.CK_RV) *TcbError {
-	return &TcbError{
+func NewError(who, description string, code C.CK_RV) TcbError {
+	if code == C.CK_RV(0) {
+		code = C.CKR_GENERAL_ERROR
+	}
+	return TcbError{
 		Who:         who,
 		Description: description,
 		Code:        code,

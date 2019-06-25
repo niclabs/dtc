@@ -32,7 +32,7 @@ type Sqlite3DB struct {
 
 // Creates the databases if they doesn't exist yet.
 func (db Sqlite3DB) InitStorage() error {
-	if err := db.createTables(); err != nil {
+	if err := db.createTablesIfNotExist(); err != nil {
 		return fmt.Errorf("create tables: %v", err)
 	}
 	if err := db.insertFirstToken(); err != nil {
@@ -176,7 +176,7 @@ func GetDatabase(path string) (TokenStorage, error) {
 	}, nil
 }
 
-func (db Sqlite3DB) createTables() error {
+func (db Sqlite3DB) createTablesIfNotExist() error {
 	for _, stmt := range CreateStmts {
 		_, err := db.Exec(stmt)
 		if err != nil {

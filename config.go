@@ -11,7 +11,7 @@ func init() {
 	viper.AddConfigPath("$HOME/.dtc")
 	viper.AddConfigPath("./")
 	if err := viper.ReadInConfig(); err != nil {
-		panic(fmt.Errorf("config file not found! %v", err))
+		panic(fmt.Errorf("config file problem %v", err))
 	}
 }
 
@@ -48,7 +48,7 @@ type SlotsConfig struct {
 
 func GetConfig() (*Config, error) {
 	var conf Config
-	err := viper.Unmarshal(&conf)
+	err := viper.UnmarshalKey("general", &conf)
 	if err != nil {
 		return nil, err
 	}

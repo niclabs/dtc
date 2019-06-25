@@ -7,7 +7,6 @@ import (
 	"github.com/niclabs/tcrsa"
 	"github.com/pebbe/zmq4"
 	"log"
-	"net"
 	"sync"
 	"time"
 )
@@ -23,7 +22,7 @@ var TimeoutError = fmt.Errorf("timeout")
 // Messaging Protocol.
 type ZMQ struct {
 	// config properties
-	ip      net.IP        // IP of service
+	host    string        // Host of service
 	port    uint16        // Port where server ROUTER socket runs on
 	privKey string        // Private Key of node
 	pubKey  string        // Public Key of node
@@ -46,8 +45,11 @@ func New(config *Config) (conn *ZMQ, err error) {
 	if err != nil {
 		return
 	}
+	if config.Timeout == 0 {
+		config.Timeout = 10
+	}
 	conn = &ZMQ{
-		ip:              net.ParseIP(config.IP),
+		host:            config.Host,
 		port:            config.Port,
 		privKey:         config.PrivateKey,
 		pubKey:          config.PublicKey,
@@ -59,7 +61,7 @@ func New(config *Config) (conn *ZMQ, err error) {
 	nodes := make([]*Node, len(config.Nodes))
 	for i := 0; i < len(config.Nodes); i++ {
 		nodes[i] = &Node{
-			ip:     net.ParseIP(config.Nodes[i].IP),
+			host:   config.Nodes[i].Host,
 			port:   config.Nodes[i].Port,
 			pubKey: config.Nodes[i].PublicKey,
 			conn:   conn,
@@ -142,7 +144,7 @@ func (conn *ZMQ) GetPubKeys() []string {
 func (conn *ZMQ) GetIPs() []string {
 	ips := make([]string, len(conn.nodes))
 	for i, node := range conn.nodes {
-		ips[i] = node.ip.String()
+		ips[i] = node.host
 	}
 	return ips
 }
@@ -192,6 +194,7 @@ func (conn *ZMQ) SendKeyShares(keyID string, keys tcrsa.KeyShareList, meta *tcrs
 		return fmt.Errorf("cannot send key shares in a currentMessage state different to None")
 	}
 	for i, node := range conn.nodes {
+		log.Printf("Sending key share to node in %s:%d", node.host, node.port)
 		msg, err := node.sendKeyShare(keyID, keys[i], meta)
 		if err != nil {
 			return fmt.Errorf("error with node %d: %s", i, err)
@@ -216,6 +219,7 @@ func (conn *ZMQ) AckKeyShares() error {
 		return fmt.Errorf("cannot ack key shares in a currentMessage state different to sendKeyShare")
 	}
 	acked := 0
+	log.Printf("timeout will be %s", conn.timeout)
 	timer := time.After(conn.timeout)
 	for {
 		select {
@@ -313,7 +317,7 @@ L:
 
 // GetConnString returns a formatted connection string.
 func (conn *ZMQ) GetConnString() string {
-	return fmt.Sprintf("%s://%s:%d", TchsmProtocol, conn.ip, conn.port)
+	return fmt.Sprintf("%s://%s:%d", TchsmProtocol, conn.host, conn.port)
 }
 
 // Close finishes the operation of the connection.
