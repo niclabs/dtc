@@ -59,7 +59,6 @@ func (node *Node) connect() error {
 	return nil
 }
 
-
 func (node *Node) sendKeyShare(id string, key *tcrsa.KeyShare, meta *tcrsa.KeyMeta) (*message.Message, error) {
 	keyBinary, err := message.EncodeKeyShare(key)
 	if err != nil {

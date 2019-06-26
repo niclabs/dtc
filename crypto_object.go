@@ -20,8 +20,8 @@ const (
 // A cryptoObject related to a token.
 type CryptoObject struct {
 	Handle     C.CK_OBJECT_HANDLE // Object's handle
-	Type       CryptoObjectType // Object type
-	Attributes Attributes // List of attributes of the object.
+	Type       CryptoObjectType   // Object type
+	Attributes Attributes         // List of attributes of the object.
 }
 
 // A map of cryptoobjects

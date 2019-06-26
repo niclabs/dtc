@@ -85,7 +85,7 @@ func (token *Token) GetInfo(pInfo C.CK_TOKEN_INFO_PTR) error {
 		manufacturerID = manufacturerID[:32]
 	}
 
-	manufacturerID += strings.Repeat(" ", 32 - len(manufacturerID))
+	manufacturerID += strings.Repeat(" ", 32-len(manufacturerID))
 	cManufacturerID := C.CBytes([]byte(manufacturerID))
 	defer C.free(unsafe.Pointer(cManufacturerID))
 	C.memcpy(unsafe.Pointer(&info.manufacturerID[0]), cManufacturerID, 32)

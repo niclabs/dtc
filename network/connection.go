@@ -6,7 +6,6 @@ import (
 
 // A connection represents a way to communicate with the nodes.
 type Connection interface {
-
 	// Open opens the connection and initializes the binding with the nodes.
 	// It also starts polling responses from the ROUTER socket on the server.
 	Open() error

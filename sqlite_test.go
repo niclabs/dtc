@@ -41,7 +41,6 @@ func TestDB_GetMaxHandle(t *testing.T) {
 	}
 }
 
-
 func TestDB_GetToken(t *testing.T) {
 	db, err := initDB()
 	if err != nil {
@@ -63,9 +62,9 @@ func TestDB_SaveToken(t *testing.T) {
 		t.Errorf("init_storage: %v", err)
 	}
 	newToken := &Token{
-		Label:TestOtherTokenLabel,
-		Pin: "1234",
-		SoPin: "1234",
+		Label:   TestOtherTokenLabel,
+		Pin:     "1234",
+		SoPin:   "1234",
 		Objects: make(CryptoObjects, 0),
 	}
 	if err != nil {
@@ -79,7 +78,7 @@ func TestDB_SaveToken(t *testing.T) {
 	newToken.AddObject(co)
 
 	co.Attributes.SetIfUndefined(&Attribute{
-		Type: uint32(0),
+		Type:  uint32(0),
 		Value: []byte("hello_world"),
 	})
 

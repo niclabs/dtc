@@ -1,4 +1,5 @@
 package main
+
 import (
 	"dtc/network"
 	"dtc/network/zmq"

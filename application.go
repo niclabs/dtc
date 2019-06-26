@@ -13,7 +13,6 @@ type Application struct {
 	Config  *Config // has the complete configuration of the HSM
 }
 
-
 // NewApplication returns a new application, using the configuration defined in the config file.
 func NewApplication() (app *Application, err error) {
 	config, err := GetConfig()

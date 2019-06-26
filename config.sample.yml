@@ -24,7 +24,7 @@ sqlite3:
 zmq:
   publicKey: "changeme"
   privateKey: "changeme"
-      ip: 0.0.0.0
+    ip: 0.0.0.0
   port: 2031
   nodes:
     - ip: 127.0.0.1

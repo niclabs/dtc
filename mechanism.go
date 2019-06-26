@@ -16,7 +16,7 @@ import (
 // Mechanism represents a cryptographic operation that the HSM supports.
 type Mechanism struct {
 	Type      C.CK_MECHANISM_TYPE // Mechanism Type
-	Parameter []byte // Parameters for the mechanism
+	Parameter []byte              // Parameters for the mechanism
 }
 
 // CToMechanism transforms a C mechanism into a Mechanism Golang structure.

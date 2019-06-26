@@ -1,4 +1,5 @@
 package main
+
 /*
 #include "pkcs11go.h"
 */
@@ -31,7 +32,6 @@ func GetSqlite3Config() (*Sqlite3Config, error) {
 	}
 	return &conf, nil
 }
-
 
 func (db Sqlite3DB) Init() error {
 	if err := db.createTablesIfNotExist(); err != nil {
@@ -117,9 +117,9 @@ func (db Sqlite3DB) GetToken(label string) (token *Token, err error) {
 		return
 	}
 	token = &Token{
-		Label: label,
-		Pin:   pin,
-		SoPin: soPin,
+		Label:   label,
+		Pin:     pin,
+		SoPin:   soPin,
 		Objects: make(CryptoObjects, 0),
 	}
 
@@ -151,7 +151,7 @@ func (db Sqlite3DB) GetToken(label string) (token *Token, err error) {
 		}
 		if aType.Valid && aValue != nil {
 			object.Attributes[uint32(aType.Int64)] = &Attribute{
-				Type: uint32(aType.Int64),
+				Type:  uint32(aType.Int64),
 				Value: aValue,
 			}
 		}

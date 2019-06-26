@@ -1,4 +1,5 @@
 package main
+
 /*
 #include "pkcs11go.h"
 */
@@ -33,6 +34,6 @@ func NewDatabase(dbType string) (Storage, error) {
 		}
 		return GetDatabase(sqliteConfig.Path)
 	default:
-		return nil,NewError("NewDatabase", fmt.Sprintf("storage option not found: '%s'", dbType), 0)
+		return nil, NewError("NewDatabase", fmt.Sprintf("storage option not found: '%s'", dbType), 0)
 	}
 }
