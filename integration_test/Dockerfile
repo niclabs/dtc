@@ -4,11 +4,11 @@ MAINTAINER Eduardo Riveros<eduardo@niclabs.cl>
 
 ENV DTC_NODE 0.0.0.0:2030
 ENV DTC_SERVERS localhost:2030
-ENV DTC_PKS changeme
+ENV DTC_PKS changemeoriwillnotwork
 
 WORKDIR /
 RUN apk add zeromq-dev czmq-dev git pkgconfig gcc musl-dev
-RUN git clone https://github.com/niclabs/dtcnode -b final #fdkgjkh
+RUN git clone https://github.com/niclabs/dtcnode
 
 WORKDIR /dtcnode
 RUN go mod tidy
