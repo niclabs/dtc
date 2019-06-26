@@ -9,12 +9,12 @@ import (
 const TestFirstTokenLabel = "TCBHSM"
 const TestOtherTokenLabel = "LABEL2"
 
-func initDB() (TokenStorage, error) {
+func initDB() (Storage, error) {
 	db, err := GetDatabase("/tmp/dtctest.sqlite")
 	if err != nil {
 		return nil, fmt.Errorf("couldn't get database: %v", err)
 	}
-	if err := db.InitStorage(); err != nil {
+	if err := db.Init(); err != nil {
 		return nil, fmt.Errorf("couldn't init storage in database: %v", err)
 	}
 	return db, nil
@@ -107,7 +107,7 @@ func TestDB_CloseStorage(t *testing.T) {
 	if err != nil {
 		t.Errorf("init_storage: %v", err)
 	}
-	err = db.CloseStorage()
+	err = db.Close()
 	if err != nil {
 		t.Errorf("close_storage: %v", err)
 	}

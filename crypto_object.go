@@ -9,6 +9,7 @@ import (
 	"unsafe"
 )
 
+// CryptoObjectType represents a type of cryptoObject.
 type CryptoObjectType int
 
 const (
@@ -18,14 +19,15 @@ const (
 
 // A cryptoObject related to a token.
 type CryptoObject struct {
-	Handle     C.CK_OBJECT_HANDLE
-	Type       CryptoObjectType
-	Attributes Attributes
+	Handle     C.CK_OBJECT_HANDLE // Object's handle
+	Type       CryptoObjectType // Object type
+	Attributes Attributes // List of attributes of the object.
 }
 
 // A map of cryptoobjects
 type CryptoObjects []*CryptoObject
 
+// Transforms a C version of a cryptoobject in a CryptoObject Golang struct.
 func CToCryptoObject(pAttributes C.CK_ATTRIBUTE_PTR, ulCount C.CK_ULONG) (*CryptoObject, error) {
 	attrSlice, err := CToAttributes(pAttributes, ulCount)
 	if err != nil {
@@ -90,6 +92,7 @@ func (object *CryptoObject) Match(attrs Attributes) bool {
 	return true
 }
 
+// Returns an attribute with the type specified by the argument, or nil if the object does not have it.
 func (object *CryptoObject) FindAttribute(attrType C.CK_ATTRIBUTE_TYPE) *Attribute {
 	if attr, ok := object.Attributes[uint32(attrType)]; ok {
 		return attr
@@ -97,7 +100,7 @@ func (object *CryptoObject) FindAttribute(attrType C.CK_ATTRIBUTE_TYPE) *Attribu
 	return nil
 }
 
-// https://stackoverflow.com/questions/28925179/cgo-how-to-pass-struct-array-from-c-to-go#28933938
+// Copies the attributes of an object to a C pointer.
 func (object *CryptoObject) CopyAttributes(pTemplate C.CK_ATTRIBUTE_PTR, ulCount C.CK_ULONG) error {
 	if pTemplate == nil {
 		return NewError("CryptoObject.CopyAttributes", "got NULL pointer", C.CKR_ARGUMENTS_BAD)

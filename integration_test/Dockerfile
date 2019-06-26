@@ -3,12 +3,12 @@ FROM golang:alpine
 MAINTAINER Eduardo Riveros<eduardo@niclabs.cl>
 
 ENV DTC_NODE 0.0.0.0:2030
-ENV DTC_SERVERS localhost:2030
-ENV DTC_PKS changemeoriwillnotwork
+ENV DTC_SERVER 0.0.0.0:3030
+ENV DTC_PK changemeoriwillnotwork
 
 WORKDIR /
 RUN apk add zeromq-dev czmq-dev git pkgconfig gcc musl-dev
-RUN git clone https://github.com/niclabs/dtcnode
+RUN git clone https://github.com/niclabs/dtcnode #TODO tag a version of the project
 
 WORKDIR /dtcnode
 RUN go mod tidy
@@ -22,4 +22,4 @@ RUN mkdir /etc/dtcnode
 
 RUN apk del git pkgconfig gcc musl-dev
 
-CMD /dtcnode/genconfig/genconfig -n $DTC_NODE -s $DTC_SERVERS -k $DTC_PKS -o /etc/dtcnode/config.yaml && /dtcnode/dtcnode
+CMD /dtcnode/genconfig/genconfig -n $DTC_NODE -s $DTC_SERVER -k $DTC_PK -o /etc/dtcnode/config.yaml && /dtcnode/dtcnode

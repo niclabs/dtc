@@ -1,7 +1,6 @@
 package zmq
 
 import (
-	"dtc/network"
 	"fmt"
 	"github.com/niclabs/dtcnode/message"
 	"github.com/niclabs/tcrsa"
@@ -11,8 +10,10 @@ import (
 	"time"
 )
 
-// TchsmDomain is the default domain for ZMQ context.
+// The domain of the ZMQ connection. This value must be the same in the server, or it will not work.
 const TchsmDomain = "tchsm"
+
+// The protocol used for the ZMQ connection. TCP is the best for this usage cases.
 const TchsmProtocol = "tcp"
 
 // This error represents a timeout situation
@@ -20,7 +21,7 @@ var TimeoutError = fmt.Errorf("timeout")
 
 // ZMQ Structure represents a connection to a set of Nodes via ZMQ
 // Messaging Protocol.
-type ZMQ struct {
+type Server struct {
 	// config properties
 	host    string        // Host of service
 	port    uint16        // Port where server ROUTER socket runs on
@@ -30,8 +31,8 @@ type ZMQ struct {
 	// nodes
 	nodes []*Node // List of connected nodes of type ZMQ
 	// zmq context
-	ctx          *zmq4.Context // ZMQ Context
-	serverSocket *zmq4.Socket  // ROUTER socket which receives the responses from the nodes
+	ctx    *zmq4.Context // ZMQ Context
+	socket *zmq4.Socket  // ROUTER socket which receives the responses from the nodes
 	// message related structs
 	channel         chan *message.Message       // The channel where all the responses from router are sent.
 	pendingMessages map[string]*message.Message // A map with requests without response. To know what messages I'm expecting.
@@ -40,7 +41,7 @@ type ZMQ struct {
 }
 
 // New returns a new ZMQ connection based in the configuration provided.
-func New(config *Config) (conn *ZMQ, err error) {
+func New(config *Config) (conn *Server, err error) {
 	context, err := zmq4.NewContext()
 	if err != nil {
 		return
@@ -48,14 +49,14 @@ func New(config *Config) (conn *ZMQ, err error) {
 	if config.Timeout == 0 {
 		config.Timeout = 10
 	}
-	conn = &ZMQ{
+	conn = &Server{
 		host:            config.Host,
 		port:            config.Port,
 		privKey:         config.PrivateKey,
 		pubKey:          config.PublicKey,
 		timeout:         time.Duration(config.Timeout) * time.Second,
 		ctx:             context,
-		channel:         make(chan *message.Message, 8), // TODO: change this
+		channel:         make(chan *message.Message),
 		pendingMessages: make(map[string]*message.Message),
 	}
 	nodes := make([]*Node, len(config.Nodes))
@@ -71,9 +72,7 @@ func New(config *Config) (conn *ZMQ, err error) {
 	return
 }
 
-// Open opens the connection and initializes the binding with the nodes.
-// It also starts polling responses from the ROUTER socket on the server.
-func (conn *ZMQ) Open() (err error) {
+func (conn *Server) Open() (err error) {
 	if conn.nodes == nil {
 		return fmt.Errorf("not initialized. Use 'New' to create a new struct")
 	}
@@ -83,8 +82,8 @@ func (conn *ZMQ) Open() (err error) {
 	}
 
 	// Add IPs and public keys from clients
-	zmq4.AuthAllow(TchsmDomain, conn.GetIPs()...)
-	zmq4.AuthCurveAdd(TchsmDomain, conn.GetPubKeys()...)
+	zmq4.AuthAllow(TchsmDomain, conn.getIPs()...)
+	zmq4.AuthCurveAdd(TchsmDomain, conn.getPubKeys()...)
 
 	// Create in
 	in, err := conn.ctx.NewSocket(zmq4.ROUTER)
@@ -92,8 +91,7 @@ func (conn *ZMQ) Open() (err error) {
 		return
 	}
 
-	// wait forever for messages
-	if err = in.SetRcvtimeo(-1); err != nil {
+	if err = in.SetIdentity(conn.pubKey); err != nil {
 		return
 	}
 
@@ -104,87 +102,47 @@ func (conn *ZMQ) Open() (err error) {
 	}
 
 	// Bind
-	err = in.Bind(conn.GetConnString())
+	log.Printf("binding our socket in %s", conn.getConnString())
+	err = in.Bind(conn.getConnString())
 	if err != nil {
 		return
 	}
-	conn.serverSocket = in
+	conn.socket = in
 
 	// Now we connect to the clients
 	for _, client := range conn.nodes {
-		client.connect()
+		if err = client.connect(); err != nil {
+			return
+		}
 	}
 	// Start message polling
 	go func() {
+		log.Printf("Message polling started")
 		for {
-			rawMsg, err := conn.serverSocket.RecvMessageBytes(0)
+
+			rawMsg, err := conn.socket.RecvMessageBytes(0)
+			log.Printf("New message received!")
 			if err != nil {
+				log.Printf("Error with new message: %v", err)
 				continue
 			}
 			msg, err := message.FromBytes(rawMsg)
+			log.Printf("Message is from node %s", msg.NodeID)
 			if err != nil {
-				log.Printf("cannot parse messages: %s\n", err)
+				log.Printf("Cannot parse messages: %s\n", err)
 				continue
 			}
+			log.Printf("Sending message to channel")
 			conn.channel <- msg
+			log.Printf("Message sent to channel!")
+
 		}
 	}()
 
 	return
 }
 
-func (conn *ZMQ) GetPubKeys() []string {
-	pubKeys := make([]string, len(conn.nodes))
-	for i, node := range conn.nodes {
-		pubKeys[i] = node.pubKey
-	}
-	return pubKeys
-}
-
-func (conn *ZMQ) GetIPs() []string {
-	ips := make([]string, len(conn.nodes))
-	for i, node := range conn.nodes {
-		ips[i] = node.host
-	}
-	return ips
-}
-
-// GetNodes returns a list with the nodes.
-// TODO: ¿Do we need this function?
-func (conn *ZMQ) GetNodes() (nodes []network.Node) {
-	nodes = make([]network.Node, 0)
-	for _, node := range conn.nodes {
-		nodes = append(nodes, node)
-	}
-	return
-}
-
-// GetNodeByID returns a node with the same ID than the provided argument, or nil if it doesn't exist.
-func (conn *ZMQ) GetNodeByID(id string) *Node {
-	for _, node := range conn.nodes {
-		if node.GetID() == id {
-			return node
-		}
-	}
-	return nil
-}
-
-// GetActiveNodes returns a list with the active nodes.
-// TODO: ¿Do we need this function?
-func (conn *ZMQ) GetActiveNodes() (nodes []network.Node) {
-	nodes = make([]network.Node, 0)
-	for _, node := range conn.nodes {
-		if node.Err == nil {
-			nodes = append(nodes, node)
-		}
-	}
-	return
-}
-
-// SendKeyShares send a list of keys to all the connected nodes.
-// It requieres that the number of connected nodes is equal to the number of connected shares.
-// If that is not the case, it returns an error.
-func (conn *ZMQ) SendKeyShares(keyID string, keys tcrsa.KeyShareList, meta *tcrsa.KeyMeta) error {
+func (conn *Server) SendKeyShares(keyID string, keys tcrsa.KeyShareList, meta *tcrsa.KeyMeta) error {
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 	if len(keys) != len(conn.nodes) {
@@ -205,10 +163,7 @@ func (conn *ZMQ) SendKeyShares(keyID string, keys tcrsa.KeyShareList, meta *tcrs
 	return nil
 }
 
-// AckKeyShares confirms that all the nodes had received their keys.
-// It uses the timeout defined on the connection configuration to wait for the responses.
-// If it doesn't receive enough responses until the timeout, it throws an error.
-func (conn *ZMQ) AckKeyShares() error {
+func (conn *Server) AckKeyShares() error {
 	conn.mutex.Lock()
 	defer func() {
 		conn.pendingMessages = make(map[string]*message.Message)
@@ -224,9 +179,10 @@ func (conn *ZMQ) AckKeyShares() error {
 	for {
 		select {
 		case msg := <-conn.channel:
+			log.Printf("message received from node %s\n", msg.NodeID)
 			if pending, exists := conn.pendingMessages[msg.ID]; exists {
 				if err := msg.Ok(pending, 0); err != nil {
-					log.Printf("error with message: %v\n", msg)
+					log.Printf("error with message from node %s: %v\n", msg.ID, message.ErrorToString[msg.Error])
 				}
 				delete(conn.pendingMessages, msg.ID)
 				acked++
@@ -234,7 +190,7 @@ func (conn *ZMQ) AckKeyShares() error {
 					return nil
 				}
 			} else {
-				log.Printf("unexpected message: %v\n", msg)
+				log.Printf("unexpected message: %+v\n", msg)
 			}
 		case <-timer:
 			return TimeoutError
@@ -242,17 +198,16 @@ func (conn *ZMQ) AckKeyShares() error {
 	}
 }
 
-// AskForSigShares asks for the signature shares over a given hash with a specific Key
-func (conn *ZMQ) AskForSigShares(keyID string, hash []byte) error {
+func (conn *Server) AskForSigShares(keyID string, hash []byte) error {
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 	if conn.currentMessage != message.None {
 		return fmt.Errorf("cannot ask for sig shares in a currentMessage state different to None")
 	}
 	for _, node := range conn.nodes {
-		msg, err := node.AskForSigShare(keyID, hash)
+		msg, err := node.askForSigShare(keyID, hash)
 		if err != nil {
-			return fmt.Errorf("error asking sigshare with node %s: %s", node.GetID(), err)
+			return fmt.Errorf("error asking sigshare with node %s: %s", node.getID(), err)
 		}
 		conn.pendingMessages[msg.ID] = msg
 	}
@@ -260,9 +215,7 @@ func (conn *ZMQ) AskForSigShares(keyID string, hash []byte) error {
 	return nil
 }
 
-// GetSigShares waits for the signatures the timeout set on the connection configuration.
-// It returns only the sigshares that arrived before the timeout (they could be zero).
-func (conn *ZMQ) GetSigShares() (tcrsa.SigShareList, error) {
+func (conn *Server) GetSigShares() (tcrsa.SigShareList, error) {
 	conn.mutex.Lock()
 	defer func() {
 		conn.pendingMessages = make(map[string]*message.Message)
@@ -290,10 +243,10 @@ L:
 				if err != nil {
 					log.Printf("corrupt key: %v\n", msg)
 					// Ask for it again?
-					node := conn.GetNodeByID(msg.NodeID)
-					newMsg, err := node.AskForSigShare(string(pending.Data[0]), pending.Data[1])
+					node := conn.getNodeByID(msg.NodeID)
+					newMsg, err := node.askForSigShare(string(pending.Data[0]), pending.Data[1])
 					if err != nil {
-						log.Printf("error asking signature share to node %s: %s\n", node.GetID(), err)
+						log.Printf("error asking signature share to node %s: %s\n", node.getID(), err)
 					}
 					// save it in pending
 					conn.pendingMessages[newMsg.ID] = newMsg
@@ -315,24 +268,47 @@ L:
 	return sigShares, nil
 }
 
-// GetConnString returns a formatted connection string.
-func (conn *ZMQ) GetConnString() string {
-	return fmt.Sprintf("%s://%s:%d", TchsmProtocol, conn.host, conn.port)
-}
-
-// Close finishes the operation of the connection.
-func (conn *ZMQ) Close() error {
-	err := conn.serverSocket.Disconnect(conn.GetConnString())
+func (conn *Server) Close() error {
+	err := conn.socket.Disconnect(conn.getConnString())
 	if err != nil {
 		return err
 	}
 	// Try to connect to peers
 	for _, node := range conn.nodes {
-		err = node.Disconnect()
+		err = node.disconnect()
 		if err != nil {
 			return err
 		}
 	}
 	zmq4.AuthStop()
+	return nil
+}
+
+func (conn *Server) getPubKeys() []string {
+	pubKeys := make([]string, len(conn.nodes))
+	for i, node := range conn.nodes {
+		pubKeys[i] = node.pubKey
+	}
+	return pubKeys
+}
+
+func (conn *Server) getIPs() []string {
+	ips := make([]string, len(conn.nodes))
+	for i, node := range conn.nodes {
+		ips[i] = node.host
+	}
+	return ips
+}
+
+func (conn *Server) getConnString() string {
+	return fmt.Sprintf("%s://%s:%d", TchsmProtocol, conn.host, conn.port)
+}
+
+func (conn *Server) getNodeByID(id string) *Node {
+	for _, node := range conn.nodes {
+		if node.getID() == id {
+			return node
+		}
+	}
 	return nil
 }

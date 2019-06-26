@@ -5,13 +5,16 @@ package main
 */
 import "C"
 
+// Application contains the essential parts of the HSM
 type Application struct {
-	Database TokenStorage
-	DTC      *DTC
-	Slots    []*Slot
-	Config   *Config
+	Storage Storage // Storage saves the HSM objects.
+	DTC     *DTC    // DTC is in charge of communication with the nodes.
+	Slots   []*Slot // Represents the slots of the HSM
+	Config  *Config // has the complete configuration of the HSM
 }
 
+
+// NewApplication returns a new application, using the configuration defined in the config file.
 func NewApplication() (app *Application, err error) {
 	config, err := GetConfig()
 	if err != nil {
@@ -23,7 +26,7 @@ func NewApplication() (app *Application, err error) {
 		return
 	}
 
-	if err = db.InitStorage(); err != nil {
+	if err = db.Init(); err != nil {
 		err = NewError("NewApplication", err.Error(), C.CKR_DEVICE_ERROR)
 		return
 	}
@@ -36,10 +39,10 @@ func NewApplication() (app *Application, err error) {
 	}
 
 	app = &Application{
-		Database: db,
-		Slots:    slots,
-		Config:   config,
-		DTC:      dtc,
+		Storage: db,
+		Slots:   slots,
+		Config:  config,
+		DTC:     dtc,
 	}
 
 	for i, slotConf := range config.Criptoki.Slots {
@@ -61,6 +64,7 @@ func NewApplication() (app *Application, err error) {
 	return
 }
 
+// GetSessionSlot returns the slot object related to a given session handle.
 func (app *Application) GetSessionSlot(handle C.CK_SESSION_HANDLE) (*Slot, error) {
 	for _, slot := range app.Slots {
 		if slot.HasSession(handle) {
@@ -70,6 +74,7 @@ func (app *Application) GetSessionSlot(handle C.CK_SESSION_HANDLE) (*Slot, error
 	return nil, NewError("Application.GetSessionSlot", "session not found", C.CKR_SESSION_HANDLE_INVALID)
 }
 
+// GetSession returns the session object related to a given handle.
 func (app *Application) GetSession(handle C.CK_SESSION_HANDLE) (*Session, error) {
 	slot, err := app.GetSessionSlot(handle)
 	if err != nil {
@@ -82,6 +87,7 @@ func (app *Application) GetSession(handle C.CK_SESSION_HANDLE) (*Session, error)
 	return session, nil
 }
 
+// GetSlot returns the slot with the given ID.
 func (app *Application) GetSlot(id C.CK_SLOT_ID) (*Slot, error) {
 	if int(id) >= len(app.Slots) {
 		return nil, NewError("Application.GetSlot", "index out of bounds", C.CKR_SLOT_ID_INVALID)

@@ -1,18 +1,27 @@
 package main
-
 import (
+	"dtc/network"
+	"dtc/network/zmq"
 	"fmt"
 )
 
-func NewDatabase(dbType string) (TokenStorage, error) {
-	switch dbType {
-	case "sqlite3":
-		sqliteConfig, err := GetSqlite3Config()
-		if err != nil {
-			return nil, fmt.Errorf("sqlite3 config not defined")
+// Creates a new connection of type "connType". Currently only zmq is implemented.
+func NewConnection(connType string) (conn network.Connection, err error) {
+	switch connType {
+	case "zmq":
+		zmqConfig, err1 := zmq.GetConfig()
+		if err1 != nil {
+			err = err1
+			return
 		}
-		return GetDatabase(sqliteConfig.Path)
+		conn, err1 = zmq.New(zmqConfig)
+		if err1 != nil {
+			err = err1
+			return
+		}
+		return conn, nil
 	default:
-		return nil,NewError("NewDatabase", fmt.Sprintf("storage option not found: '%s'", dbType), 0)
+		err = NewError("NewConnection", fmt.Sprintf("network option not found: '%s'", connType), 0)
+		return
 	}
 }

@@ -21,6 +21,7 @@ func init() {
 
 var App *Application
 
+// Extracts the Return Value from an error, and logs it.
 func ErrorToRV(err error) C.CK_RV {
 	if err == nil {
 		return C.CKR_OK
@@ -39,7 +40,6 @@ func ErrorToRV(err error) C.CK_RV {
 
 //export C_Initialize
 func C_Initialize(pInitArgs C.CK_VOID_PTR) C.CK_RV {
-	// TODO: Manage external functions
 	// by now, we support only CKF_OS_LOCKING_OK
 	if App != nil {
 		return C.CKR_CRYPTOKI_ALREADY_INITIALIZED
@@ -103,7 +103,7 @@ func C_InitPIN(hSession C.CK_SESSION_HANDLE, pPin C.CK_UTF8CHAR_PTR, ulPinLen C.
 	if err != nil {
 		return ErrorToRV(err)
 	}
-	token, err := session.GetCurrentSlot().GetToken()
+	token, err := session.Slot.GetToken()
 	if err != nil {
 		return ErrorToRV(err)
 	}

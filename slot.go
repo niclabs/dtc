@@ -13,32 +13,35 @@ import (
 	"unsafe"
 )
 
+// Slot represents a HSM slot. It has an ID and it can have a connected Token.
 type Slot struct {
-	ID       C.CK_SLOT_ID
-	flags    uint64
-	token    *Token
-	Sessions Sessions
-	Application *Application
+	ID          C.CK_SLOT_ID // ID of slot
+	flags       uint64       // Flags related to the slot
+	token       *Token       // Token connected to slot. It could be nil
+	Sessions    Sessions     // Sessions accessing to the slot
+	Application *Application // Application that created the slot.
 	sync.Mutex
 }
 
+// IsTokenPresent returns true if there is a token connected to the slot
 func (slot *Slot) IsTokenPresent() bool {
 	return slot.token != nil
 }
 
-
+// OpenSession opens a new session with given flags.
 func (slot *Slot) OpenSession(flags C.CK_FLAGS) (C.CK_SESSION_HANDLE, error) {
 	if !slot.IsTokenPresent() {
 		return 0, NewError("Slot.OpenSession", "token not present", C.CKR_TOKEN_NOT_PRESENT)
 	}
 	session := NewSession(flags, slot)
-	handle := session.GetHandle()
+	handle := session.Handle
 	slot.Lock()
 	defer slot.Unlock()
 	slot.Sessions[handle] = session
 	return handle, nil
 }
 
+// CloseSession closes the session identified by the given handle.
 func (slot *Slot) CloseSession(handle C.CK_SESSION_HANDLE) error {
 	if !slot.IsTokenPresent() {
 		return NewError("Slot.CloseSession", "token not present", C.CKR_TOKEN_NOT_PRESENT)
@@ -58,6 +61,7 @@ func (slot *Slot) CloseAllSessions() {
 	slot.Sessions = make(Sessions, 0)
 }
 
+// GetSession returns an active session with the given handle.
 func (slot *Slot) GetSession(handle C.CK_SESSION_HANDLE) (*Session, error) {
 	if !slot.IsTokenPresent() {
 		return nil, NewError("Slot.GetSession", "token not present", C.CKR_TOKEN_NOT_PRESENT)
@@ -71,6 +75,7 @@ func (slot *Slot) GetSession(handle C.CK_SESSION_HANDLE) (*Session, error) {
 	}
 }
 
+// HasSession returns true if the session with the handle as ID exists.
 func (slot *Slot) HasSession(handle C.CK_SESSION_HANDLE) bool {
 	slot.Lock()
 	defer slot.Unlock()
@@ -78,8 +83,8 @@ func (slot *Slot) HasSession(handle C.CK_SESSION_HANDLE) bool {
 	return ok
 }
 
-
-func (slot *Slot) GetInfo (pInfo C.CK_SLOT_INFO_PTR) error {
+// GetInfo returns the slot info.
+func (slot *Slot) GetInfo(pInfo C.CK_SLOT_INFO_PTR) error {
 	if pInfo == nil {
 		return NewError("Slot.GetInfo", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
 	}
@@ -89,7 +94,7 @@ func (slot *Slot) GetInfo (pInfo C.CK_SLOT_INFO_PTR) error {
 	if len(description) > 64 {
 		description = description[:64]
 	}
-	description += strings.Repeat(" ", 64 - len(description)) // spaces
+	description += strings.Repeat(" ", 64-len(description)) // spaces
 	cDescription := C.CBytes([]byte(description), len(description))
 	defer C.free(unsafe.Pointer(cDescription))
 	C.memcpy(unsafe.Pointer(&info.slotDescription[0]), cDescription, 64)
@@ -98,7 +103,7 @@ func (slot *Slot) GetInfo (pInfo C.CK_SLOT_INFO_PTR) error {
 	if len(manufacturerID) > 64 {
 		manufacturerID = manufacturerID[:64]
 	}
-	manufacturerID += strings.Repeat(" ", 32 - len(manufacturerID))
+	manufacturerID += strings.Repeat(" ", 32-len(manufacturerID))
 	cManufacturerID := C.CBytes([]byte(manufacturerID))
 	defer C.free(unsafe.Pointer(cManufacturerID))
 	C.memcpy(unsafe.Pointer(&info.manufacturerID[0]), cManufacturerID, 32)
@@ -111,6 +116,7 @@ func (slot *Slot) GetInfo (pInfo C.CK_SLOT_INFO_PTR) error {
 	return nil
 }
 
+// GetToken returns the token inserted into the slot.
 func (slot *Slot) GetToken() (*Token, error) {
 	if slot.IsTokenPresent() {
 		return slot.token, nil
@@ -119,6 +125,7 @@ func (slot *Slot) GetToken() (*Token, error) {
 	}
 }
 
+// InsertToken inserts a token into the slot.
 func (slot *Slot) InsertToken(token *Token) {
 	slot.token = token
 	token.slot = slot

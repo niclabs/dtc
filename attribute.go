@@ -13,13 +13,14 @@ import (
 
 // An attribute related to a crypto object.
 type Attribute struct {
-	Type  uint32
-	Value []byte
+	Type  uint32 // Type of attribute
+	Value []byte // Value of attribute
 }
 
 // A map of attributes
 type Attributes map[uint32]*Attribute
 
+// CToAttributes transform a C pointer of attributes into a Golang Attributes structure.
 func CToAttributes(pAttributes C.CK_ATTRIBUTE_PTR, ulCount C.CK_ULONG) (Attributes, error) {
 	if ulCount <= 0 {
 		return nil, NewError("CToAttributes", "cannot transform: ulcount is not greater than 0", C.CKR_BUFFER_TOO_SMALL)
@@ -61,6 +62,7 @@ func (attributes Attributes) SetIfUndefined(attr *Attribute) bool {
 	return false
 }
 
+// CToAttribute transforms a single C attribute struct into an Attribute Golang struct.
 func CToAttribute(cAttr C.CK_ATTRIBUTE) *Attribute {
 	attrType := cAttr._type
 	attrVal := C.GoBytes(unsafe.Pointer(cAttr.pValue), C.int(cAttr.ulValueLen))
@@ -70,6 +72,7 @@ func CToAttribute(cAttr C.CK_ATTRIBUTE) *Attribute {
 	}
 }
 
+// ToC copies an attribute into a C pointer of attribute struct.
 func (attribute *Attribute) ToC(cDst C.CK_ATTRIBUTE_PTR) error {
 	if cDst.pValue == nil {
 		cDst.ulValueLen = C.CK_ULONG(len(attribute.Value))
@@ -94,10 +97,11 @@ func (attribute *Attribute) Equals(attribute2 *Attribute) bool {
 		bytes.Compare(attribute.Value, attribute2.Value) == 0
 }
 
+// GetAttributeByType returns an attribute of the attributes list with the type specified in the arguments.
 func (attributes Attributes) GetAttributeByType(cAttr C.CK_ATTRIBUTE_TYPE) (*Attribute, error) {
 	attr, ok := attributes[uint32(cAttr)]
 	if ok {
 		return attr, nil
 	}
-	return nil, NewError("Attributes.GetAttributeByType", "attribute doesn't exist", C.CKR_ATTRIBUTE_VALUE_INVALID) // TODO: is this error code ok?
+	return nil, NewError("Attributes.GetAttributeByType", "attribute doesn't exist", C.CKR_ATTRIBUTE_VALUE_INVALID)
 }

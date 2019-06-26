@@ -5,48 +5,60 @@ import (
 	"github.com/niclabs/dtcnode/message"
 	"github.com/niclabs/tcrsa"
 	"github.com/pebbe/zmq4"
+	"log"
 )
 
 type NodeState int
 
-// A node represents a remote machine
+// Node represents a remote machine connection. It has all the data required to connect to a node, and a pointer to use the respective Server struct.
 type Node struct {
 	host   string       // Host of remote node
 	port   uint16       // Port of remote node SUB
-	pubKey string       // Public key of remote node
-	socket *zmq4.Socket // zmq4 Socket
-	conn   *ZMQ
-	Err    error
+	pubKey string       // Public key of remote node used in ZMQ CURVE Auth
+	socket *zmq4.Socket // ZMQ4 Socket
+	conn   *Server      // The server that manages this Node subroutine.
+	Err    error        // The last error this node had.
 }
 
-func (node *Node) connect() {
-	// Create and name socket
-	pubSock, err := node.conn.ctx.NewSocket(zmq4.DEALER)
-	if err != nil {
-		node.Err = err
-		return
-	}
-
-	if err := pubSock.SetIdentity(node.conn.pubKey); err != nil {
-		node.Err = err
-		return
-	}
-
-	node.socket = pubSock
-	if err = node.socket.ClientAuthCurve(node.pubKey, node.conn.pubKey, node.conn.privKey); err != nil {
-		node.Err = err
-		return
-	}
-	// connect
-	if err = node.socket.Connect(node.GetConnString()); err != nil {
-		node.Err = err
-		return
-	}
-}
-
-func (node *Node) GetID() string {
+func (node *Node) getID() string {
 	return node.pubKey
 }
+
+func (node *Node) getConnString() string {
+	return fmt.Sprintf("%s://%s:%d", TchsmProtocol, node.host, node.port)
+}
+
+func (node *Node) disconnect() error {
+	return node.socket.Disconnect(node.getConnString())
+}
+
+func (node *Node) connect() error {
+	// Create and name socket
+	out, err := node.conn.ctx.NewSocket(zmq4.DEALER)
+	if err != nil {
+		node.Err = err
+		return err
+	}
+
+	if err := out.SetIdentity(node.conn.pubKey); err != nil {
+		node.Err = err
+		return err
+	}
+
+	if err = out.ClientAuthCurve(node.pubKey, node.conn.pubKey, node.conn.privKey); err != nil {
+		node.Err = err
+		return err
+	}
+	// connect
+	log.Printf("connecting to %s socket in %s", node.getID(), node.getConnString())
+	if err = out.Connect(node.getConnString()); err != nil {
+		node.Err = err
+		return err
+	}
+	node.socket = out
+	return nil
+}
+
 
 func (node *Node) sendKeyShare(id string, key *tcrsa.KeyShare, meta *tcrsa.KeyMeta) (*message.Message, error) {
 	keyBinary, err := message.EncodeKeyShare(key)
@@ -57,7 +69,7 @@ func (node *Node) sendKeyShare(id string, key *tcrsa.KeyShare, meta *tcrsa.KeyMe
 	if err != nil {
 		return nil, err
 	}
-	msg, err := message.NewMessage(message.SendKeyShare, node.GetID(), []byte(id), keyBinary, metaBinary)
+	msg, err := message.NewMessage(message.SendKeyShare, node.getID(), []byte(id), keyBinary, metaBinary)
 	if err != nil {
 		return nil, err
 	}
@@ -68,8 +80,8 @@ func (node *Node) sendKeyShare(id string, key *tcrsa.KeyShare, meta *tcrsa.KeyMe
 	return msg, nil
 }
 
-func (node *Node) AskForSigShare(id string, doc []byte) (msg *message.Message, err error) {
-	msg, err = message.NewMessage(message.AskForSigShare, node.GetID(), []byte(id), doc)
+func (node *Node) askForSigShare(id string, doc []byte) (msg *message.Message, err error) {
+	msg, err = message.NewMessage(message.AskForSigShare, node.getID(), []byte(id), doc)
 	if err != nil {
 		return nil, err
 	}
@@ -77,20 +89,4 @@ func (node *Node) AskForSigShare(id string, doc []byte) (msg *message.Message, e
 		return nil, err
 	}
 	return msg, nil
-}
-
-func (node *Node) GetError() error {
-	return node.Err
-}
-
-func (node *Node) IsConnected() bool {
-	return node.Err == nil
-}
-
-func (node *Node) GetConnString() string {
-	return fmt.Sprintf("%s://%s:%d", TchsmProtocol, node.host, node.port)
-}
-
-func (node *Node) Disconnect() error {
-	return node.socket.Disconnect(node.GetConnString())
 }

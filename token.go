@@ -36,6 +36,7 @@ type Token struct {
 	slot          *Slot
 }
 
+// Creates a new token, but doesn't store it.
 func NewToken(label, userPin, soPin string) (*Token, error) {
 	if len(label) > 32 {
 		return nil, NewError("objects.NewToken", "Label with more than 32 chars", C.CKR_ARGUMENTS_BAD)
@@ -238,9 +239,10 @@ func (token *Token) GetObject(handle C.CK_OBJECT_HANDLE) (*CryptoObject, error) 
 			return object, nil
 		}
 	}
-	return nil, NewError("Session.DestroyObject", "object not found", C.CKR_OBJECT_HANDLE_INVALID)
+	return nil, NewError("Token.GetObject", "object not found", C.CKR_OBJECT_HANDLE_INVALID)
 }
 
+// Deletes an object from its list, but doesn't save it.
 func (token *Token) DeleteObject(handle C.CK_OBJECT_HANDLE) error {
 	token.Lock()
 	defer token.Unlock()
@@ -252,7 +254,7 @@ func (token *Token) DeleteObject(handle C.CK_OBJECT_HANDLE) error {
 		}
 	}
 	if objPos == -1 {
-		return NewError("Session.DestroyObject", "object not found", C.CKR_OBJECT_HANDLE_INVALID)
+		return NewError("Token.DeleteObject", "object not found", C.CKR_OBJECT_HANDLE_INVALID)
 	}
 	token.Objects = append(token.Objects[:objPos], token.Objects[objPos+1:]...)
 	return nil

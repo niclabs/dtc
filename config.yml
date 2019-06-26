@@ -1,7 +1,6 @@
 general:
   dtc:
     messagingType: zmq
-    instanceId: "libdtc"
     nodesNumber: 5
     threshold: 3
 
@@ -27,20 +26,20 @@ zmq:
   publicKey: "{0j3IXL0Jw:)K$b1@(1=<8z/joPM.c+EXVBMS>7$"
   privateKey: "F(/uq@m$}KW>)X=0yKRh}lg!N![Efl<@3<Bbelp3"
   host: 0.0.0.0
-  port: 2031
+  port: 3030
   nodes:
-    - host: localhost
+    - host: 127.0.0.1
       publicKey: 1ssev9cQhx8#<&btv/Hyuw]Mpd!PdSvDW?1Cnzh=
       port: 9871
-    - host: localhost
+    - host: 127.0.0.1
       publicKey:  3orVCWTf62)]XB<u9S+Kwcl!lb+Nj%L!&{ZDAz1b
       port: 9873
-    - host: localhost
+    - host: 127.0.0.1
       publicKey: '}TzWtBXujH1d^YcXLygShCHAyr#WPib8zSojk.[?'
       port: 9875
-    - host: localhost
+    - host: 127.0.0.1
       publicKey: 8J0v-vxvzx!KC]n+=n%r1>I6PcFZ^(NXAJ.ggykb
       port: 9877
-    - host: localhost
+    - host: 127.0.0.1
       publicKey: I](hGp3Bb]z4(w[9:<a]a+epEh:4iDyrm*Xi]pMI
       port: 9879

@@ -10,17 +10,9 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Sqlite3Config represents the parameters needed to use Sqlite3 storage.
 type Sqlite3Config struct {
-	Path string
-}
-
-func GetSqlite3Config() (*Sqlite3Config, error) {
-	var conf Sqlite3Config
-	err := viper.UnmarshalKey("sqlite3", &conf)
-	if err != nil {
-		return nil, err
-	}
-	return &conf, nil
+	Path string // Path to database.
 }
 
 // Sqlite3DB is a wrapper over a sql.Sqlite3DB object, complying with storage
@@ -30,8 +22,18 @@ type Sqlite3DB struct {
 	ActualHandle int
 }
 
-// Creates the databases if they doesn't exist yet.
-func (db Sqlite3DB) InitStorage() error {
+// Returns the defined sqlite3 configuration.
+func GetSqlite3Config() (*Sqlite3Config, error) {
+	var conf Sqlite3Config
+	err := viper.UnmarshalKey("sqlite3", &conf)
+	if err != nil {
+		return nil, err
+	}
+	return &conf, nil
+}
+
+
+func (db Sqlite3DB) Init() error {
 	if err := db.createTablesIfNotExist(); err != nil {
 		return fmt.Errorf("create tables: %v", err)
 	}
@@ -133,23 +135,29 @@ func (db Sqlite3DB) GetToken(label string) (token *Token, err error) {
 	var aHandle int
 	var aType sql.NullInt64
 	var aValue []byte
-	var object *CryptoObject
+	objects := make(map[int]*CryptoObject)
 	for rows.Next() {
 		err = rows.Scan(&aHandle, &aType, &aValue)
 		if err != nil {
 			return
 		}
-		object = &CryptoObject{
-			Handle:     C.CK_OBJECT_HANDLE(aHandle),
-			Attributes: make(Attributes),
+		object, ok := objects[aHandle]
+		if !ok {
+			object = &CryptoObject{
+				Handle:     C.CK_OBJECT_HANDLE(aHandle),
+				Attributes: make(Attributes),
+			}
+			objects[aHandle] = object
 		}
-		token.Objects = append(token.Objects, object)
 		if aType.Valid && aValue != nil {
 			object.Attributes[uint32(aType.Int64)] = &Attribute{
 				Type: uint32(aType.Int64),
 				Value: aValue,
 			}
 		}
+	}
+	for _, object := range objects {
+		token.Objects = append(token.Objects, object)
 	}
 	return
 }
@@ -162,11 +170,11 @@ func (db Sqlite3DB) GetMaxHandle() (C.CK_ULONG, error) {
 	return C.CK_ULONG(db.ActualHandle), nil
 }
 
-func (db Sqlite3DB) CloseStorage() error {
+func (db Sqlite3DB) Close() error {
 	return db.Close()
 }
 
-func GetDatabase(path string) (TokenStorage, error) {
+func GetDatabase(path string) (Storage, error) {
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
 		return nil, err

@@ -41,7 +41,7 @@ func (stub *NodeStub) GetConnString() string {
 }
 
 // This should be launched as goroutine
-func (stub *NodeStub) StartAndWait(server *ZMQ, t *testing.T) error {
+func (stub *NodeStub) StartAndWait(server *Server, t *testing.T) error {
 	in, err := stub.context.NewSocket(zmq4.ROUTER)
 	if err != nil {
 		return err
@@ -69,7 +69,7 @@ func (stub *NodeStub) StartAndWait(server *ZMQ, t *testing.T) error {
 	if err := out.ClientAuthCurve(server.pubKey, stub.pubKey, stub.privKey); err != nil {
 		return err
 	}
-	if err := out.Connect(server.GetConnString()); err != nil {
+	if err := out.Connect(server.getConnString()); err != nil {
 		return err
 	}
 
@@ -192,7 +192,7 @@ func getExampleConfig(numNodes uint16) (config *Config, stubs []*NodeStub, err e
 	return
 }
 
-func createConnection() (conn *ZMQ, nodes []*NodeStub, err error) {
+func createConnection() (conn *Server, nodes []*NodeStub, err error) {
 
 	config, nodes, err := getExampleConfig(testL)
 	if err != nil {
