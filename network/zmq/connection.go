@@ -268,6 +268,60 @@ L:
 	return sigShares, nil
 }
 
+func (conn *Server) AskForKeyDeletion(keyID string) error {
+	conn.mutex.Lock()
+	defer conn.mutex.Unlock()
+	if conn.currentMessage != message.None {
+		return fmt.Errorf("cannot delete key shares in a currentMessage state different to None")
+	}
+	for i, node := range conn.nodes {
+		log.Printf("Sending key share deletion petition to node in %s:%d", node.host, node.port)
+		msg, err := node.deleteKeyShare(keyID)
+		if err != nil {
+			return fmt.Errorf("error with node %d: %s", i, err)
+		}
+		conn.pendingMessages[msg.ID] = msg
+	}
+	conn.currentMessage = message.DeleteKeyShare
+	return nil
+}
+
+func (conn *Server) GetKeyDeletionAck() (int, error) {
+	conn.mutex.Lock()
+	defer func() {
+		conn.pendingMessages = make(map[string]*message.Message)
+		conn.currentMessage = message.None
+		conn.mutex.Unlock()
+	}()
+	if conn.currentMessage != message.DeleteKeyShare {
+		return 0, fmt.Errorf("cannot ack key share deletions in a currentMessage state different to DeleteKeyShare")
+	}
+	acked := 0
+	log.Printf("timeout will be %s", conn.timeout)
+	timer := time.After(conn.timeout)
+	for {
+		select {
+		case msg := <-conn.channel:
+			log.Printf("message received from node %s\n", msg.NodeID)
+			if pending, exists := conn.pendingMessages[msg.ID]; exists {
+				if err := msg.Ok(pending, 0); err != nil {
+					log.Printf("error with message from node %s: %v\n", msg.ID, message.ErrorToString[msg.Error])
+				}
+				delete(conn.pendingMessages, msg.ID)
+				acked++
+				if acked == len(conn.nodes) {
+					return acked, nil
+				}
+			} else {
+				log.Printf("unexpected message: %+v\n", msg)
+			}
+		case <-timer:
+			return acked, TimeoutError
+		}
+	}
+}
+
+
 func (conn *Server) Close() error {
 	err := conn.socket.Disconnect(conn.getConnString())
 	if err != nil {

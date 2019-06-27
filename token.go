@@ -7,6 +7,7 @@ package main
 */
 import "C"
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -239,7 +240,7 @@ func (token *Token) GetObject(handle C.CK_OBJECT_HANDLE) (*CryptoObject, error) 
 			return object, nil
 		}
 	}
-	return nil, NewError("Token.GetObject", "object not found", C.CKR_OBJECT_HANDLE_INVALID)
+	return nil, NewError("Token.GetObject", fmt.Sprintf("object not found with id %v", handle), C.CKR_OBJECT_HANDLE_INVALID)
 }
 
 // Deletes an object from its list, but doesn't save it.
@@ -254,7 +255,7 @@ func (token *Token) DeleteObject(handle C.CK_OBJECT_HANDLE) error {
 		}
 	}
 	if objPos == -1 {
-		return NewError("Token.DeleteObject", "object not found", C.CKR_OBJECT_HANDLE_INVALID)
+		return NewError("Token.DeleteObject", fmt.Sprintf("object not found with id %v", handle), C.CKR_OBJECT_HANDLE_INVALID)
 	}
 	token.Objects = append(token.Objects[:objPos], token.Objects[objPos+1:]...)
 	return nil

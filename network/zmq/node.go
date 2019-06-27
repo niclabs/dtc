@@ -89,3 +89,15 @@ func (node *Node) askForSigShare(id string, doc []byte) (msg *message.Message, e
 	}
 	return msg, nil
 }
+
+func (node *Node) deleteKeyShare(id string) (*message.Message, error) {
+	msg, err := message.NewMessage(message.DeleteKeyShare, node.getID(), []byte(id))
+	if err != nil {
+		return nil, err
+	}
+	_, err = node.socket.SendMessage(msg.GetBytesLists()...)
+	if err != nil {
+		return nil, err
+	}
+	return msg, nil
+}

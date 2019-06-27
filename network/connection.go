@@ -26,6 +26,12 @@ type Connection interface {
 	// Even if there is no error, you must check if the SigShares received are enough for your use case, because the method returns only the sigshares that arrived before the timeout (they could be zero).
 	GetSigShares() (tcrsa.SigShareList, error)
 
+	// AskForKeyDeletion asks the nodes to delete a key share.
+	AskForKeyDeletion(id string) error
+
+	// GetKeyDeletionAck receives the acks from the nodes for having deleted the keys. It returns an error on timeout and the number of acks received. The error should not be critical.
+	GetKeyDeletionAck() (int, error)
+
 	// Close finishes the operation of the connection.
 	Close() error
 }

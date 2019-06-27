@@ -29,7 +29,7 @@ const InsertCryptoObjectQuery = `
     VALUES (?, ?)
 `
 
-const CleanCryptoObjectsQuery = `
+const CleanCryptoObjectQuery = `
     DELETE FROM crypto_object WHERE token_label = ?
 `
 

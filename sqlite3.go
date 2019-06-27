@@ -9,6 +9,8 @@ import (
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/viper"
+	"log"
+	"sync"
 )
 
 // Sqlite3Config represents the parameters needed to use Sqlite3 storage.
@@ -19,8 +21,9 @@ type Sqlite3Config struct {
 // Sqlite3DB is a wrapper over a sql.Sqlite3DB object, complying with storage
 // interface.
 type Sqlite3DB struct {
+	sync.Mutex
 	*sql.DB
-	ActualHandle int
+	MaxHandle int
 }
 
 // Returns the defined sqlite3 configuration.
@@ -33,7 +36,7 @@ func GetSqlite3Config() (*Sqlite3Config, error) {
 	return &conf, nil
 }
 
-func (db Sqlite3DB) Init() error {
+func (db *Sqlite3DB) Init() error {
 	if err := db.createTablesIfNotExist(); err != nil {
 		return fmt.Errorf("create tables: %v", err)
 	}
@@ -43,7 +46,7 @@ func (db Sqlite3DB) Init() error {
 	return nil
 }
 
-func (db Sqlite3DB) SaveToken(token *Token) error {
+func (db *Sqlite3DB) SaveToken(token *Token) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -62,7 +65,7 @@ func (db Sqlite3DB) SaveToken(token *Token) error {
 		return err
 	}
 	// Cleaning old CryptoObjects
-	cleanObjectStmt, err := tx.Prepare(CleanCryptoObjectsQuery)
+	cleanObjectStmt, err := tx.Prepare(CleanCryptoObjectQuery)
 	if err != nil {
 		return err
 	}
@@ -90,8 +93,7 @@ func (db Sqlite3DB) SaveToken(token *Token) error {
 			}
 			object.Handle = actualHandle + 1
 		}
-		if bla, err := objectStmt.Exec(token.Label, object.Handle); err != nil {
-			fmt.Printf("%+v", bla)
+		if _, err := objectStmt.Exec(token.Label, object.Handle); err != nil {
 			return err
 		}
 		// Saving the attributes
@@ -105,7 +107,7 @@ func (db Sqlite3DB) SaveToken(token *Token) error {
 	return tx.Commit()
 }
 
-func (db Sqlite3DB) GetToken(label string) (token *Token, err error) {
+func (db *Sqlite3DB) GetToken(label string) (token *Token, err error) {
 	// Retrieve token
 	tokenStmt, err := db.Prepare(GetTokenQuery)
 	if err != nil {
@@ -162,15 +164,18 @@ func (db Sqlite3DB) GetToken(label string) (token *Token, err error) {
 	return
 }
 
-func (db Sqlite3DB) GetMaxHandle() (C.CK_ULONG, error) {
+func (db *Sqlite3DB) GetMaxHandle() (C.CK_ULONG, error) {
+	db.Lock()
+	defer db.Unlock()
 	err := db.updateMaxHandle()
 	if err != nil {
+		log.Printf("cannot get max handle")
 		return 0, err
 	}
-	return C.CK_ULONG(db.ActualHandle), nil
+	return C.CK_ULONG(db.MaxHandle), nil
 }
 
-func (db Sqlite3DB) Close() error {
+func (db *Sqlite3DB) Close() error {
 	return db.Close()
 }
 
@@ -184,7 +189,7 @@ func GetDatabase(path string) (Storage, error) {
 	}, nil
 }
 
-func (db Sqlite3DB) createTablesIfNotExist() error {
+func (db *Sqlite3DB) createTablesIfNotExist() error {
 	for _, stmt := range CreateStmts {
 		_, err := db.Exec(stmt)
 		if err != nil {
@@ -194,7 +199,7 @@ func (db Sqlite3DB) createTablesIfNotExist() error {
 	return nil
 }
 
-func (db Sqlite3DB) insertFirstToken() error {
+func (db *Sqlite3DB) insertFirstToken() error {
 	stmt, err := db.Prepare(InsertTokenQuery)
 	if err != nil {
 		return err
@@ -203,7 +208,7 @@ func (db Sqlite3DB) insertFirstToken() error {
 	return err
 }
 
-func (db Sqlite3DB) updateMaxHandle() error {
+func (db *Sqlite3DB) updateMaxHandle() error {
 	rows, err := db.Query(GetMaxHandleQuery)
 	if err != nil {
 		return err
@@ -215,9 +220,9 @@ func (db Sqlite3DB) updateMaxHandle() error {
 			return err
 		}
 		if maxHandle.Valid {
-			db.ActualHandle = int(maxHandle.Int64)
+			db.MaxHandle = int(maxHandle.Int64)
 		} else {
-			db.ActualHandle = 0
+			db.MaxHandle = 0
 		}
 	} else {
 		return rows.Err()

@@ -9,6 +9,7 @@ import "C"
 import (
 	"github.com/spf13/viper"
 	"log"
+	"os"
 	"strings"
 	"unsafe"
 )
@@ -17,6 +18,15 @@ func init() {
 	viper.AddConfigPath("./")
 	viper.AddConfigPath("/etc/dtc/")
 	viper.SetConfigName("config")
+	logPath := viper.GetString("general.logfile")
+	if logPath != "" {
+		logFile, err := os.OpenFile(logPath, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
+		if err != nil {
+			log.Printf("cannot create logfile in given path: %s", err)
+			return
+		}
+		log.SetOutput(logFile)
+	}
 }
 
 var App *Application
@@ -509,7 +519,7 @@ func C_FindObjects(hSession C.CK_SESSION_HANDLE, phObject C.CK_OBJECT_HANDLE_PTR
 		return ErrorToRV(err)
 	}
 
-	cObjectSlice := (*[1 << 30]C.CK_OBJECT_HANDLE)(unsafe.Pointer(phObject))[:*pulObjectCount:*pulObjectCount]
+	cObjectSlice := (*[1 << 30]C.CK_OBJECT_HANDLE)(unsafe.Pointer(phObject))[:ulMaxObjectCount:ulMaxObjectCount]
 
 	l := len(cObjectSlice)
 	if len(handles) < len(cObjectSlice) {
@@ -517,6 +527,7 @@ func C_FindObjects(hSession C.CK_SESSION_HANDLE, phObject C.CK_OBJECT_HANDLE_PTR
 	}
 	for i := 0; i < l; i++ {
 		cObjectSlice[i] = handles[i]
+
 	}
 	*pulObjectCount = C.ulong(len(handles))
 	return C.CKR_OK
@@ -551,7 +562,9 @@ func C_GetAttributeValue(hSession C.CK_SESSION_HANDLE, hObject C.CK_OBJECT_HANDL
 	if err != nil {
 		return ErrorToRV(err)
 	}
-	object.CopyAttributes(pTemplate, ulCount)
+	if err := object.CopyAttributes(pTemplate, ulCount); err != nil {
+		return ErrorToRV(err)
+	}
 	return C.CKR_OK
 }
 

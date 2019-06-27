@@ -70,3 +70,14 @@ func (dtc *DTC) SignData(keyName string, meta *tcrsa.KeyMeta, data []byte) ([]by
 	// Finally We merge and return them
 	return sigShareList.Join(data, meta)
 }
+
+// Deletes an old key deleting the key shares from all the nodes.
+func (dtc *DTC) DeleteKey(keyID string) (int, error) {
+	log.Printf("Deleting key shares with keyid=%s", keyID)
+	if err := dtc.Connection.AskForKeyDeletion(keyID); err != nil {
+		return 0, err
+	}
+	log.Printf("Acking key shares deletion related to keyid=%s", keyID)
+	return dtc.Connection.GetKeyDeletionAck()
+}
+

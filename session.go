@@ -14,6 +14,7 @@ import (
 	"github.com/niclabs/dtcnode/message"
 	"github.com/niclabs/tcrsa"
 	"hash"
+	"log"
 	"math/rand"
 	"reflect"
 	"sync"
@@ -170,21 +171,30 @@ func (session *Session) DestroyObject(hObject C.CK_OBJECT_HANDLE) error {
 	if err != nil {
 		return err
 	}
-	if _, err := token.GetObject(hObject); err != nil {
+	if object, err := token.GetObject(hObject); err != nil {
 		return err
 	} else {
-		/*
-			// Is it secure to allow the server to delete the keys? Suspended by now.
-				attr := object.FindAttribute(AttrTypeKeyHandler) // Key ID
-			if attr != nil {
-				privateAttr := object.FindAttribute(C.CKA_PRIVATE)
-				if privateAttr != nil {
-					isPrivate := C.CK_BBOOL(privateAttr.Value[0]) == C.CK_TRUE
-					if isPrivate {
-						// TODO: Delete key shares from DTC nodes
+
+		// Is it secure to allow the server to delete the keys? Suspended by now.
+		attr := object.FindAttribute(AttrTypeKeyHandler) // Key ID
+		if attr != nil {
+			keyID := string(attr.Value)
+			privateAttr := object.FindAttribute(C.CKA_PRIVATE)
+			if privateAttr != nil {
+				isPrivate := C.CK_BBOOL(privateAttr.Value[0]) == C.CK_TRUE
+				if isPrivate {
+					dtc, err := session.GetDTC()
+					if dtc != nil {
+						return err
+					}
+					n, err := dtc.DeleteKey(keyID)
+					log.Printf("%d nodes deleted key shares for keyid=%s", n, keyID)
+					if err != nil && n == 0 {
+						return err
 					}
 				}
-			}*/
+			}
+		}
 		_ = token.DeleteObject(hObject)
 		err := session.Slot.Application.Storage.SaveToken(token)
 		if err != nil {
@@ -206,10 +216,8 @@ func (session *Session) FindObjectsInit(attrs Attributes) error {
 
 	if len(attrs) == 0 {
 		session.foundObjects = make([]C.CK_OBJECT_HANDLE, len(token.Objects))
-		i := 0
-		for _, object := range token.Objects {
+		for i, object := range token.Objects {
 			session.foundObjects[i] = object.Handle
-			i++
 		}
 	} else {
 		session.foundObjects = make([]C.CK_OBJECT_HANDLE, 0)

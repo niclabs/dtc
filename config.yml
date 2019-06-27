@@ -1,11 +1,12 @@
 general:
+  logfile: /tmp/dtc.log
   dtc:
     messagingType: zmq
     nodesNumber: 5
     threshold: 3
 
   criptoki:
-    manufacturer_id: "NICLabs"
+    manufacturerId: "NICLabs"
     model: "TCHSM"
     description: "Implementación de PKCS11"
     versionMajor: 2
@@ -29,17 +30,17 @@ zmq:
   port: 3030
   nodes:
     - host: 127.0.0.1
-      publicKey: 1ssev9cQhx8#<&btv/Hyuw]Mpd!PdSvDW?1Cnzh=
+      publicKey: '@?Bpu79j8JG1$BGhUHx@bl?jaLB6Tg].V3XjCHiy'
       port: 9871
     - host: 127.0.0.1
-      publicKey:  3orVCWTf62)]XB<u9S+Kwcl!lb+Nj%L!&{ZDAz1b
+      publicKey:  '{ru14[eTvFFr^o}wL}#J[z4{ci7+P1gHv<on#[{z'
       port: 9873
     - host: 127.0.0.1
-      publicKey: '}TzWtBXujH1d^YcXLygShCHAyr#WPib8zSojk.[?'
+      publicKey: '*@tRX8)p=ty]7oZbJZ/Stm>=3Qd{P$[IG?ba>q3f'
       port: 9875
     - host: 127.0.0.1
-      publicKey: 8J0v-vxvzx!KC]n+=n%r1>I6PcFZ^(NXAJ.ggykb
+      publicKey: pZd<H6rhZ:3Eky<5A=Gvq]BLHL^a-@H+)tP?L-+7
       port: 9877
     - host: 127.0.0.1
-      publicKey: I](hGp3Bb]z4(w[9:<a]a+epEh:4iDyrm*Xi]pMI
+      publicKey: WEz4<>x8dul]2ELx$r60C-gTVf0O8=M>Z7ZV%ihW
       port: 9879

@@ -8,7 +8,7 @@ ENV DTC_PK changemeoriwillnotwork
 
 WORKDIR /
 RUN apk add zeromq-dev czmq-dev git pkgconfig gcc musl-dev
-RUN git clone https://github.com/niclabs/dtcnode #TODO tag a version of the project
+RUN git clone https://github.com/niclabs/dtcnode #TODO tag it
 
 WORKDIR /dtcnode
 RUN go mod tidy
