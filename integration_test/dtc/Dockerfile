@@ -5,7 +5,7 @@ MAINTAINER Eduardo Riveros<eduardo@niclabs.cl>
 WORKDIR /
 RUN apt update
 RUN apt -y install libzmq3-dev libczmq-dev build-essential sqlite3
-RUN git clone https://github.com/niclabs/dtc --branch docker-dtc # new branch
+RUN git clone https://github.com/niclabs/dtc --branch v1.1.0
 
 WORKDIR /dtc
 RUN go mod tidy

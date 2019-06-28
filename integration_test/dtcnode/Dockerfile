@@ -4,7 +4,7 @@ MAINTAINER Eduardo Riveros<eduardo@niclabs.cl>
 
 WORKDIR /
 RUN apk add zeromq-dev czmq-dev git pkgconfig gcc musl-dev
-RUN git clone https://github.com/niclabs/dtcnode --branch master --single-branch # new
+RUN git clone https://github.com/niclabs/dtcnode --branch v1.1.0 --single-branch
 
 WORKDIR /dtcnode
 RUN go mod tidy
