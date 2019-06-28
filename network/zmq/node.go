@@ -6,13 +6,14 @@ import (
 	"github.com/niclabs/tcrsa"
 	"github.com/pebbe/zmq4"
 	"log"
+	"net"
 )
 
 type NodeState int
 
 // Node represents a remote machine connection. It has all the data required to connect to a node, and a pointer to use the respective Server struct.
 type Node struct {
-	host   string       // Host of remote node
+	host   *net.IPAddr       // Host of remote node
 	port   uint16       // Port of remote node SUB
 	pubKey string       // Public key of remote node used in ZMQ CURVE Auth
 	socket *zmq4.Socket // ZMQ4 Socket

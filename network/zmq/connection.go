@@ -67,8 +67,12 @@ func New(config *Config) (conn *Server, err error) {
 	}
 	nodes := make([]*Node, len(config.Nodes))
 	for i := 0; i < len(config.Nodes); i++ {
+		nodeIP, err := net.ResolveIPAddr("ip", config.Nodes[i].Host)
+		if err != nil {
+			return
+		}
 		nodes[i] = &Node{
-			host:   config.Nodes[i].Host,
+			host:   nodeIP,
 			port:   config.Nodes[i].Port,
 			pubKey: config.Nodes[i].PublicKey,
 			conn:   conn,
