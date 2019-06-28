@@ -4,15 +4,15 @@ MAINTAINER Eduardo Riveros<eduardo@niclabs.cl>
 
 WORKDIR /
 RUN apk add zeromq-dev czmq-dev git pkgconfig gcc musl-dev
-RUN git clone https://github.com/niclabs/dtcnode --branch master --single-branch
+RUN git clone https://github.com/niclabs/dtcnode --branch master --single-branch # new
 
 WORKDIR /dtcnode
-RUN go clean --modcache
-RUN go mod download
+RUN go mod tidy
 RUN go build
 
 RUN mkdir /etc/dtcnode
 
 RUN apk del git pkgconfig gcc musl-dev
 
-CMD /dtcnode/dtcnode
+# Sleep because we need to wait the network to be initialized
+CMD sleep 5 && /dtcnode/dtcnode

@@ -368,11 +368,7 @@ func (conn *Server) getPubKeys() []string {
 func (conn *Server) getIPs() ([]string, error) {
 	ips := make([]string, len(conn.nodes))
 	for i, node := range conn.nodes {
-		ip, err := net.ResolveIPAddr("ip", node.host)
-		if err != nil {
-			return nil, err
-		}
-		ips[i] = ip.String()
+		ips[i] = node.host.String()
 	}
 	return ips, nil
 }

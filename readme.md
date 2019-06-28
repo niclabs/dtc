@@ -1,4 +1,4 @@
-# PKCS11-Compatible Distributed Threshold Criptography Library Signer
+# PKCS11-Compatible Distributed Threshold Cryptography Library Signer
 
 A Golang rework of [our C++ Library](https://github.com/niclabs/tchsm-libdtc) in Golang, but using a PKCS#11 interface.
 
@@ -16,8 +16,9 @@ For this signer to work, you need to configure it properly. You can use the conf
 First, it's necessary to download all the requirements of the Go project. The following libraries should be installed in the systems which are going to use the library:
 
 * libzmq-dev v4 or greater (for zmq communication with the nodes)
-* czmq (for zmq communication with the nodes)
+* czmq-dev (for zmq communication with the nodes)
 * gcc (`build-essentials` should suffice in Ubuntu)
+* sqlite3 (used in HSM data storage)
 
 
 And the following command installs the required golang libraries:
@@ -81,7 +82,7 @@ zmq:
 
 It has a mandatory section, called `general`, where we currently define three variables:
 * `logfile` is the absolute path where the log is going to be saved. If empty or undefined, the log will be printed on the stderr of the program which is using the library.
-* `dtc` represents the specific configuration used by the server. It defines a `messagingType` (Currently, only ZMQ), a `nodesNumber` value (the total number of nodes that are going to participate in the protocol) and a `threshold` number (the minimum number of nodes that need to sign a document to declare it as signed corectly.
+* `dtc` represents the specific configuration used by the server. It defines a `messagingType` (Currently, only ZMQ), a `nodesNumber` value (the total number of nodes that are going to participate in the protocol) and a `threshold` number (the minimum number of nodes that need to sign a document to declare it as signed correctly.
 * `criptoki` defines the following Criptoki/PKCS#11 specific variables:
  - `manufacturerId` is the ID of the manufacturer of the HSM.
  - `model` is the model of the HSM.
@@ -116,10 +117,7 @@ To run the integration test, first you need to create a file named `dtcnode.env`
 
 `./integration_test/test.sh`.
 
-If you only want to run the dockerized nodes, you need to execute 
 
-`/integration_test/start_nodes.sh`
-
-For more information about the ports bound in the docker configuration, it's reccomended to check the `docker-compose.yml` file.
+For more information about the ports bound in the docker configuration, it's recommended to check the `docker-compose.yml` file.
 
 
