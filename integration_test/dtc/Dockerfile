@@ -4,8 +4,8 @@ MAINTAINER Eduardo Riveros<eduardo@niclabs.cl>
 
 WORKDIR /
 RUN apt update
-RUN apt -y install libzmq3-dev libczmq-dev build-essential
-RUN git clone https://github.com/niclabs/dtc # new branch
+RUN apt -y install libzmq3-dev libczmq-dev build-essential sqlite3
+RUN git clone https://github.com/niclabs/dtc --branch docker-dtc # new branch
 
 WORKDIR /dtc
 RUN go mod tidy
@@ -19,8 +19,6 @@ RUN go mod tidy
 RUN go build
 
 RUN mv /dtc/dtc.so /dhsm-signer/dtc.so
-
-RUN apt -y install sqlite3
 
 # copy example zone and test with this shellscript
 COPY test.sh test.sh
