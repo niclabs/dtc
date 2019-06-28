@@ -30,7 +30,7 @@ for building the project as a library, you should execute the following command.
 
 # How to configure
 
-The configuration file is named `config.yaml` and it can be in the current working directory or in `/etc/dtc/` folder. the structure is similar to this:
+The configuration file is named `config.yaml` and it can be in the current working directory or in `/etc/dtc/` folder. the structure is similar to the following (**PLEASE DO NOT USE THIS PUBLIC/PRIVATE KEY PAIR FOR THE SERVER**):
 
 ```yaml
 general:
@@ -94,7 +94,7 @@ It has a mandatory section, called `general`, where we currently define three va
  - `slots` defines the slots available on the HSM. Each slot has a `label` field, representing the slot name. the HSM creates by default a `TCBHSM` slot with default credentials (1234), that can be changed at will using the default Criptoki API.
  
  
-Also, there are two extra configurations outside `general`option:
+Also, there are two extra configurations outside `general` option:
 
 * **Network Configurations**: They define the options for the network driver. Currently, `zmq` is the only available, but the implementation allows to extend it to other messaging systems. `zmq` defines the following options:
  * `timeout` represents the maximum time a node should be waited to declare it as non responsive.
@@ -104,6 +104,9 @@ Also, there are two extra configurations outside `general`option:
  * `nodes` is a list of dictionaries with node information. This list must be of the same size as the `nodesNumber` variable in `general.dtc`. Each node is represented by `host`, `port` and `publicKey` parameters (IP/Port/Public Key of the node).
 * **Storage Configurations**: They define the options for the storage driver. Currently, `sqlite3` is the only available, but the implementation allows to extend it to other storage systems. `sqlite3` defines the following options:
  * `path` is the path to the sqlite3 database. 
+ 
+ 
+If you need to generate a public/private Base85 key pair for ZMQ Curve Authentication, we recommend to use the `gencurve`utility in [dtcnode repository](https://github.com/niclabs/dtcnode).
 
 # How to test
 
