@@ -1,5 +1,6 @@
 general:
-  logfile: /tmp/dtc.log
+  # logfile undefined: the logs are going to be outputted in stdout/stderr
+# logfile: /tmp/dtc.log
   dtc:
     messagingType: zmq
     nodesNumber: 5
@@ -24,21 +25,21 @@ zmq:
   timeout: 10
   publicKey: "{0j3IXL0Jw:)K$b1@(1=<8z/joPM.c+EXVBMS>7$"
   privateKey: "F(/uq@m$}KW>)X=0yKRh}lg!N![Efl<@3<Bbelp3"
-  host: 0.0.0.0
+  host: dtc
   port: 3030
   nodes:
-    - host: 127.0.0.1
+    - host: node1
       publicKey: '@?Bpu79j8JG1$BGhUHx@bl?jaLB6Tg].V3XjCHiy'
-      port: 9871
-    - host: 127.0.0.1
+      port: 2030
+    - host: node2
       publicKey:  '{ru14[eTvFFr^o}wL}#J[z4{ci7+P1gHv<on#[{z'
-      port: 9873
-    - host: 127.0.0.1
+      port: 2030
+    - host: node3
       publicKey: '*@tRX8)p=ty]7oZbJZ/Stm>=3Qd{P$[IG?ba>q3f'
-      port: 9875
-    - host: 127.0.0.1
+      port: 2030
+    - host: node4
       publicKey: pZd<H6rhZ:3Eky<5A=Gvq]BLHL^a-@H+)tP?L-+7
-      port: 9877
-    - host: 127.0.0.1
+      port: 2030
+    - host: node5
       publicKey: WEz4<>x8dul]2ELx$r60C-gTVf0O8=M>Z7ZV%ihW
-      port: 9879
+      port: 2030

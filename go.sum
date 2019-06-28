@@ -61,8 +61,6 @@ github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5
 github.com/mitchellh/mapstructure v1.1.2 h1:fmNYVwqnSfB9mZU6OS2O6GsXM+wcskZDuKQzvN1EDeE=
 github.com/mitchellh/mapstructure v1.1.2/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=
 github.com/mwitkow/go-conntrack v0.0.0-20161129095857-cc309e4a2223/go.mod h1:qRWi+5nqEBWmkhHvq77mSJWrCKwh8bxhgT7d/eI7P4U=
-github.com/niclabs/dtcnode v0.0.0-20190627212414-4825795d7816 h1:cR1Ohlh+1/4j3oDiL6yIrtz0wKJV2Yfr0WvVJNr+H2k=
-github.com/niclabs/dtcnode v0.0.0-20190627212414-4825795d7816/go.mod h1:/h1ltdiOymwjUI1D+rC4omvBi5MNyYv5kMAE7+eE834=
 github.com/niclabs/dtcnode v1.0.0 h1:XohODOA/UUzY8c2aTjOGiVxd78NbUoDcqSfaZFiurTE=
 github.com/niclabs/dtcnode v1.0.0/go.mod h1:/h1ltdiOymwjUI1D+rC4omvBi5MNyYv5kMAE7+eE834=
 github.com/niclabs/tcrsa v0.0.2 h1:zBMvdqAQVKK47rVn+DCvTFJ+N12XzbVJG+wnhLjbia8=

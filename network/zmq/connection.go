@@ -6,6 +6,7 @@ import (
 	"github.com/niclabs/tcrsa"
 	"github.com/pebbe/zmq4"
 	"log"
+	"net"
 	"sync"
 	"time"
 )
@@ -24,7 +25,7 @@ var TimeoutError = fmt.Errorf("timeout")
 type Server struct {
 	started bool
 	// config properties
-	host    string        // Host of service
+	host    *net.IPAddr        // Host of service
 	port    uint16        // Port where server ROUTER socket runs on
 	privKey string        // Private Key of node
 	pubKey  string        // Public Key of node
@@ -50,8 +51,12 @@ func New(config *Config) (conn *Server, err error) {
 	if config.Timeout == 0 {
 		config.Timeout = 10
 	}
+	ip, err := net.ResolveIPAddr("ip", config.Host)
+	if err != nil {
+		return nil, err
+	}
 	conn = &Server{
-		host:            config.Host,
+		host:            ip,
 		port:            config.Port,
 		privKey:         config.PrivateKey,
 		pubKey:          config.PublicKey,
@@ -83,7 +88,11 @@ func (conn *Server) Open() (err error) {
 	_ = zmq4.AuthStart()
 
 	// Add IPs and public keys from clients
-	zmq4.AuthAllow(TchsmDomain, conn.getIPs()...)
+	ips, err := conn.getIPs()
+	if err != nil {
+		return err
+	}
+	zmq4.AuthAllow(TchsmDomain, ips...)
 	zmq4.AuthCurveAdd(TchsmDomain, conn.getPubKeys()...)
 
 	// Create in
@@ -327,7 +336,6 @@ func (conn *Server) GetKeyDeletionAck() (int, error) {
 	}
 }
 
-
 func (conn *Server) Close() error {
 	err := conn.socket.Disconnect(conn.getConnString())
 	if err != nil {
@@ -353,12 +361,16 @@ func (conn *Server) getPubKeys() []string {
 	return pubKeys
 }
 
-func (conn *Server) getIPs() []string {
+func (conn *Server) getIPs() ([]string, error) {
 	ips := make([]string, len(conn.nodes))
 	for i, node := range conn.nodes {
-		ips[i] = node.host
+		ip, err := net.ResolveIPAddr("ip", node.host)
+		if err != nil {
+			return nil, err
+		}
+		ips[i] = ip.String()
 	}
-	return ips
+	return ips, nil
 }
 
 func (conn *Server) getConnString() string {

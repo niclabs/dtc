@@ -2,56 +2,26 @@ version: '3'
 services:
   node1:
     build: ./dtcnode/
-    env_file:
-      - dtcnode/dtcnode.env
-    environment:
-      - DTC_NODE_ID=NODE1
     volumes:
-      - ./config/node1:/etc/dtcnode
-    ports:
-      - "9871:2030"
+      - ./dtcnode/config/node1:/etc/dtcnode
   node2:
     build: ./dtcnode/
-    env_file:
-      - dtcnode/dtcnode.env
-    environment:
-      - DTC_NODE_ID=NODE2
     volumes:
-      - ./config/node2:/etc/dtcnode
-    ports:
-      - "9873:2030"
+      - ./dtcnode/config/node2:/etc/dtcnode
   node3:
     build: ./dtcnode/
-    env_file:
-      - dtcnode/dtcnode.env
-    environment:
-      - DTC_NODE_ID=NODE3
     volumes:
-      - ./config/node3:/etc/dtcnode
-    ports:
-      - "9875:2030"
+      - ./dtcnode/config/node3:/etc/dtcnode
   node4:
     build: ./dtcnode/
-    env_file:
-      - dtcnode/dtcnode.env
-    environment:
-      - DTC_NODE_ID=NODE4
     volumes:
-      - ./config/node4:/etc/dtcnode
-    ports:
-      - "9877:2030"
+      - ./dtcnode/config/node4:/etc/dtcnode
   node5:
     build: ./dtcnode/
-    env_file:
-      - dtcnode/dtcnode.env
-    environment:
-      - DTC_NODE_ID=NODE5
     volumes:
-      - ./config/node5:/etc/dtcnode
-    ports:
-      - "9879:2030"
+      - ./dtcnode/config/node5:/etc/dtcnode
   dtc:
     build: ./dtc/
-    ports:
-      - "3030:3030"
+    volumes:
+      - ./dtc/config:/etc/dtc
 

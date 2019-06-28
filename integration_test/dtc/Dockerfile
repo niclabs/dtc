@@ -7,14 +7,16 @@ RUN apk add zeromq-dev czmq-dev git pkgconfig gcc musl-dev
 RUN git clone https://github.com/niclabs/dtc
 
 WORKDIR /dtc
-RUN go mod tidy
+RUN go clean --modcache
+RUN go mod download
 RUN ./build.sh
 
 WORKDIR /
 RUN git clone https://github.com/niclabs/dhsm-signer --branch v0.8
 
 WORKDIR /dhsm-signer
-RUN go mod tidy
+RUN go clean --modcache
+RUN go mod download
 RUN go build
 
 RUN apk del git gcc musl-dev
