@@ -184,14 +184,14 @@ func (session *Session) DestroyObject(hObject C.CK_OBJECT_HANDLE) error {
 				isPrivate := C.CK_BBOOL(privateAttr.Value[0]) == C.CK_TRUE
 				if isPrivate {
 					dtc, err := session.GetDTC()
-					if dtc != nil {
+					if err != nil {
 						return err
 					}
 					n, err := dtc.DeleteKey(keyID)
-					log.Printf("%d nodes deleted key shares for keyid=%s", n, keyID)
 					if err != nil && n == 0 {
 						return err
 					}
+					log.Printf("%d nodes deleted key shares for keyid=%s", n, keyID)
 				}
 			}
 		}
@@ -693,7 +693,7 @@ func createPrivateKey(keyID string, skAttrs Attributes, keyMeta *tcrsa.KeyMeta) 
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_LABEL, nil})
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_ID, nil})
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_SUBJECT, nil})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_PRIVATE, []byte{C.CK_FALSE}})
+	skAttrs.SetIfUndefined(&Attribute{C.CKA_PRIVATE, []byte{C.CK_TRUE}})
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_MODIFIABLE, []byte{C.CK_TRUE}})
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_TOKEN, []byte{C.CK_FALSE}})
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_DERIVE, []byte{C.CK_FALSE}})
@@ -704,7 +704,6 @@ func createPrivateKey(keyID string, skAttrs Attributes, keyMeta *tcrsa.KeyMeta) 
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_ALWAYS_SENSITIVE, []byte{C.CK_TRUE}})
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_DECRYPT, []byte{C.CK_TRUE}})
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_SIGN, []byte{C.CK_TRUE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_DECRYPT, []byte{C.CK_TRUE}})
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_SIGN_RECOVER, []byte{C.CK_TRUE}})
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_UNWRAP, []byte{C.CK_TRUE}})
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_EXTRACTABLE, []byte{C.CK_FALSE}})

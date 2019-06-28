@@ -22,6 +22,7 @@ var TimeoutError = fmt.Errorf("timeout")
 // ZMQ Structure represents a connection to a set of Nodes via ZMQ
 // Messaging Protocol.
 type Server struct {
+	started bool
 	// config properties
 	host    string        // Host of service
 	port    uint16        // Port where server ROUTER socket runs on
@@ -73,13 +74,13 @@ func New(config *Config) (conn *Server, err error) {
 }
 
 func (conn *Server) Open() (err error) {
+	if conn.started {
+		return nil
+	}
 	if conn.nodes == nil {
 		return fmt.Errorf("not initialized. Use 'New' to create a new struct")
 	}
-	err = zmq4.AuthStart()
-	if err != nil {
-		return
-	}
+	_ = zmq4.AuthStart()
 
 	// Add IPs and public keys from clients
 	zmq4.AuthAllow(TchsmDomain, conn.getIPs()...)
@@ -88,16 +89,19 @@ func (conn *Server) Open() (err error) {
 	// Create in
 	in, err := conn.ctx.NewSocket(zmq4.ROUTER)
 	if err != nil {
+		zmq4.AuthStop()
 		return
 	}
 
 	if err = in.SetIdentity(conn.pubKey); err != nil {
+		zmq4.AuthStop()
 		return
 	}
 
 	// Add our private key
 	err = in.ServerAuthCurve(TchsmDomain, conn.privKey)
 	if err != nil {
+		zmq4.AuthStop()
 		return
 	}
 
@@ -105,6 +109,7 @@ func (conn *Server) Open() (err error) {
 	log.Printf("binding our socket in %s", conn.getConnString())
 	err = in.Bind(conn.getConnString())
 	if err != nil {
+		zmq4.AuthStop()
 		return
 	}
 	conn.socket = in
@@ -112,6 +117,7 @@ func (conn *Server) Open() (err error) {
 	// Now we connect to the clients
 	for _, client := range conn.nodes {
 		if err = client.connect(); err != nil {
+			zmq4.AuthStop()
 			return
 		}
 	}
@@ -138,7 +144,7 @@ func (conn *Server) Open() (err error) {
 
 		}
 	}()
-
+	conn.started = true
 	return
 }
 
@@ -335,6 +341,7 @@ func (conn *Server) Close() error {
 		}
 	}
 	zmq4.AuthStop()
+	conn.started = false
 	return nil
 }
 

@@ -109,10 +109,10 @@ func (slot *Slot) GetInfo(pInfo C.CK_SLOT_INFO_PTR) error {
 	C.memcpy(unsafe.Pointer(&info.manufacturerID[0]), cManufacturerID, 32)
 
 	pInfo.flags = C.CK_ULONG(slot.flags)
-	pInfo.hardwareVersion.major = C.uchar(slot.Application.Config.Criptoki.VersionMajor)
-	pInfo.hardwareVersion.minor = C.uchar(slot.Application.Config.Criptoki.VersionMinor)
-	pInfo.firmwareVersion.major = C.uchar(slot.Application.Config.Criptoki.VersionMajor)
-	pInfo.firmwareVersion.minor = C.uchar(slot.Application.Config.Criptoki.VersionMinor)
+	pInfo.hardwareVersion.major = 2
+	pInfo.hardwareVersion.minor = 40
+	pInfo.firmwareVersion.major = 2
+	pInfo.firmwareVersion.minor = 40
 	return nil
 }
 

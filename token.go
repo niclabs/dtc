@@ -121,10 +121,10 @@ func (token *Token) GetInfo(pInfo C.CK_TOKEN_INFO_PTR) error {
 	info.ulFreePublicMemory = C.CK_UNAVAILABLE_INFORMATION
 	info.ulTotalPrivateMemory = C.CK_UNAVAILABLE_INFORMATION
 	info.ulFreePrivateMemory = C.CK_UNAVAILABLE_INFORMATION
-	info.hardwareVersion.major = C.uchar(token.slot.Application.Config.Criptoki.VersionMajor)
-	info.hardwareVersion.minor = C.uchar(token.slot.Application.Config.Criptoki.VersionMinor)
-	info.firmwareVersion.major = C.uchar(token.slot.Application.Config.Criptoki.VersionMajor)
-	info.firmwareVersion.minor = C.uchar(token.slot.Application.Config.Criptoki.VersionMinor)
+	info.hardwareVersion.major = 2
+	info.hardwareVersion.minor = 40
+	info.firmwareVersion.major = 2
+	info.firmwareVersion.minor = 40
 
 	now := time.Now()
 	cTimeStr := C.CString(now.Format("20060102150405") + "00")

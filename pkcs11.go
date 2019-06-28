@@ -156,8 +156,8 @@ func C_GetInfo(pInfo C.CK_INFO_PTR) C.CK_RV {
 
 	info.flags = 0
 
-	info.libraryVersion.major = C.uchar(App.Config.Criptoki.VersionMajor)
-	info.libraryVersion.minor = C.uchar(App.Config.Criptoki.VersionMinor)
+	info.libraryVersion.major = 1
+	info.libraryVersion.minor = 0
 
 	return C.CKR_OK
 }
