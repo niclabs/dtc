@@ -8,7 +8,6 @@ package pkcs11_test
 // in /usr/lib/softhsm/libsofthsm.so
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/miekg/pkcs11"
 	"log"
@@ -19,8 +18,6 @@ import (
 
 var (
 	module          = "../../dtc.so"
-	tokenLabel      = "TCHSM"
-	privateKeyLabel = "TCHSM_PK"
 	pin             = "1234"
 )
 
@@ -193,13 +190,6 @@ func testDigest(t *testing.T, p *pkcs11.Ctx, session pkcs11.SessionHandle, input
 	}
 }
 
-func TestDigesUpdate(t *testing.T) {
-	p := setenv(t)
-	session := getSession(p, t)
-	testDigestUpdate(t, p, session, [][]byte{[]byte("this is "), []byte("a string")}, "517592df8fec3ad146a79a9af153db2a4d784ec5")
-	finishSession(p, session)
-}
-
 func testDigestUpdate(t *testing.T, p *pkcs11.Ctx, session pkcs11.SessionHandle, inputs [][]byte, expected string) {
 	if e := p.DigestInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_SHA_1, nil)}); e != nil {
 		t.Fatalf("DigestInit: %s\n", e)
@@ -343,135 +333,13 @@ func TestDestroyObject(t *testing.T) {
 
 }
 
-func TestSymmetricEncryption(t *testing.T) {
-	p := setenv(t)
-	session := getSession(p, t)
-	defer finishSession(p, session)
-	if info, err := p.GetInfo(); err != nil {
-		t.Errorf("GetInfo: %v", err)
-		return
-	} else if info.ManufacturerID == "SoftHSM" && info.LibraryVersion.Major < 2 {
-		t.Skipf("AES not implemented on SoftHSM")
-	}
-	tokenLabel := "TestGenerateKey"
-	keyTemplate := []*pkcs11.Attribute{
-		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, false),
-		pkcs11.NewAttribute(pkcs11.CKA_ENCRYPT, true),
-		pkcs11.NewAttribute(pkcs11.CKA_DECRYPT, true),
-		pkcs11.NewAttribute(pkcs11.CKA_LABEL, tokenLabel),
-		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, true),
-		pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, true),
-		pkcs11.NewAttribute(pkcs11.CKA_VALUE_LEN, 16),
-	}
-	key, err := p.GenerateKey(session,
-		[]*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_AES_KEY_GEN, nil)},
-		keyTemplate)
-	if err != nil {
-		t.Fatalf("failed to generate keypair: %s\n", err)
-	}
-	t.Run("Encrypt", func(t *testing.T) {
-		t.Run("ECB", func(t *testing.T) {
-			testEncrypt(t, p, session, key, pkcs11.CKM_AES_ECB, make([]byte, 32), nil)
-		})
-		t.Run("CBC", func(t *testing.T) {
-			testEncrypt(t, p, session, key, pkcs11.CKM_AES_CBC, make([]byte, 32), make([]byte, 16))
-		})
-		t.Run("CBC-PAD", func(t *testing.T) {
-			testEncrypt(t, p, session, key, pkcs11.CKM_AES_CBC_PAD, make([]byte, 31), make([]byte, 16))
-		})
-		/* Broken in SoftHSMv2
-		t.Run("Empty", func(t *testing.T) {
-			testEncrypt(t, p, session, key, pkcs11.CKM_AES_CBC, []byte{}, make([]byte, 16))
-		})
-		*/
-	})
-	t.Run("EncryptUpdate", func(t *testing.T) {
-		t.Run("ECB", func(t *testing.T) {
-			testEncryptUpdate(t, p, session, key, pkcs11.CKM_AES_ECB, [][]byte{make([]byte, 32), make([]byte, 16)}, nil)
-		})
-		t.Run("CBC", func(t *testing.T) {
-			testEncryptUpdate(t, p, session, key, pkcs11.CKM_AES_CBC, [][]byte{make([]byte, 32), make([]byte, 16)}, make([]byte, 16))
-		})
-		t.Run("CBC-PAD", func(t *testing.T) {
-			testEncryptUpdate(t, p, session, key, pkcs11.CKM_AES_CBC_PAD, [][]byte{make([]byte, 11), make([]byte, 20)}, make([]byte, 16))
-		})
-		/* Broken in SoftHSMv2
-		t.Run("Empty", func(t *testing.T) {
-			testEncryptUpdate(t, p, session, key, pkcs11.CKM_AES_CBC, [][]byte{make([]byte, 31), []byte{}}, make([]byte, 16))
-		})
-		*/
-	})
-}
-
-func testEncrypt(t *testing.T, p *pkcs11.Ctx, session pkcs11.SessionHandle, key pkcs11.ObjectHandle, mech uint, plaintext []byte, iv []byte) {
-	var err error
-	if err = p.EncryptInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(mech, iv)}, key); err != nil {
-		t.Fatalf("EncryptInit: %s\n", err)
-	}
-	var ciphertext []byte
-	if ciphertext, err = p.Encrypt(session, plaintext); err != nil {
-		t.Fatalf("Encrypt: %s\n", err)
-	}
-	if err = p.DecryptInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(mech, iv)}, key); err != nil {
-		t.Fatalf("DecryptInit: %s\n", err)
-	}
-	var decrypted []byte
-	if decrypted, err = p.Decrypt(session, ciphertext); err != nil {
-		t.Fatalf("Decrypt: %s\n", err)
-	}
-	if bytes.Compare(plaintext, decrypted) != 0 {
-		t.Fatalf("Plaintext mismatch")
-	}
-}
-
-func testEncryptUpdate(t *testing.T, p *pkcs11.Ctx, session pkcs11.SessionHandle, key pkcs11.ObjectHandle, mech uint, plaintexts [][]byte, iv []byte) {
-	var err error
-	if err = p.EncryptInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(mech, iv)}, key); err != nil {
-		t.Fatalf("EncryptInit: %s\n", err)
-	}
-	var ciphertexts [][]byte
-	var output, plaintext []byte
-	for _, input := range plaintexts {
-		plaintext = append(plaintext, input...)
-		if output, err = p.EncryptUpdate(session, input); err != nil {
-			t.Fatalf("EncryptUpdate: %s\n", err)
-		}
-		ciphertexts = append(ciphertexts, output)
-	}
-	if output, err = p.EncryptFinal(session); err != nil {
-		t.Fatalf("EncryptFinal: %s\n", err)
-	}
-	ciphertexts = append(ciphertexts, output)
-	if err = p.DecryptInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(mech, iv)}, key); err != nil {
-		t.Fatalf("DecryptInit: %s\n", err)
-	}
-	var decrypted []byte
-	for _, input := range ciphertexts {
-		if len(input) == 0 { // Broken in SoftHSMv2
-			continue
-		}
-		if output, err = p.DecryptUpdate(session, input); err != nil {
-			t.Fatalf("DecryptUpdate: %s\n", err)
-		}
-		decrypted = append(decrypted, output...)
-	}
-	if output, err = p.DecryptFinal(session); err != nil {
-		t.Fatalf("DecryptFinal: %s\n", err)
-	}
-	decrypted = append(decrypted, output...)
-	if bytes.Compare(plaintext, decrypted) != 0 {
-		t.Fatalf("Plaintext mismatch")
-	}
-}
-
 // ExampleSign shows how to sign some data with a private key.
 // Note: error correction is not implemented in this example.
 func ExampleCtx_Sign() {
-	lib := "/usr/lib/softhsm/libsofthsm.so"
 	if x := os.Getenv("PKCS11_LIB"); x != "" {
-		lib = x
+		module = x
 	}
-	p := pkcs11.New(lib)
+	p := pkcs11.New(module)
 	if p == nil {
 		log.Fatal("Failed to init lib")
 	}

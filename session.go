@@ -566,14 +566,11 @@ func (session *Session) DigestInit(mechanism *Mechanism) error {
 }
 
 // Digest adds data to digest and returns the digest of the data.
-func (session *Session) Digest(data []byte) ([]byte, error) {
-	if !session.digestInitialized {
+// If reset is true, the digestHash resets afther the hash calculation.
+func (session *Session) Digest(data []byte, reset bool) ([]byte, error) {
+	if !session.digestInitialized || session.digestHash == nil {
 		return nil, NewError("Session.Digest", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
 	}
-	go func() {
-		session.digestInitialized = false
-		session.digestHash = nil
-	}()
 	if data == nil {
 		return nil, NewError("Session.Digest", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
 	}
@@ -582,7 +579,20 @@ func (session *Session) Digest(data []byte) ([]byte, error) {
 		return nil, err
 	}
 	hashed := session.digestHash.Sum(nil)
+	if reset {
+		session.digestHash.Reset()
+	}
 	return hashed, nil
+}
+
+// DigestFinish finishes a digest operation.
+func (session *Session) DigestFinish() error {
+	if !session.digestInitialized || session.digestHash == nil {
+		return NewError("Session.Digest", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
+	}
+	session.digestInitialized = false
+	session.digestHash = nil
+	return nil
 }
 
 // GenerateRandom generates a random number and returns it as byte.

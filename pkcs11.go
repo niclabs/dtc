@@ -801,15 +801,27 @@ func C_Digest(hSession C.CK_SESSION_HANDLE, pData C.CK_BYTE_PTR, ulDataLen C.CK_
 	if err != nil {
 		return ErrorToRV(err)
 	}
-	digest := C.GoBytes(unsafe.Pointer(pData), C.int(ulDataLen))
-	digested, err := session.Digest(digest)
+	input := C.GoBytes(unsafe.Pointer(pData), C.int(ulDataLen))
+	digested, err := session.Digest(input, true) // if pDigest is nil, we are only calculating buffer size
 	if err != nil {
 		return ErrorToRV(err)
 	}
+	cDigestLen := C.CK_ULONG(len(digested))
+	if pDigest == nil {
+		*pulDigestLen = cDigestLen
+		return C.CKR_OK
+	}
+	if *pulDigestLen < cDigestLen {
+		*pulDigestLen = cDigestLen
+		return C.CKR_BUFFER_TOO_SMALL
+	}
 	cDigest := C.CBytes(digested)
 	defer C.free(cDigest)
-	C.memcpy(unsafe.Pointer(pDigest), cDigest, *pulDigestLen)
-	*pulDigestLen = C.ulong(len(digest))
+	C.memcpy(unsafe.Pointer(pDigest), cDigest, cDigestLen)
+	if err := session.DigestFinish(); err != nil {
+		return ErrorToRV(err)
+	}
+	*pulDigestLen = cDigestLen
 	return C.CKR_OK
 }
 
