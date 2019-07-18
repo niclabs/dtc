@@ -1,0 +1,10 @@
+config:
+  publickey: iZE&RHy06sr65OZDG.)[gRKW:6cGvfA00s(vH$qq
+  privatekey: P$J58v$r7OEf@<*2n}Z4%a&}?9($Svya5bW@<mmJ
+  host: 0.0.0.0
+  port: 2030
+  server:
+    publickey: '{0j3IXL0Jw:)K$b1@(1=<8z/joPM.c+EXVBMS>7$'
+    host: 172.18.0.1
+    port: 3030
+    keys: {}

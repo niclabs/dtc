@@ -1,26 +1,26 @@
 version: '3'
 services:
   node1:
-    build: ./dtcnode/
+    build: dtcnode/
     volumes:
       - ./dtcnode/config/node1:/etc/dtcnode
   node2:
-    build: ./dtcnode/
+    build: dtcnode/
     volumes:
       - ./dtcnode/config/node2:/etc/dtcnode
   node3:
-    build: ./dtcnode/
+    build: dtcnode/
     volumes:
       - ./dtcnode/config/node3:/etc/dtcnode
   node4:
-    build: ./dtcnode/
+    build: dtcnode/
     volumes:
       - ./dtcnode/config/node4:/etc/dtcnode
   node5:
-    build: ./dtcnode/
+    build: dtcnode/
     volumes:
       - ./dtcnode/config/node5:/etc/dtcnode
   dtc:
-    build: ./dtc/
+    build: dtc/
     volumes:
       - ./dtc/config:/etc/dtc
