@@ -3,3 +3,4 @@ dtc
 config.yml
 dtcnode
 dtc.so
+db.sqlite3

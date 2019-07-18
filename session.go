@@ -568,18 +568,20 @@ func (session *Session) DigestInit(mechanism *Mechanism) error {
 // Digest adds data to digest and returns the digest of the data.
 func (session *Session) Digest(data []byte) ([]byte, error) {
 	if !session.digestInitialized {
-		return nil, NewError("Session.DigestInit", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
+		return nil, NewError("Session.Digest", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
 	}
+	go func() {
+		session.digestInitialized = false
+		session.digestHash = nil
+	}()
 	if data == nil {
-		return nil, NewError("Session.DigestInit", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
+		return nil, NewError("Session.Digest", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
 	}
 	_, err := session.digestHash.Write(data)
 	if err != nil {
 		return nil, err
 	}
 	hashed := session.digestHash.Sum(nil)
-	session.digestInitialized = false
-	session.digestHash = nil
 	return hashed, nil
 }
 

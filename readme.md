@@ -111,13 +111,27 @@ If you need to generate a public/private Base85 key pair for ZMQ Curve Authentic
 
 # How to test
 
-This project includes a _Docker Compose_ configuration with five DTC ZMQ nodes, used for signing a DNSSEC zone with [dhsm-signer](https://github.com/niclabs/dhsm-signer). 
+This project includes two test types:
+ 
+ ## dhsm-signer
+ This test is in `/tests/dhsm-signer/`, and includes a _Docker Compose_ configuration with five DTC ZMQ nodes, used for signing a DNSSEC zone with [dhsm-signer](https://github.com/niclabs/dhsm-signer). 
 
-To run the integration test, first you need to create a file named `dtcnode.env` with the variables `DTC_SERVER` (the IP:Port of the machine in Docker configuration, `DTC_PK` (the public key the server will use)  and `DTC_NODE` (IP:Port used by the node) on the folder `integration_test`. Then, you should execute 
+To run the integration test, first you need to create a file named `dtcnode.env` with the variables `DTC_SERVER` (the IP:Port of the machine in Docker configuration, `DTC_PK` (the public key the server will use)  and `DTC_NODE` (IP:Port used by the node) on the folder `tests/dhsm-signer`. Then, you should execute 
 
-`./integration_test/test.sh`.
+`./tests/dhsm-signer/test.sh`.
 
 
 For more information about the ports bound in the docker configuration, it's recommended to check the `docker-compose.yml` file.
 
+## pkcs11-test
+
+ This test is located in `tests/pkcs11-test` and is used to check that the PKCS11-compatible library uses properly its API.
+ 
+ The tests are borrowed from the [Go PKCS11 Library](https://github.com/miekg/pkcs11), modifying some paths to use the dtc.so library.
+ 
+ To execute this tests, first you need to compile the shared object executing `./build.sh` on the project root file. 
+ 
+ Then, you need to start some dtcnodes. We include a dockerfile with 5 dtcnodes and some prefilled key pairs. They are bound to the `tests/pkcs11-test/config.yml` config file, that will be used when executing the PKCS11 go tests. To start the nodes, you must run `./tests/pkcs11-test/test.sh`. This will start the nodes.
+ 
+ Finally, you need to execute the tests. This can be accomplished executing `go test dtc/tests/pkcs1-test`.
 

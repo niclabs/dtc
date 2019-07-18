@@ -23,6 +23,7 @@ func init() {
 		logFile, err := os.OpenFile(logPath, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
 			log.Printf("cannot create logfile in given path: %s", err)
+			log.Printf("cannot create logfile in given path: %s", err)
 			return
 		}
 		log.SetOutput(logFile)
@@ -71,6 +72,9 @@ func C_Finalize(pReserved C.CK_VOID_PTR) C.CK_RV {
 	}
 	if pReserved != nil {
 		return C.CKR_ARGUMENTS_BAD
+	}
+	if err := App.DTC.Connection.Close(); err != nil {
+		return ErrorToRV(err)
 	}
 	App = nil
 	return C.CKR_OK

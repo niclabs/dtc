@@ -25,7 +25,7 @@ var TimeoutError = fmt.Errorf("timeout")
 type Server struct {
 	started bool
 	// config properties
-	host    *net.IPAddr        // Host of service
+	host    *net.IPAddr   // Host of service
 	port    uint16        // Port where server ROUTER socket runs on
 	privKey string        // Private Key of node
 	pubKey  string        // Public Key of node
@@ -262,14 +262,6 @@ L:
 				sigShare, err := message.DecodeSigShare(msg.Data[0])
 				if err != nil {
 					log.Printf("corrupt key: %v\n", msg)
-					// Ask for it again?
-					node := conn.getNodeByID(msg.NodeID)
-					newMsg, err := node.askForSigShare(string(pending.Data[0]), pending.Data[1])
-					if err != nil {
-						log.Printf("error asking signature share to node %s: %s\n", node.getID(), err)
-					}
-					// save it in pending
-					conn.pendingMessages[newMsg.ID] = newMsg
 				} else {
 					sigShares = append(sigShares, sigShare)
 					if len(sigShares) == len(conn.nodes) {
