@@ -428,17 +428,23 @@ func C_Login(hSession C.CK_SESSION_HANDLE, userType C.CK_USER_TYPE, pPin C.CK_UT
 
 //export C_Logout
 func C_Logout(hSession C.CK_SESSION_HANDLE) C.CK_RV {
+	log.Printf("Logging out......\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
+	log.Printf("Getting session\n")
 	session, err := App.GetSession(hSession)
 	if err != nil {
+		log.Printf("error! %v\n", err)
 		return ErrorToRV(err)
 	}
+	log.Printf("logging out\n")
 	err = session.Logout()
 	if err != nil {
+		log.Printf("error! %v", err)
 		return ErrorToRV(err)
 	}
+	log.Printf("ok!", err)
 	return C.CKR_OK
 }
 

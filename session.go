@@ -326,11 +326,17 @@ func (session *Session) Login(userType C.CK_USER_TYPE, pin string) error {
 
 // Logout logs out of a token.
 func (session *Session) Logout() error {
-	token, err := session.Slot.GetToken()
+	slot := session.Slot
+	if slot == nil {
+		return NewError("Session.Logout", "Slot is null", C.CKR_DEVICE_ERROR)
+	}
+	token, err := slot.GetToken()
 	if err != nil {
 		return err
 	}
-	token.Logout()
+	if token != nil {
+		token.Logout()
+	}
 	return nil
 }
 

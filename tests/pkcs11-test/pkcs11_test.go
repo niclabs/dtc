@@ -81,15 +81,6 @@ func TestInitialize(t *testing.T) {
 	p.Destroy()
 }
 
-func TestNew(t *testing.T) {
-	if p := pkcs11.New(""); p != nil {
-		t.Fatalf("init should have failed, got %v\n", p)
-	}
-	if p := pkcs11.New("/does/not/exist"); p != nil {
-		t.Fatalf("init should have failed, got %v\n", p)
-	}
-}
-
 func finishSession(p *pkcs11.Ctx, session pkcs11.SessionHandle) {
 	p.Logout(session)
 	p.CloseSession(session)
@@ -180,28 +171,6 @@ func testDigest(t *testing.T, p *pkcs11.Ctx, session pkcs11.SessionHandle, input
 	hash, e := p.Digest(session, input)
 	if e != nil {
 		t.Fatalf("digest: %s\n", e)
-	}
-	hex := ""
-	for _, d := range hash {
-		hex += fmt.Sprintf("%02x", d)
-	}
-	if hex != expected {
-		t.Fatalf("wrong digest: %s", hex)
-	}
-}
-
-func testDigestUpdate(t *testing.T, p *pkcs11.Ctx, session pkcs11.SessionHandle, inputs [][]byte, expected string) {
-	if e := p.DigestInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_SHA_1, nil)}); e != nil {
-		t.Fatalf("DigestInit: %s\n", e)
-	}
-	for _, input := range inputs {
-		if e := p.DigestUpdate(session, input); e != nil {
-			t.Fatalf("DigestUpdate: %s\n", e)
-		}
-	}
-	hash, e := p.DigestFinal(session)
-	if e != nil {
-		t.Fatalf("DigestFinal: %s\n", e)
 	}
 	hex := ""
 	for _, d := range hash {
