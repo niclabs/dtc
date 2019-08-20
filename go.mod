@@ -1,4 +1,4 @@
-module dtc
+module github.com/niclabs/dtc
 
 go 1.12
 
