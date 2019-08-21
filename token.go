@@ -68,14 +68,11 @@ func (token *Token) GetInfo(pInfo C.CK_TOKEN_INFO_PTR) error {
 		return NewError("token.GetInfo", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
 	}
 	info := (*C.CK_TOKEN_INFO)(unsafe.Pointer(pInfo))
+	C.memset(unsafe.Pointer(&info.label[0]), ' ', 32)
 
-	if len(token.Label) == 0 {
-		C.memset(unsafe.Pointer(&info.label[0]), ' ', 32)
-	} else {
-		cLabel := C.CBytes([]byte(token.Label))
-		defer C.free(unsafe.Pointer(cLabel))
-		C.memcpy(unsafe.Pointer(&info.label[0]), cLabel, C.CK_ULONG(len(token.Label)))
-	}
+	cLabel := C.CBytes([]byte(token.Label))
+	defer C.free(unsafe.Pointer(cLabel))
+	C.memcpy(unsafe.Pointer(&info.label[0]), cLabel, C.CK_ULONG(len(token.Label)))
 
 	if token.slot == nil {
 		return NewError("token.GetInfo", "cannot get info: token is not bound to a slot", C.CKR_ARGUMENTS_BAD)

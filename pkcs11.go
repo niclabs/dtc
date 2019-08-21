@@ -278,8 +278,11 @@ func C_GetSlotList(tokenPresent C.CK_BBOOL, pSlotList C.CK_SLOT_ID_PTR, pulCount
 	cSlotSlice := (*[1 << 30]C.CK_SLOT_ID)(unsafe.Pointer(pSlotList))[:*pulCount:*pulCount]
 
 	i := 0
+	log.Printf("there are %d slots\n", len(slotList))
 	for _, slot := range slotList {
+		log.Printf("slot: %v with token %s\n", slot.ID, slot.token.Label)
 		if slot.IsTokenPresent() || tokenPresent == C.CK_FALSE {
+			log.Printf("added!\n")
 			cSlotSlice[i] = C.CK_SLOT_ID(slot.ID)
 			i++
 		}
@@ -428,11 +431,9 @@ func C_Login(hSession C.CK_SESSION_HANDLE, userType C.CK_USER_TYPE, pPin C.CK_UT
 
 //export C_Logout
 func C_Logout(hSession C.CK_SESSION_HANDLE) C.CK_RV {
-	log.Printf("Logging out...\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
-	log.Printf("Getting session\n")
 	session, err := App.GetSession(hSession)
 	if err != nil {
 		log.Printf("error! %v\n", err)
