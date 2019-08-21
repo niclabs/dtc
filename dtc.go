@@ -2,7 +2,7 @@ package main
 
 import "C"
 import (
-	"dtc/network"
+	"github.com/niclabs/dtc/network"
 	"github.com/niclabs/tcrsa"
 	"log"
 )
@@ -80,4 +80,3 @@ func (dtc *DTC) DeleteKey(keyID string) (int, error) {
 	log.Printf("Acking key shares deletion related to keyid=%s", keyID)
 	return dtc.Connection.GetKeyDeletionAck()
 }
-

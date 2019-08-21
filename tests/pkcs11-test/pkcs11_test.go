@@ -17,8 +17,8 @@ import (
 )
 
 var (
-	module          = "../../dtc.so"
-	pin             = "1234"
+	module = "../../dtc.so"
+	pin    = "1234"
 )
 
 /*

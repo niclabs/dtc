@@ -1,18 +1,20 @@
-FROM golang:stretch
+FROM golang:buster
 
 MAINTAINER Eduardo Riveros<eduardo@niclabs.cl>
 
 WORKDIR /
 RUN apt update
 RUN apt -y install libzmq3-dev libczmq-dev build-essential sqlite3
-RUN git clone https://github.com/niclabs/dtc --branch v1.1.1
+
+RUN git clone https://github.com/niclabs/dtc --branch master
 
 WORKDIR /dtc
-RUN go mod tidy
+ENV GO111MODULE on
+RUN go mod download
 RUN ./build.sh
 
 WORKDIR /
-RUN git clone https://github.com/niclabs/dhsm-signer --branch v0.8
+RUN git clone https://github.com/niclabs/dhsm-signer --branch v1.0
 
 WORKDIR /dhsm-signer
 RUN go mod tidy

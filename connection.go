@@ -1,9 +1,9 @@
 package main
 
 import (
-	"dtc/network"
-	"dtc/network/zmq"
 	"fmt"
+	"github.com/niclabs/dtc/network"
+	"github.com/niclabs/dtc/network/zmq"
 )
 
 // Creates a new connection of type "connType". Currently only zmq is implemented.
