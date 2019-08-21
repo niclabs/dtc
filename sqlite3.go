@@ -36,11 +36,11 @@ func GetSqlite3Config() (*Sqlite3Config, error) {
 	return &conf, nil
 }
 
-func (db *Sqlite3DB) Init() error {
+func (db *Sqlite3DB) Init(slots []*SlotsConfig) error {
 	if err := db.createTablesIfNotExist(); err != nil {
 		return fmt.Errorf("create tables: %v", err)
 	}
-	if err := db.insertFirstToken(); err != nil {
+	if err := db.insertTokens(slots); err != nil {
 		return fmt.Errorf("insert first token: %v", err)
 	}
 	return nil
@@ -199,13 +199,27 @@ func (db *Sqlite3DB) createTablesIfNotExist() error {
 	return nil
 }
 
-func (db *Sqlite3DB) insertFirstToken() error {
+func (db *Sqlite3DB) insertTokens(slots []*SlotsConfig) error {
 	stmt, err := db.Prepare(InsertTokenQuery)
 	if err != nil {
 		return err
 	}
-	_, err = stmt.Exec("TCBHSM", "1234", "1234")
-	return err
+	if len(slots) == 0 {
+		slots = []*SlotsConfig{{}}
+	}
+	for _, token := range slots {
+		if len(token.Label) == 0 {
+			token.Label = "TCBHSM"
+		}
+		if len(token.Pin) == 0 {
+			token.Pin = "1234" // Default PIN
+		}
+		_, err = stmt.Exec(token.Label, token.Pin, token.Pin)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (db *Sqlite3DB) updateMaxHandle() error {

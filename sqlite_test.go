@@ -14,7 +14,10 @@ func initDB() (Storage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("couldn't get database: %v", err)
 	}
-	if err := db.Init(); err != nil {
+	if err := db.Init([]*SlotsConfig{
+		{TestFirstTokenLabel, "1234"},
+		{TestOtherTokenLabel, "1234"},
+	}); err != nil {
 		return nil, fmt.Errorf("couldn't init storage in database: %v", err)
 	}
 	return db, nil

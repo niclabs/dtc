@@ -44,6 +44,7 @@ type CriptokiConfig struct {
 // SlotsConfig defines the slots the HSM has.
 type SlotsConfig struct {
 	Label string // ID of the Token inserted on this slot. It must exist on the HSM.
+	Pin string // Password to configure in Token
 }
 
 // GetConfig returns the configuration extracted from the common config file.

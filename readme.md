@@ -52,6 +52,7 @@ general:
     databaseType: sqlite3
     slots:
       - label: TCBHSM
+        PIN: 1234
 
 sqlite3:
   path: db.sqlite3
@@ -92,7 +93,7 @@ It has a mandatory section, called `general`, where we currently define three va
  - `maxPinLen` is the maximum length for the PINs.
  - `maxSessionCount` is the maximum number of simultaneous sessions.
  - `databaseType` is the type of the storage for the HSM. Currently the only value available is `sqlite3`.
- - `slots` defines the slots available on the HSM. Each slot has a `label` field, representing the slot name. the HSM creates by default a `TCBHSM` slot with default credentials (1234), that can be changed at will using the default Criptoki API.
+ - `slots` defines the slots available on the HSM. Each slot has a `label` field, representing the slot name, and a `PIN` field, used in token creation only. the HSM creates by default the slots defined here.
  
  
 Also, there are two extra configurations outside `general` option:

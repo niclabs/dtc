@@ -25,7 +25,7 @@ func NewApplication() (app *Application, err error) {
 		return
 	}
 
-	if err = db.Init(); err != nil {
+	if err = db.Init(config.Criptoki.Slots); err != nil {
 		err = NewError("NewApplication", err.Error(), C.CKR_DEVICE_ERROR)
 		return
 	}

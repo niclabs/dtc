@@ -69,7 +69,7 @@ func (slot *Slot) GetSession(handle C.CK_SESSION_HANDLE) (*Session, error) {
 	slot.Lock()
 	defer slot.Unlock()
 	if session, ok := slot.Sessions[handle]; !ok {
-		return nil, NewError("Slot.CloseSession", fmt.Sprintf("session handle '%s' doesn't exist in this slot", handle), C.CKR_SESSION_HANDLE_INVALID)
+		return nil, NewError("Slot.CloseSession", fmt.Sprintf("session handle '%v' doesn't exist in this slot", handle), C.CKR_SESSION_HANDLE_INVALID)
 	} else {
 		return session, nil
 	}

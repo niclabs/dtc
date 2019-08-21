@@ -8,7 +8,7 @@ import "fmt"
 
 type Storage interface {
 	// Executes the logic necessary to initialize the storage.
-	Init() error
+	Init(slots []*SlotsConfig) error
 
 	// Saves a token into the storage, or returns an error.
 	SaveToken(*Token) error
