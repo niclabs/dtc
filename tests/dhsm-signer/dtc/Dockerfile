@@ -6,7 +6,7 @@ WORKDIR /
 RUN apt update
 RUN apt -y install libzmq3-dev libczmq-dev build-essential sqlite3
 
-RUN git clone https://github.com/niclabs/dtc --branch master
+RUN git clone https://github.com/niclabs/dtc --branch master #
 
 WORKDIR /dtc
 ENV GO111MODULE on
@@ -20,7 +20,7 @@ WORKDIR /dhsm-signer
 RUN go mod tidy
 RUN go build
 
-RUN mv /dtc/dtc.so /dhsm-signer/dtc.so
+RUN mv /dtc/dtc.so /dhsm-signer/dtc.so #s
 
 # copy example zone and test with this shellscript
 COPY test.sh test.sh

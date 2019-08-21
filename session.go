@@ -116,7 +116,6 @@ func (session *Session) CreateObject(attrs Attributes) (*CryptoObject, error) {
 		Type:       objType,
 		Attributes: attrs,
 	}
-
 	token := session.Slot.token
 	isPrivate := true
 	oClass := C.CK_OBJECT_CLASS(C.CKO_VENDOR_DEFINED)
@@ -288,6 +287,25 @@ func (session *Session) GetObject(handle C.CK_OBJECT_HANDLE) (*CryptoObject, err
 	}
 	return object, nil
 }
+
+// SaveObject Saves a CryptoObject in the token.
+func (session *Session) SaveObject(object *CryptoObject) error {
+	token, err := session.Slot.GetToken()
+	if err != nil {
+		return err
+	}
+	err = token.DeleteObject(object.Handle)
+	if err != nil {
+		return err
+	}
+	token.AddObject(object)
+	err = session.Slot.Application.Storage.SaveToken(token)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 
 // GetState returns the session state.
 func (session *Session) GetState() (C.CK_STATE, error) {

@@ -428,7 +428,7 @@ func C_Login(hSession C.CK_SESSION_HANDLE, userType C.CK_USER_TYPE, pPin C.CK_UT
 
 //export C_Logout
 func C_Logout(hSession C.CK_SESSION_HANDLE) C.CK_RV {
-	log.Printf("Logging out......\n")
+	log.Printf("Logging out...\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -438,13 +438,12 @@ func C_Logout(hSession C.CK_SESSION_HANDLE) C.CK_RV {
 		log.Printf("error! %v\n", err)
 		return ErrorToRV(err)
 	}
-	log.Printf("logging out\n")
 	err = session.Logout()
 	if err != nil {
 		log.Printf("error! %v", err)
 		return ErrorToRV(err)
 	}
-	log.Printf("ok!", err)
+	log.Print("Logged out.")
 	return C.CKR_OK
 }
 
@@ -554,6 +553,26 @@ func C_FindObjectsFinal(hSession C.CK_SESSION_HANDLE) C.CK_RV {
 	}
 	err = session.FindObjectsFinal()
 	if err != nil {
+		return ErrorToRV(err)
+	}
+	return C.CKR_OK
+}
+
+//export C_SetAttributeValue
+func C_SetAttributeValue(hSession C.CK_SESSION_HANDLE, hObject C.CK_OBJECT_HANDLE, pTemplate C.CK_ATTRIBUTE_PTR,
+	ulCount C.CK_ULONG) C.CK_RV {
+	if App == nil {
+		return C.CKR_CRYPTOKI_NOT_INITIALIZED
+	}
+	session, err := App.GetSession(hSession)
+	if err != nil {
+		return ErrorToRV(err)
+	}
+	object, err := session.GetObject(hObject)
+	if err != nil {
+		return ErrorToRV(err)
+	}
+	if err := object.EditAttributes(pTemplate, ulCount, session); err != nil {
 		return ErrorToRV(err)
 	}
 	return C.CKR_OK
@@ -896,11 +915,7 @@ func C_GetObjectSize(C.CK_SESSION_HANDLE, C.CK_OBJECT_HANDLE, C.CK_ULONG_PTR) C.
 	return C.CKR_FUNCTION_NOT_SUPPORTED
 }
 
-//export C_SetAttributeValue
-func C_SetAttributeValue(C.CK_SESSION_HANDLE, C.CK_OBJECT_HANDLE, C.CK_ATTRIBUTE_PTR,
-	C.CK_ULONG) C.CK_RV {
-	return C.CKR_FUNCTION_NOT_SUPPORTED
-}
+
 
 //export C_EncryptInit
 func C_EncryptInit(C.CK_SESSION_HANDLE, C.CK_MECHANISM_PTR, C.CK_OBJECT_HANDLE) C.CK_RV {
