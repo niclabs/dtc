@@ -23,7 +23,7 @@ var TimeoutError = fmt.Errorf("timeout")
 // ZMQ Structure represents a connection to a set of Nodes via ZMQ
 // Messaging Protocol.
 type Server struct {
-	started bool
+	running bool
 	// config properties
 	host    *net.IPAddr   // Host of service
 	port    uint16        // Port where server ROUTER socket runs on
@@ -83,22 +83,13 @@ func New(config *Config) (conn *Server, err error) {
 	return
 }
 
-func (conn *Server) Open() (err error) {
-	if conn.started {
+func (conn *Server) open() (err error) {
+	if conn.running {
 		return nil
 	}
 	if conn.nodes == nil {
 		return fmt.Errorf("not initialized. Use 'New' to create a new struct")
 	}
-	_ = zmq4.AuthStart()
-
-	// Add IPs and public keys from clients
-	ips, err := conn.getIPs()
-	if err != nil {
-		return err
-	}
-	zmq4.AuthAllow(TchsmDomain, ips...)
-	zmq4.AuthCurveAdd(TchsmDomain, conn.getPubKeys()...)
 
 	// Create in
 	in, err := conn.ctx.NewSocket(zmq4.ROUTER)
@@ -137,9 +128,11 @@ func (conn *Server) Open() (err error) {
 	}
 	// Start message polling
 	go func() {
-		log.Printf("Message polling started")
+		log.Printf("Message polling running")
 		for {
-
+			if !conn.running {
+				break
+			}
 			rawMsg, err := conn.socket.RecvMessageBytes(0)
 			log.Printf("New message received!")
 			if err != nil {
@@ -157,10 +150,36 @@ func (conn *Server) Open() (err error) {
 			log.Printf("Message sent to channel!")
 
 		}
+		log.Printf("Message polling done")
 	}()
-	conn.started = true
+	conn.running = true
 	return
 }
+
+
+func (conn *Server) Close() error {
+	if !conn.running {
+		return nil
+	}
+	if conn.socket == nil {
+		return fmt.Errorf("inconsistent state: running but without socket")
+	}
+	err := conn.socket.Disconnect(conn.getConnString())
+	if err != nil {
+		return err
+	}
+	// Try to disconnect from peers
+	for _, node := range conn.nodes {
+		err = node.disconnect()
+		if err != nil {
+			return err
+		}
+	}
+	zmq4.AuthStop()
+	conn.running = false
+	return nil
+}
+
 
 func (conn *Server) SendKeyShares(keyID string, keys tcrsa.KeyShareList, meta *tcrsa.KeyMeta) error {
 	conn.mutex.Lock()
@@ -170,6 +189,9 @@ func (conn *Server) SendKeyShares(keyID string, keys tcrsa.KeyShareList, meta *t
 	}
 	if conn.currentMessage != message.None {
 		return fmt.Errorf("cannot send key shares in a currentMessage state different to None")
+	}
+	if err := conn.open(); err != nil {
+		return err
 	}
 	for i, node := range conn.nodes {
 		log.Printf("Sending key share to node in %s:%d", node.host, node.port)
@@ -185,14 +207,17 @@ func (conn *Server) SendKeyShares(keyID string, keys tcrsa.KeyShareList, meta *t
 
 func (conn *Server) AckKeyShares() error {
 	conn.mutex.Lock()
-	defer func() {
-		conn.pendingMessages = make(map[string]*message.Message)
-		conn.currentMessage = message.None
-		conn.mutex.Unlock()
-	}()
+	defer conn.mutex.Unlock()
+	if !conn.running {
+		return fmt.Errorf("connection not running")
+	}
 	if conn.currentMessage != message.SendKeyShare {
 		return fmt.Errorf("cannot ack key shares in a currentMessage state different to sendKeyShare")
 	}
+	defer func() {
+		conn.pendingMessages = make(map[string]*message.Message)
+		conn.currentMessage = message.None
+	}()
 	acked := 0
 	log.Printf("timeout will be %s", conn.timeout)
 	timer := time.After(conn.timeout)
@@ -224,6 +249,9 @@ func (conn *Server) AskForSigShares(keyID string, hash []byte) error {
 	if conn.currentMessage != message.None {
 		return fmt.Errorf("cannot ask for sig shares in a currentMessage state different to None")
 	}
+	if err := conn.open(); err != nil {
+		return err
+	}
 	for _, node := range conn.nodes {
 		msg, err := node.askForSigShare(keyID, hash)
 		if err != nil {
@@ -237,14 +265,14 @@ func (conn *Server) AskForSigShares(keyID string, hash []byte) error {
 
 func (conn *Server) GetSigShares() (tcrsa.SigShareList, error) {
 	conn.mutex.Lock()
-	defer func() {
-		conn.pendingMessages = make(map[string]*message.Message)
-		conn.currentMessage = message.None
-		conn.mutex.Unlock()
-	}()
+	defer conn.mutex.Unlock()
 	if conn.currentMessage != message.AskForSigShare {
 		return nil, fmt.Errorf("cannot get sig shares in a currentMessage state different to askForSigShare")
 	}
+	defer func() {
+		conn.pendingMessages = make(map[string]*message.Message)
+		conn.currentMessage = message.None
+	}()
 	sigShares := make(tcrsa.SigShareList, 0)
 	timer := time.After(conn.timeout)
 	minLen := 1
@@ -286,6 +314,9 @@ func (conn *Server) AskForKeyDeletion(keyID string) error {
 	if conn.currentMessage != message.None {
 		return fmt.Errorf("cannot delete key shares in a currentMessage state different to None")
 	}
+	if err := conn.open(); err != nil {
+		return err
+	}
 	for i, node := range conn.nodes {
 		log.Printf("Sending key share deletion petition to node in %s:%d", node.host, node.port)
 		msg, err := node.deleteKeyShare(keyID)
@@ -300,14 +331,14 @@ func (conn *Server) AskForKeyDeletion(keyID string) error {
 
 func (conn *Server) GetKeyDeletionAck() (int, error) {
 	conn.mutex.Lock()
-	defer func() {
-		conn.pendingMessages = make(map[string]*message.Message)
-		conn.currentMessage = message.None
-		conn.mutex.Unlock()
-	}()
+	defer conn.mutex.Unlock()
 	if conn.currentMessage != message.DeleteKeyShare {
 		return 0, fmt.Errorf("cannot ack key share deletions in a currentMessage state different to DeleteKeyShare")
 	}
+	defer func() {
+		conn.pendingMessages = make(map[string]*message.Message)
+		conn.currentMessage = message.None
+	}()
 	acked := 0
 	log.Printf("timeout will be %s", conn.timeout)
 	timer := time.After(conn.timeout)
@@ -331,23 +362,6 @@ func (conn *Server) GetKeyDeletionAck() (int, error) {
 			return acked, TimeoutError
 		}
 	}
-}
-
-func (conn *Server) Close() error {
-	err := conn.socket.Disconnect(conn.getConnString())
-	if err != nil {
-		return err
-	}
-	// Try to connect to peers
-	for _, node := range conn.nodes {
-		err = node.disconnect()
-		if err != nil {
-			return err
-		}
-	}
-	zmq4.AuthStop()
-	conn.started = false
-	return nil
 }
 
 func (conn *Server) getPubKeys() []string {

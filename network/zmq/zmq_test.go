@@ -215,7 +215,6 @@ func TestZMQ_Open(t *testing.T) {
 		t.Errorf("%v", err)
 		return
 	}
-	err = conn.Open()
 	defer conn.Close()
 	if err != nil {
 		t.Errorf("%v", err)
@@ -234,7 +233,6 @@ func TestZMQ_Connect(t *testing.T) {
 	zmq4.AuthAllow(conn.host.String())
 
 	// and open the connection
-	err = conn.Open()
 	defer conn.Close()
 	if err != nil {
 		t.Errorf("cannot close connection: %v", err)

@@ -14,7 +14,7 @@ type DTC struct {
 	Nodes      uint16             // The total number of nodes used.
 }
 
-// Creates a new and ready DTC struct. It connects automatically to its nodes.
+// Creates a new and ready DTC struct.
 func NewDTC(config DTCConfig) (*DTC, error) {
 	connection, err := NewConnection(config.MessagingType)
 	if err != nil {
@@ -24,10 +24,6 @@ func NewDTC(config DTCConfig) (*DTC, error) {
 		Threshold:  config.Threshold,
 		Nodes:      config.NodesNumber,
 		Connection: connection,
-	}
-
-	if err = connection.Open(); err != nil {
-		return nil, err
 	}
 	return dtc, nil
 }

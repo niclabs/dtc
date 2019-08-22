@@ -671,8 +671,12 @@ func GetUserAuthorization(state C.CK_STATE, isToken, isPrivate, userAction bool)
 
 func createPublicKey(keyID string, pkAttrs Attributes, keyMeta *tcrsa.KeyMeta) (Attributes, error) {
 
+	// Create
+	pubKeyBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(pubKeyBytes, C.CKO_PUBLIC_KEY)
+
 	// This fields are defined in SoftHSM implementation
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_CLASS, []byte{C.CKO_PUBLIC_KEY}})
+	pkAttrs.SetIfUndefined(&Attribute{C.CKA_CLASS, pubKeyBytes})
 	pkAttrs.SetIfUndefined(&Attribute{C.CKA_KEY_TYPE, []byte{C.CKK_RSA}})
 	pkAttrs.SetIfUndefined(&Attribute{C.CKA_KEY_GEN_MECHANISM, []byte{C.CKM_RSA_PKCS_KEY_PAIR_GEN}})
 	pkAttrs.SetIfUndefined(&Attribute{C.CKA_LOCAL, []byte{C.CK_TRUE}})
@@ -718,8 +722,11 @@ func createPublicKey(keyID string, pkAttrs Attributes, keyMeta *tcrsa.KeyMeta) (
 
 func createPrivateKey(keyID string, skAttrs Attributes, keyMeta *tcrsa.KeyMeta) (Attributes, error) {
 
+	privKeyBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(privKeyBytes, C.CKO_PRIVATE_KEY)
+
 	// This fields are defined in SoftHSM implementation
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_CLASS, []byte{C.CKO_PRIVATE_KEY}})
+	skAttrs.SetIfUndefined(&Attribute{C.CKA_CLASS, privKeyBytes})
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_KEY_TYPE, []byte{C.CKK_RSA}})
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_KEY_GEN_MECHANISM, []byte{C.CKM_RSA_PKCS_KEY_PAIR_GEN}})
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_LOCAL, []byte{C.CK_TRUE}})

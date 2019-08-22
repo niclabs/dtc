@@ -7,6 +7,7 @@ package main
 */
 import "C"
 import (
+	"crypto/rand"
 	"github.com/spf13/viper"
 	"log"
 	"os"
@@ -51,6 +52,7 @@ func ErrorToRV(err error) C.CK_RV {
 
 //export C_Initialize
 func C_Initialize(pInitArgs C.CK_VOID_PTR) C.CK_RV {
+	log.Printf("Called: C_Initialize\n")
 	// by now, we support only CKF_OS_LOCKING_OK
 	if App != nil {
 		return C.CKR_CRYPTOKI_ALREADY_INITIALIZED
@@ -67,6 +69,7 @@ func C_Initialize(pInitArgs C.CK_VOID_PTR) C.CK_RV {
 
 //export C_Finalize
 func C_Finalize(pReserved C.CK_VOID_PTR) C.CK_RV {
+	log.Printf("Called: C_Finalize\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -74,7 +77,7 @@ func C_Finalize(pReserved C.CK_VOID_PTR) C.CK_RV {
 		return C.CKR_ARGUMENTS_BAD
 	}
 	if err := App.DTC.Connection.Close(); err != nil {
-		return ErrorToRV(err)
+		log.Printf("error clossing connection: %s", err)
 	}
 	App = nil
 	return C.CKR_OK
@@ -82,6 +85,7 @@ func C_Finalize(pReserved C.CK_VOID_PTR) C.CK_RV {
 
 //export C_InitToken
 func C_InitToken(slotID C.CK_SLOT_ID, pPin C.CK_UTF8CHAR_PTR, ulPinLen C.CK_ULONG, pLabel C.CK_UTF8CHAR_PTR) C.CK_RV {
+	log.Printf("Called: C_InitToken\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -106,6 +110,7 @@ func C_InitToken(slotID C.CK_SLOT_ID, pPin C.CK_UTF8CHAR_PTR, ulPinLen C.CK_ULON
 
 //export C_InitPIN
 func C_InitPIN(hSession C.CK_SESSION_HANDLE, pPin C.CK_UTF8CHAR_PTR, ulPinLen C.CK_ULONG) C.CK_RV {
+	log.Printf("Called: C_InitPIN\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -127,11 +132,13 @@ func C_InitPIN(hSession C.CK_SESSION_HANDLE, pPin C.CK_UTF8CHAR_PTR, ulPinLen C.
 
 //export C_SetPIN
 func C_SetPIN(hSession C.CK_SESSION_HANDLE, pOldPin C.CK_UTF8CHAR_PTR, ulOldPinLen C.CK_ULONG, pNewPin C.CK_UTF8CHAR_PTR, ulNewPinLen C.CK_ULONG) C.CK_RV {
+	log.Printf("Called: C_SetPIN\n")
 	return C.CKR_FUNCTION_NOT_SUPPORTED
 }
 
 //export C_GetInfo
 func C_GetInfo(pInfo C.CK_INFO_PTR) C.CK_RV {
+	log.Printf("Called: C_GetInfo\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -168,6 +175,7 @@ func C_GetInfo(pInfo C.CK_INFO_PTR) C.CK_RV {
 
 //export C_GetFunctionList
 func C_GetFunctionList(ppFunctionList C.CK_FUNCTION_LIST_PTR_PTR) C.CK_RV {
+	log.Printf("Called: C_GetFunctionList\n")
 	functionList := &C.CK_FUNCTION_LIST{
 		C.CK_VERSION{2, 40},
 		(C.CK_C_Initialize)(C.C_Initialize),
@@ -249,6 +257,7 @@ func C_GetFunctionList(ppFunctionList C.CK_FUNCTION_LIST_PTR_PTR) C.CK_RV {
 
 //export C_GetSlotList
 func C_GetSlotList(tokenPresent C.CK_BBOOL, pSlotList C.CK_SLOT_ID_PTR, pulCount C.CK_ULONG_PTR) C.CK_RV {
+	log.Printf("Called: C_GetSlotList\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -278,11 +287,8 @@ func C_GetSlotList(tokenPresent C.CK_BBOOL, pSlotList C.CK_SLOT_ID_PTR, pulCount
 	cSlotSlice := (*[1 << 30]C.CK_SLOT_ID)(unsafe.Pointer(pSlotList))[:*pulCount:*pulCount]
 
 	i := 0
-	log.Printf("there are %d slots\n", len(slotList))
 	for _, slot := range slotList {
-		log.Printf("slot: %v with token %s\n", slot.ID, slot.token.Label)
 		if slot.IsTokenPresent() || tokenPresent == C.CK_FALSE {
-			log.Printf("added!\n")
 			cSlotSlice[i] = C.CK_SLOT_ID(slot.ID)
 			i++
 		}
@@ -294,6 +300,7 @@ func C_GetSlotList(tokenPresent C.CK_BBOOL, pSlotList C.CK_SLOT_ID_PTR, pulCount
 
 //export C_GetSlotInfo
 func C_GetSlotInfo(slotId C.CK_SLOT_ID, pInfo C.CK_SLOT_INFO_PTR) C.CK_RV {
+	log.Printf("Called: C_GetSlotInfo\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -313,6 +320,7 @@ func C_GetSlotInfo(slotId C.CK_SLOT_ID, pInfo C.CK_SLOT_INFO_PTR) C.CK_RV {
 
 //export C_GetTokenInfo
 func C_GetTokenInfo(slotId C.CK_SLOT_ID, pInfo C.CK_TOKEN_INFO_PTR) C.CK_RV {
+	log.Printf("Called: C_GetTokenInfo\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -336,6 +344,7 @@ func C_GetTokenInfo(slotId C.CK_SLOT_ID, pInfo C.CK_TOKEN_INFO_PTR) C.CK_RV {
 
 //export C_OpenSession
 func C_OpenSession(slotId C.CK_SLOT_ID, flags C.CK_FLAGS, pApplication C.CK_VOID_PTR, notify C.CK_NOTIFY, phSession C.CK_SESSION_HANDLE_PTR) C.CK_RV {
+	log.Printf("Called: C_OpenSession\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -361,11 +370,19 @@ func C_OpenSession(slotId C.CK_SLOT_ID, flags C.CK_FLAGS, pApplication C.CK_VOID
 		return ErrorToRV(err)
 	}
 	*phSession = session
+	// We seed randomly the RNG at init (In case the user would forget to seed the RNG)
+	bs := make([]byte, 8)
+	_, err = rand.Read(bs)
+	if err != nil {
+		return ErrorToRV(err)
+	}
+	slot.Sessions[session].SeedRandom(bs)
 	return C.CKR_OK
 }
 
 //export C_CloseSession
 func C_CloseSession(hSession C.CK_SESSION_HANDLE) C.CK_RV {
+	log.Printf("Called: C_CloseSession\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -382,6 +399,7 @@ func C_CloseSession(hSession C.CK_SESSION_HANDLE) C.CK_RV {
 
 //export C_CloseAllSessions
 func C_CloseAllSessions(slotId C.CK_SLOT_ID) C.CK_RV {
+	log.Printf("Called: C_CloseAllSessions\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -395,6 +413,7 @@ func C_CloseAllSessions(slotId C.CK_SLOT_ID) C.CK_RV {
 
 //export C_GetSessionInfo
 func C_GetSessionInfo(hSession C.CK_SESSION_HANDLE, pInfo C.CK_SESSION_INFO_PTR) C.CK_RV {
+	log.Printf("Called: C_GetSessionInfo\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -411,6 +430,7 @@ func C_GetSessionInfo(hSession C.CK_SESSION_HANDLE, pInfo C.CK_SESSION_INFO_PTR)
 
 //export C_Login
 func C_Login(hSession C.CK_SESSION_HANDLE, userType C.CK_USER_TYPE, pPin C.CK_UTF8CHAR_PTR, ulPinLen C.CK_ULONG) C.CK_RV {
+	log.Printf("Called: C_Login\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -431,6 +451,7 @@ func C_Login(hSession C.CK_SESSION_HANDLE, userType C.CK_USER_TYPE, pPin C.CK_UT
 
 //export C_Logout
 func C_Logout(hSession C.CK_SESSION_HANDLE) C.CK_RV {
+	log.Printf("Called: C_Logout\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -450,6 +471,7 @@ func C_Logout(hSession C.CK_SESSION_HANDLE) C.CK_RV {
 
 //export C_CreateObject
 func C_CreateObject(hSession C.CK_SESSION_HANDLE, pTemplate C.CK_ATTRIBUTE_PTR, ulCount C.CK_ULONG, phObject C.CK_OBJECT_HANDLE_PTR) C.CK_RV {
+	log.Printf("Called: C_CreateObject\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -474,6 +496,7 @@ func C_CreateObject(hSession C.CK_SESSION_HANDLE, pTemplate C.CK_ATTRIBUTE_PTR, 
 
 //export C_DestroyObject
 func C_DestroyObject(hSession C.CK_SESSION_HANDLE, hObject C.CK_OBJECT_HANDLE) C.CK_RV {
+	log.Printf("Called: C_DestroyObject\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -490,6 +513,7 @@ func C_DestroyObject(hSession C.CK_SESSION_HANDLE, hObject C.CK_OBJECT_HANDLE) C
 
 //export C_FindObjectsInit
 func C_FindObjectsInit(hSession C.CK_SESSION_HANDLE, pTemplate C.CK_ATTRIBUTE_PTR, ulCount C.CK_ULONG) C.CK_RV {
+	log.Printf("Called: C_FindObjectsInit\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -513,6 +537,7 @@ func C_FindObjectsInit(hSession C.CK_SESSION_HANDLE, pTemplate C.CK_ATTRIBUTE_PT
 
 //export C_FindObjects
 func C_FindObjects(hSession C.CK_SESSION_HANDLE, phObject C.CK_OBJECT_HANDLE_PTR, ulMaxObjectCount C.CK_ULONG, pulObjectCount C.CK_ULONG_PTR) C.CK_RV {
+	log.Printf("Called: C_FindObjects\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -545,6 +570,7 @@ func C_FindObjects(hSession C.CK_SESSION_HANDLE, phObject C.CK_OBJECT_HANDLE_PTR
 
 //export C_FindObjectsFinal
 func C_FindObjectsFinal(hSession C.CK_SESSION_HANDLE) C.CK_RV {
+	log.Printf("Called: C_FindObjectsFinal\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -562,6 +588,7 @@ func C_FindObjectsFinal(hSession C.CK_SESSION_HANDLE) C.CK_RV {
 //export C_SetAttributeValue
 func C_SetAttributeValue(hSession C.CK_SESSION_HANDLE, hObject C.CK_OBJECT_HANDLE, pTemplate C.CK_ATTRIBUTE_PTR,
 	ulCount C.CK_ULONG) C.CK_RV {
+	log.Printf("Called: C_SetAttributeValue\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -581,6 +608,7 @@ func C_SetAttributeValue(hSession C.CK_SESSION_HANDLE, hObject C.CK_OBJECT_HANDL
 
 //export C_GetAttributeValue
 func C_GetAttributeValue(hSession C.CK_SESSION_HANDLE, hObject C.CK_OBJECT_HANDLE, pTemplate C.CK_ATTRIBUTE_PTR, ulCount C.CK_ULONG) C.CK_RV {
+	log.Printf("Called: C_GetAttributeValue\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -600,6 +628,7 @@ func C_GetAttributeValue(hSession C.CK_SESSION_HANDLE, hObject C.CK_OBJECT_HANDL
 
 //export C_GenerateKeyPair
 func C_GenerateKeyPair(hSession C.CK_SESSION_HANDLE, pMechanism C.CK_MECHANISM_PTR, pPublicKeyTemplate C.CK_ATTRIBUTE_PTR, ulPublicKeyAttributeCount C.CK_ULONG, pPrivateKeyTemplate C.CK_ATTRIBUTE_PTR, ulPrivateKeyAttributeCount C.CK_ULONG, phPublicKey C.CK_OBJECT_HANDLE_PTR, phPrivateKey C.CK_OBJECT_HANDLE_PTR) C.CK_RV {
+	log.Printf("Called: C_GenerateKeyPair\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -630,6 +659,7 @@ func C_GenerateKeyPair(hSession C.CK_SESSION_HANDLE, pMechanism C.CK_MECHANISM_P
 
 //export C_SignInit
 func C_SignInit(hSession C.CK_SESSION_HANDLE, pMechanism C.CK_MECHANISM_PTR, hKey C.CK_OBJECT_HANDLE) C.CK_RV {
+	log.Printf("Called: C_SignInit\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -647,6 +677,7 @@ func C_SignInit(hSession C.CK_SESSION_HANDLE, pMechanism C.CK_MECHANISM_PTR, hKe
 
 //export C_SignUpdate
 func C_SignUpdate(hSession C.CK_SESSION_HANDLE, pPart C.CK_BYTE_PTR, ulPartLen C.CK_ULONG) C.CK_RV {
+	log.Printf("Called: C_SignUpdate\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -664,6 +695,7 @@ func C_SignUpdate(hSession C.CK_SESSION_HANDLE, pPart C.CK_BYTE_PTR, ulPartLen C
 
 //export C_SignFinal
 func C_SignFinal(hSession C.CK_SESSION_HANDLE, pSignature C.CK_BYTE_PTR, pulSignatureLen C.CK_ULONG_PTR) C.CK_RV {
+	log.Printf("Called: C_SignFinal\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -696,6 +728,7 @@ func C_SignFinal(hSession C.CK_SESSION_HANDLE, pSignature C.CK_BYTE_PTR, pulSign
 
 //export C_Sign
 func C_Sign(hSession C.CK_SESSION_HANDLE, pData C.CK_BYTE_PTR, ulDataLen C.CK_ULONG, pSignature C.CK_BYTE_PTR, pulSignatureLen C.CK_ULONG_PTR) C.CK_RV {
+	log.Printf("Called: C_Sign\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -730,6 +763,7 @@ func C_Sign(hSession C.CK_SESSION_HANDLE, pData C.CK_BYTE_PTR, ulDataLen C.CK_UL
 
 //export C_VerifyInit
 func C_VerifyInit(hSession C.CK_SESSION_HANDLE, pMechanism C.CK_MECHANISM_PTR, hKey C.CK_OBJECT_HANDLE) C.CK_RV {
+	log.Printf("Called: C_VerifyInit\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -747,6 +781,7 @@ func C_VerifyInit(hSession C.CK_SESSION_HANDLE, pMechanism C.CK_MECHANISM_PTR, h
 
 //export C_Verify
 func C_Verify(hSession C.CK_SESSION_HANDLE, pData C.CK_BYTE_PTR, ulDataLen C.CK_ULONG, pSignature C.CK_BYTE_PTR, ulSignatureLen C.CK_ULONG) C.CK_RV {
+	log.Printf("Called: C_Verify\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -769,6 +804,7 @@ func C_Verify(hSession C.CK_SESSION_HANDLE, pData C.CK_BYTE_PTR, ulDataLen C.CK_
 
 //export C_VerifyUpdate
 func C_VerifyUpdate(hSession C.CK_SESSION_HANDLE, pPart C.CK_BYTE_PTR, ulPartLen C.CK_ULONG) C.CK_RV {
+	log.Printf("Called: C_VerifyUpdate\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -786,6 +822,7 @@ func C_VerifyUpdate(hSession C.CK_SESSION_HANDLE, pPart C.CK_BYTE_PTR, ulPartLen
 
 //export C_VerifyFinal
 func C_VerifyFinal(hSession C.CK_SESSION_HANDLE, pSignature C.CK_BYTE_PTR, ulSignatureLen C.CK_ULONG) C.CK_RV {
+	log.Printf("Called: C_VerifyFinal\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -803,6 +840,7 @@ func C_VerifyFinal(hSession C.CK_SESSION_HANDLE, pSignature C.CK_BYTE_PTR, ulSig
 
 //export C_DigestInit
 func C_DigestInit(hSession C.CK_SESSION_HANDLE, pMechanism C.CK_MECHANISM_PTR) C.CK_RV {
+	log.Printf("Called: C_DigestInit\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -820,6 +858,7 @@ func C_DigestInit(hSession C.CK_SESSION_HANDLE, pMechanism C.CK_MECHANISM_PTR) C
 
 //export C_Digest
 func C_Digest(hSession C.CK_SESSION_HANDLE, pData C.CK_BYTE_PTR, ulDataLen C.CK_ULONG, pDigest C.CK_BYTE_PTR, pulDigestLen C.CK_ULONG_PTR) C.CK_RV {
+	log.Printf("Called: C_Digest\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -853,6 +892,7 @@ func C_Digest(hSession C.CK_SESSION_HANDLE, pData C.CK_BYTE_PTR, ulDataLen C.CK_
 
 //export C_SeedRandom
 func C_SeedRandom(hSession C.CK_SESSION_HANDLE, pSeed C.CK_BYTE_PTR, ulSeedLen C.CK_ULONG) C.CK_RV {
+	log.Printf("Called: C_SeedRandom\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -867,6 +907,7 @@ func C_SeedRandom(hSession C.CK_SESSION_HANDLE, pSeed C.CK_BYTE_PTR, ulSeedLen C
 
 //export C_GenerateRandom
 func C_GenerateRandom(hSession C.CK_SESSION_HANDLE, pRandomData C.CK_BYTE_PTR, ulRandomLen C.CK_ULONG) C.CK_RV {
+	log.Printf("Called: C_GenerateRandom\n")
 	if App == nil {
 		return C.CKR_CRYPTOKI_NOT_INITIALIZED
 	}
@@ -915,8 +956,6 @@ func C_CopyObject(C.CK_SESSION_HANDLE, C.CK_OBJECT_HANDLE, C.CK_ATTRIBUTE_PTR, C
 func C_GetObjectSize(C.CK_SESSION_HANDLE, C.CK_OBJECT_HANDLE, C.CK_ULONG_PTR) C.CK_RV {
 	return C.CKR_FUNCTION_NOT_SUPPORTED
 }
-
-
 
 //export C_EncryptInit
 func C_EncryptInit(C.CK_SESSION_HANDLE, C.CK_MECHANISM_PTR, C.CK_OBJECT_HANDLE) C.CK_RV {

@@ -6,12 +6,9 @@ import (
 
 // A connection represents a way to communicate with the nodes.
 type Connection interface {
-	// Open opens the connection and initializes the binding with the nodes.
-	// It also starts polling responses from the ROUTER socket on the server.
-	Open() error
-
 	// SendKeyShares send a list of keys to all the connected nodes.
-	// If it can't send the message to all the nodes, it returns an error
+	// The connection is started automatically if has not been started before.
+	// If it can't send the message to all the nodes, it returns an error.
 	SendKeyShares(id string, keys tcrsa.KeyShareList, meta *tcrsa.KeyMeta) error
 
 	// AckKeyShares confirms that all the nodes had received their keys.
@@ -20,6 +17,7 @@ type Connection interface {
 	AckKeyShares() error
 
 	// AskForSigShares asks for the signature shares over a given hash with a specific Key. If it is not able to ask for them, it returns an error.
+	// The connection is started automatically if has not been started before.
 	AskForSigShares(id string, hash []byte) error
 
 	// GetSigShares waits for the signatures the timeout set on the connection configuration.
@@ -30,8 +28,9 @@ type Connection interface {
 	AskForKeyDeletion(id string) error
 
 	// GetKeyDeletionAck receives the acks from the nodes for having deleted the keys. It returns an error on timeout and the number of acks received. The error should not be critical.
+	// The connection is started automatically if not started before.
 	GetKeyDeletionAck() (int, error)
 
-	// Close finishes the operation of the connection.
+	// Close finishes the operation of the connection. If it's already closed, it does nothing.
 	Close() error
 }

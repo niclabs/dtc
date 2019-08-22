@@ -85,7 +85,9 @@ func (object *CryptoObject) Equals(object2 *CryptoObject) bool {
 func (object *CryptoObject) Match(attrs Attributes) bool {
 	for _, theirAttr := range attrs {
 		ourAttr, ok := object.Attributes[uint32(theirAttr.Type)]
-		if !ok || bytes.Compare(ourAttr.Value, ourAttr.Value) != 0 {
+		if !ok {
+			return false
+		} else if bytes.Compare(ourAttr.Value, theirAttr.Value) != 0 {
 			return false
 		}
 	}
