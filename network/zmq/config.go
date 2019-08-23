@@ -8,8 +8,6 @@ import (
 // The configuration must have an asymmetric key pair, because the connections are only
 // done in ZMQ CURVE Auth mode (Ironhouse mode as of the ZMQ security tutorial)
 type Config struct {
-	Host       string        // IP used by the server to receive messages
-	Port       uint16        // Port used by the server to receive messages
 	PublicKey  string        // PublicKey used in ZMQ Curve Auth
 	PrivateKey string        // PrivateKey used in ZMQ Curve Auth
 	Nodes      []*NodeConfig // A list with the nodes configuration.

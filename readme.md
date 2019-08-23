@@ -61,8 +61,6 @@ zmq:
   timeout: 10
   publicKey: "{0j3IXL0Jw:)K$b1@(1=<8z/joPM.c+EXVBMS>7$"
   privateKey: "F(/uq@m$}KW>)X=0yKRh}lg!N![Efl<@3<Bbelp3"
-  host: 0.0.0.0
-  port: 3030
   nodes:
     - host: 127.0.0.1
       publicKey: '@?Bpu79j8JG1$BGhUHx@bl?jaLB6Tg].V3XjCHiy'
