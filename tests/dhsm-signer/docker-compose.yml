@@ -21,6 +21,8 @@ services:
     volumes:
       - ./dtcnode/config/node5:/etc/dtcnode
   dtc:
-    build: dtc/
+    build:
+      context: ../../../
+      dockerfile: dtc/tests/dhsm-signer/dtc/Dockerfile
     volumes:
       - ./dtc/config:/etc/dtc

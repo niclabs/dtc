@@ -22,7 +22,8 @@ var TimeoutError = fmt.Errorf("timeout")
 // Client Structure represents a connection to a set of Nodes via ZMQ
 // Messaging Protocol.
 type Client struct {
-	running         bool						// true if it is running
+	ID              string                      // Connection ID
+	running         bool                        // true if it is running
 	privKey         string                      // Private Key of node
 	pubKey          string                      // Public Key of node
 	timeout         time.Duration               // Length of timeout in seconds
@@ -43,7 +44,12 @@ func New(config *Config) (client *Client, err error) {
 	if config.Timeout == 0 {
 		config.Timeout = 10
 	}
+	clientID, err := message.GetRandomHexString(8)
+	if err != nil {
+		return nil, err
+	}
 	client = &Client{
+		ID:              clientID,
 		privKey:         config.PrivateKey,
 		pubKey:          config.PublicKey,
 		timeout:         time.Duration(config.Timeout) * time.Second,
@@ -144,7 +150,7 @@ func (client *Client) AckKeyShares() error {
 			log.Printf("message received from node %s\n", msg.NodeID)
 			if pending, exists := client.pendingMessages[msg.ID]; exists {
 				if err := msg.Ok(pending, 0); err != nil {
-					log.Printf("error with message from node %s: %v\n", msg.ID, message.ErrorToString[msg.Error])
+					log.Printf("error with message from node %s: %v\n", msg.NodeID, message.ErrorToString[msg.Error])
 				}
 				delete(client.pendingMessages, msg.ID)
 				acked++
@@ -268,7 +274,7 @@ func (client *Client) GetKeyDeletionAck() (int, error) {
 			log.Printf("message received from node %s\n", msg.NodeID)
 			if pending, exists := client.pendingMessages[msg.ID]; exists {
 				if err := msg.Ok(pending, 0); err != nil {
-					log.Printf("error with message from node %s: %v\n", msg.ID, message.ErrorToString[msg.Error])
+					log.Printf("error with message from node %s: %v\n", msg.NodeID, message.ErrorToString[msg.Error])
 				}
 				delete(client.pendingMessages, msg.ID)
 				acked++

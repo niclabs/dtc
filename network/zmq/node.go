@@ -36,7 +36,7 @@ func newNode(client *Client, config *NodeConfig) (*Node, error) {
 }
 
 func (node *Node) getID() string {
-	return node.pubKey
+	return node.client.ID
 }
 
 func (node *Node) getConnString() string {
@@ -55,7 +55,7 @@ func (node *Node) connect() error {
 		return err
 	}
 	node.socket = s
-	if err := node.socket.SetIdentity(node.client.pubKey); err != nil {
+	if err := node.socket.SetIdentity(node.getID()); err != nil {
 		node.Err = err
 		return err
 	}
@@ -128,7 +128,6 @@ func (node *Node) deleteKeyShare(id string) (*message.Message, error) {
 
 func (node *Node) recvMessage() {
 	rawMsg, err := node.socket.RecvMessageBytes(0)
-	log.Printf("New message received!")
 	if err != nil {
 		log.Printf("Error with new message: %v", err)
 		return
@@ -138,8 +137,5 @@ func (node *Node) recvMessage() {
 		log.Printf("Cannot parse messages: %s\n", err)
 		return
 	}
-	log.Printf("Message is from node %s", msg.NodeID)
-	log.Printf("Sending message to channel")
 	node.client.channel <- msg
-	log.Printf("Message sent to channel!")
 }

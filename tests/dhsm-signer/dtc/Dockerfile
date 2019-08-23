@@ -6,7 +6,7 @@ WORKDIR /
 RUN apt update
 RUN apt -y install libzmq3-dev libczmq-dev build-essential sqlite3
 
-RUN git clone https://github.com/niclabs/dtc --branch master #
+COPY ./dtc /dtc/
 
 WORKDIR /dtc
 ENV GO111MODULE on
