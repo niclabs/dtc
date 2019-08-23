@@ -1,10 +1,9 @@
 config:
   publickey: WEz4<>x8dul]2ELx$r60C-gTVf0O8=M>Z7ZV%ihW
   privatekey: hov0XPgdRvsn1b9L}1+@v&ogsfO1-=HV0)}ZL{VF
-  host: node5
+  host: dtcnode5
   port: 2030
-  server:
+  client:
     publickey: '{0j3IXL0Jw:)K$b1@(1=<8z/joPM.c+EXVBMS>7$'
-    host: dtc
-    port: 3030
+    host: dtcclient
     keys: []

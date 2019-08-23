@@ -3,8 +3,7 @@ config:
   privatekey: bP]iiwUR:!8XF@X9X*58Aa8tD12yX5>U^gsrnJ>@
   host: 0.0.0.0
   port: 2030
-  server:
+  client:
     publickey: '{0j3IXL0Jw:)K$b1@(1=<8z/joPM.c+EXVBMS>7$'
     host: 172.18.0.1
-    port: 3030
     keys: []

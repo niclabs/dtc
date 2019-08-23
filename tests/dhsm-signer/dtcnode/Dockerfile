@@ -15,4 +15,4 @@ RUN go build
 RUN mkdir /etc/dtcnode
 
 # Sleep because we need to wait the network to be initialized
-CMD sleep 5 && /dtcnode/dtcnode
+CMD sleep 5 && /dtcnode/dtcnode serve

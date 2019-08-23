@@ -58,3 +58,5 @@ typedef struct ckInfo {
 	CK_UTF8CHAR libraryDescription[32];
 	CK_VERSION libraryVersion;
 } ckInfo, *ckInfoPtr;
+
+

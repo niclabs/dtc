@@ -1,10 +1,9 @@
 config:
   publickey: '*@tRX8)p=ty]7oZbJZ/Stm>=3Qd{P$[IG?ba>q3f'
   privatekey: yEIr3%h^HX3bJp1eVcng9$f<@!H!?k*c#Qlaf#VH
-  host: node3
+  host: dtcnode3
   port: 2030
-  server:
+  client:
     publickey: '{0j3IXL0Jw:)K$b1@(1=<8z/joPM.c+EXVBMS>7$'
-    host: dtc
-    port: 3030
+    host: dtcclient
     keys: []

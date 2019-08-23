@@ -1,26 +1,26 @@
 version: '3'
 services:
-  node1:
+  dtcnode1:
     build: dtcnode/
     volumes:
       - ./dtcnode/config/node1:/etc/dtcnode
-  node2:
+  dtcnode2:
     build: dtcnode/
     volumes:
       - ./dtcnode/config/node2:/etc/dtcnode
-  node3:
+  dtcnode3:
     build: dtcnode/
     volumes:
       - ./dtcnode/config/node3:/etc/dtcnode
-  node4:
+  dtcnode4:
     build: dtcnode/
     volumes:
       - ./dtcnode/config/node4:/etc/dtcnode
-  node5:
+  dtcnode5:
     build: dtcnode/
     volumes:
       - ./dtcnode/config/node5:/etc/dtcnode
-  dtc:
+  dtcclient:
     build:
       context: ../../../
       dockerfile: dtc/tests/dhsm-signer/dtc/Dockerfile

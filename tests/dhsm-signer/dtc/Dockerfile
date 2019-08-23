@@ -20,11 +20,11 @@ WORKDIR /dhsm-signer
 RUN go mod tidy
 RUN go build
 
-RUN mv /dtc/dtc.so /dhsm-signer/dtc.so #s
+RUN mv /dtc/dtc.so /dhsm-signer/dtc.so
 
 # copy example zone and test with this shellscript
-COPY test.sh test.sh
-COPY example.com example.com
+COPY ./dtc/tests/dhsm-signer/dtc/test.sh test.sh
+COPY ./dtc/tests/dhsm-signer/dtc/example.com example.com
 
 # Sleep because we need to wait the network to be initialized
 CMD sleep 5 && ./test.sh
