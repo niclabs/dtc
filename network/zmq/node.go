@@ -60,12 +60,11 @@ func (node *Node) connect() error {
 		return err
 	}
 
-	/*
 	if err = node.socket.ClientAuthCurve(node.pubKey, node.client.pubKey, node.client.privKey); err != nil {
 		node.Err = err
 		return err
 	}
-	*/
+
 	// connect
 	log.Printf("connecting to %s socket in %s", node.getID(), node.getConnString())
 	if err = node.socket.Connect(node.getConnString()); err != nil {
@@ -96,9 +95,7 @@ func (node *Node) sendKeyShare(id string, key *tcrsa.KeyShare, meta *tcrsa.KeyMe
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Sending message to node %s", node.getConnString())
 	_, err = node.socket.SendMessage(msg.GetBytesLists()...)
-	log.Printf("Message sent to node %s", node.getConnString())
 	if err != nil {
 		return nil, err
 	}

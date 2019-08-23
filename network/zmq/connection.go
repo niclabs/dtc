@@ -69,11 +69,11 @@ func (client *Client) Open() (err error) {
 	if client.nodes == nil {
 		return fmt.Errorf("not initialized. Use 'New' to create a new struct")
 	}
-	// _ = zmq4.AuthStart()
+	_ = zmq4.AuthStart()
 	// Now we connect to the clients
 	for _, node := range client.nodes {
 		if err = node.connect(); err != nil {
-			//zmq4.AuthStop()
+			zmq4.AuthStop()
 			return
 		}
 	}
@@ -93,7 +93,7 @@ func (client *Client) Close() error {
 		}
 	}
 	client.running = false
-	//zmq4.AuthStop()
+	zmq4.AuthStop()
 	return nil
 }
 
