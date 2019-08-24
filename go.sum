@@ -87,6 +87,8 @@ github.com/niclabs/dtcnode v1.1.1-0.20190823135605-b801798c2cbc h1:907QakdlDvULa
 github.com/niclabs/dtcnode v1.1.1-0.20190823135605-b801798c2cbc/go.mod h1:acCZwyRnJFTso2F5kednN8f3V2Rqsbdl7ClkhunPSBI=
 github.com/niclabs/tcrsa v0.0.2 h1:zBMvdqAQVKK47rVn+DCvTFJ+N12XzbVJG+wnhLjbia8=
 github.com/niclabs/tcrsa v0.0.2/go.mod h1:ratVlzSF2LkdYLmDDvqwmpQFtHbyZIWTa1J02Ogxw+A=
+github.com/niclabs/tcrsa v0.0.3 h1:RQUvaPGo0PC8i2xahN8BEDA8y992/GN+vF6awu4D/TY=
+github.com/niclabs/tcrsa v0.0.3/go.mod h1:ratVlzSF2LkdYLmDDvqwmpQFtHbyZIWTa1J02Ogxw+A=
 github.com/oklog/ulid v1.3.1/go.mod h1:CirwcVhetQ6Lv90oh/F+FBtV6XMibvdAFo93nm5qn4U=
 github.com/pebbe/zmq4 v1.0.0 h1:D+MSmPpqkL5PSSmnh8g51ogirUCyemThuZzLW7Nrt78=
 github.com/pebbe/zmq4 v1.0.0/go.mod h1:7N4y5R18zBiu3l0vajMUWQgZyjv464prE8RCyBcmnZM=

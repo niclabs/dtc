@@ -6,7 +6,7 @@ WORKDIR /
 RUN apt update
 RUN apt -y install libzmq3-dev libczmq-dev build-essential musl-dev
 
-RUN git clone https://github.com/niclabs/dtcnode --branch v2.0.0
+RUN git clone https://github.com/niclabs/dtcnode --branch v2.0.1
 
 WORKDIR /dtcnode
 RUN go mod tidy -v
