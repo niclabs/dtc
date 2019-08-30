@@ -107,18 +107,35 @@ func (mechanism *Mechanism) Prepare(randSrc io.Reader, nBits int, data []byte) (
 
 // Verify verifies that a signature is coherent with the data that it signs, using the public key.
 func (mechanism *Mechanism) Verify(pubKey crypto.PublicKey, data []byte, signature []byte) (err error) {
+	var hash []byte
 	hashType, err := mechanism.GetHashType()
 	if err != nil {
 		return
 	}
 	switch mechanism.Type {
 	case C.CKM_RSA_PKCS, C.CKM_MD5_RSA_PKCS, C.CKM_SHA1_RSA_PKCS, C.CKM_SHA256_RSA_PKCS, C.CKM_SHA384_RSA_PKCS, C.CKM_SHA512_RSA_PKCS:
-		return rsa.VerifyPKCS1v15(pubKey.(*rsa.PublicKey), hashType, data, signature)
-	case C.CKM_SHA1_RSA_PKCS_PSS, C.CKM_SHA256_RSA_PKCS_PSS, C.CKM_SHA384_RSA_PKCS_PSS, C.CKM_SHA512_RSA_PKCS_PSS:
 		if hashType < crypto.Hash(0) {
 			err = NewError("Mechanism.Sign", "mechanism hash type is not supported with PSS padding", C.CKR_MECHANISM_INVALID)
 		}
-		return rsa.VerifyPSS(pubKey.(*rsa.PublicKey), hashType, data, signature, &rsa.PSSOptions{})
+		if hashType == crypto.Hash(0) {
+			hash = data
+		} else {
+			hashFunc := hashType.New()
+			_, err = hashFunc.Write(data)
+			if err != nil {
+				return
+			}
+			hash = hashFunc.Sum(nil)
+		}
+		return rsa.VerifyPKCS1v15(pubKey.(*rsa.PublicKey), hashType, hash, signature)
+	case C.CKM_SHA1_RSA_PKCS_PSS, C.CKM_SHA256_RSA_PKCS_PSS, C.CKM_SHA384_RSA_PKCS_PSS, C.CKM_SHA512_RSA_PKCS_PSS:
+		hashFunc := hashType.New()
+		_, err = hashFunc.Write(data)
+		if err != nil {
+			return
+		}
+		hash = hashFunc.Sum(nil)
+		return rsa.VerifyPSS(pubKey.(*rsa.PublicKey), hashType, hash, signature, &rsa.PSSOptions{})
 	default:
 		err = NewError("Mechanism.Sign", "mechanism not supported yet for preparing", C.CKR_MECHANISM_INVALID)
 		return
