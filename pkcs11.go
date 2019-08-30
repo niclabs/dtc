@@ -723,6 +723,7 @@ func C_SignFinal(hSession C.CK_SESSION_HANDLE, pSignature C.CK_BYTE_PTR, pulSign
 		}
 		cSignature := C.CBytes(signature)
 		defer C.free(cSignature)
+		*pulSignatureLen = C.ulong(len(signature))
 		C.memcpy(unsafe.Pointer(pSignature), cSignature, *pulSignatureLen)
 	}
 	return C.CKR_OK
@@ -758,6 +759,7 @@ func C_Sign(hSession C.CK_SESSION_HANDLE, pData C.CK_BYTE_PTR, ulDataLen C.CK_UL
 		}
 		cSignature := C.CBytes(signature)
 		defer C.free(cSignature)
+		*pulSignatureLen = C.ulong(len(signature))
 		C.memcpy(unsafe.Pointer(pSignature), cSignature, *pulSignatureLen)
 	}
 	return C.CKR_OK

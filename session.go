@@ -496,6 +496,13 @@ func (session *Session) SignFinal() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err = session.signMechanism.Verify(
+		session.signKeyMeta.PublicKey,
+		session.signData,
+		sign,
+	); err != nil {
+		return nil, err
+	}
 	return sign, nil
 }
 
@@ -764,10 +771,10 @@ func createPrivateKey(keyID string, skAttrs Attributes, keyMeta *tcrsa.KeyMeta) 
 	skAttrs.SetIfUndefined(&Attribute{C.CKA_PUBLIC_EXPONENT, eBytes})
 
 	// Custom Fields
-
 	encodedKeyMeta, err := encodeKeyMeta(keyMeta)
+
 	if err != nil {
-		return nil, NewError("Session.createPublicKey", fmt.Sprintf("%s", err.Error()), C.CKR_ARGUMENTS_BAD)
+		return nil, NewError("Session.createPrivateKey", fmt.Sprintf("%s", err.Error()), C.CKR_ARGUMENTS_BAD)
 	}
 
 	skAttrs.SetIfUndefined(&Attribute{AttrTypeKeyHandler, []byte(keyID)})
