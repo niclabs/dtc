@@ -34,7 +34,7 @@ func init() {
 
 	C.functionList = C.CK_FUNCTION_LIST{
 		C.CK_VERSION{2, 40},
-		(C.CK_C_Initialize)(unsafe.Pointer(C.C_Initialize)),
+		(C.CK_C_Initialize)(C.C_Initialize),
 		(C.CK_C_Finalize)(C.C_Finalize),
 		(C.CK_C_GetInfo)(C.C_GetInfo),
 		(C.CK_C_GetFunctionList)(C.C_GetFunctionList),
@@ -60,7 +60,7 @@ func init() {
 		(C.CK_C_GetObjectSize)(C.C_GetObjectSize),
 		(C.CK_C_GetAttributeValue)(C.C_GetAttributeValue),
 		(C.CK_C_SetAttributeValue)(C.C_SetAttributeValue),
-		(C.CK_C_FindObjectsInit)(unsafe.Pointer(C.C_FindObjectsInit)),
+		(C.CK_C_FindObjectsInit)(C.C_FindObjectsInit),
 		(C.CK_C_FindObjects)(C.C_FindObjects),
 		(C.CK_C_FindObjectsFinal)(C.C_FindObjectsFinal),
 		(C.CK_C_EncryptInit)(C.C_EncryptInit),

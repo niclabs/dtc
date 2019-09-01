@@ -228,7 +228,7 @@ func (session *Session) FindObjectsInit(attrs Attributes) error {
 	}
 
 	// If the object was not found. We need to reload the database, because the object could have been created by another instance.
-	if len(attrs) == 0 && len(session.foundObjects) == 0 && !session.refreshedToken {
+	if len(session.foundObjects) == 0 && !session.refreshedToken {
 		session.refreshedToken = true
 		slot := session.Slot
 		token, err := slot.GetToken()
@@ -238,9 +238,9 @@ func (session *Session) FindObjectsInit(attrs Attributes) error {
 		db := slot.Application.Storage
 		newToken, err := db.GetToken(token.Label)
 		if err != nil {
-			return NewError("Session.DestroyObject", err.Error(), C.CKR_DEVICE_ERROR)
+			return NewError("Session.FindObjectsInit", err.Error(), C.CKR_DEVICE_ERROR)
 		}
-		token.CopyState(newToken)
+		newToken.CopyState(token)
 		slot.InsertToken(newToken)
 		return session.FindObjectsInit(attrs)
 	}

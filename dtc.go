@@ -5,10 +5,12 @@ import (
 	"github.com/niclabs/dtc/network"
 	"github.com/niclabs/tcrsa"
 	"log"
+	"sync"
 )
 
 // DTC represents the Distributed Threshold Criptography library. It manages on its own the nodes, and exposes a simple API to use it.
 type DTC struct {
+	sync.Mutex
 	Connection network.Connection // The messenger DTC uses to communicate with the nodes.
 	Threshold  uint16             // The threshold defined in the model.
 	Nodes      uint16             // The total number of nodes used.
@@ -33,6 +35,8 @@ func NewDTC(config DTCConfig) (*DTC, error) {
 
 // Creates a new key and saves its shares distributed among all the nodes.
 func (dtc *DTC) CreateNewKey(keyID string, bitSize int, args *tcrsa.KeyMetaArgs) (*tcrsa.KeyMeta, error) {
+	dtc.Lock()
+	defer dtc.Unlock()
 	log.Printf("Creating new key with bitsize=%d, threshold=%d and nodes=%d", bitSize, dtc.Threshold, dtc.Nodes)
 	keyShares, keyMeta, err := tcrsa.NewKey(bitSize, dtc.Threshold, dtc.Nodes, args)
 	if err != nil {
@@ -51,6 +55,9 @@ func (dtc *DTC) CreateNewKey(keyID string, bitSize int, args *tcrsa.KeyMetaArgs)
 
 // Signs with a key name a byte hash, sending it to all the keyshare holders.
 func (dtc *DTC) SignData(keyName string, meta *tcrsa.KeyMeta, data []byte) ([]byte, error) {
+	dtc.Lock()
+	defer dtc.Unlock()
+	log.Printf("Signing data with key of id=%s", keyName)
 	if err := dtc.Connection.AskForSigShares(keyName, data); err != nil {
 		return nil, err
 	}
@@ -72,6 +79,8 @@ func (dtc *DTC) SignData(keyName string, meta *tcrsa.KeyMeta, data []byte) ([]by
 
 // Deletes an old key deleting the key shares from all the nodes.
 func (dtc *DTC) DeleteKey(keyID string) (int, error) {
+	dtc.Lock()
+	defer dtc.Unlock()
 	log.Printf("Deleting key shares with keyid=%s", keyID)
 	if err := dtc.Connection.AskForKeyDeletion(keyID); err != nil {
 		return 0, err
