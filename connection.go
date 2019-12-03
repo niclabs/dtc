@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/niclabs/dtc/v2/config"
 	"github.com/niclabs/dtc/v2/network"
 	"github.com/niclabs/dtc/v2/network/zmq"
 )
@@ -10,7 +11,7 @@ import (
 func NewConnection(connType string) (conn network.Connection, err error) {
 	switch connType {
 	case "zmq":
-		zmqConfig, err1 := zmq.GetConfig()
+		zmqConfig, err1 := config.GetZMQConfig()
 		if err1 != nil {
 			err = err1
 			return

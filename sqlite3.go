@@ -14,11 +14,6 @@ import (
 	"sync"
 )
 
-// Sqlite3Config represents the parameters needed to use Sqlite3 storage.
-type Sqlite3Config struct {
-	Path string // Path to database.
-}
-
 // Sqlite3DB is a wrapper over a sql.Sqlite3DB object, complying with storage
 // interface.
 type Sqlite3DB struct {
@@ -28,8 +23,8 @@ type Sqlite3DB struct {
 }
 
 // Returns the defined sqlite3 configuration.
-func GetSqlite3Config() (*Sqlite3Config, error) {
-	var conf Sqlite3Config
+func GetSqlite3Config() (*config.Sqlite3Config, error) {
+	var conf config.Sqlite3Config
 	err := viper.UnmarshalKey("sqlite3", &conf)
 	if err != nil {
 		return nil, err

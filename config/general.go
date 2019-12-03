@@ -15,10 +15,12 @@ func init() {
 	}
 }
 
-// Config defines the global configuration file.
+// ZMQConfig defines the global configuration file.
 type Config struct {
 	DTC      DTCConfig      // DTC related configuration
 	Criptoki CriptokiConfig // Criptoki related configuration
+	Sqlite3  Sqlite3Config  // SQLite 3 related configuration
+	ZMQ      ZMQConfig      // ZMQ related configuration
 }
 
 // DTCConfig manages the configuration related with this implementation, as the messaging type, nodes number and threshold.
@@ -44,7 +46,7 @@ type CriptokiConfig struct {
 // SlotsConfig defines the slots the HSM has.
 type SlotsConfig struct {
 	Label string // ID of the Token inserted on this slot. It must exist on the HSM.
-	Pin string // Password to configure in Token
+	Pin   string // Password to configure in Token
 }
 
 // GetConfig returns the configuration extracted from the common config file.

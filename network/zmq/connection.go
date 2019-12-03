@@ -2,6 +2,7 @@ package zmq
 
 import (
 	"fmt"
+	"github.com/niclabs/dtc/v2/config"
 	"github.com/niclabs/dtcnode/v2/message"
 	"github.com/niclabs/tcrsa"
 	"github.com/pebbe/zmq4"
@@ -36,7 +37,7 @@ type Client struct {
 }
 
 // New returns a new ZMQ connection based in the configuration provided.
-func New(config *Config) (client *Client, err error) {
+func New(config *config.ZMQConfig) (client *Client, err error) {
 	context, err := zmq4.NewContext()
 	if err != nil {
 		return

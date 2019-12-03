@@ -2,6 +2,7 @@ package zmq
 
 import (
 	"fmt"
+	"github.com/niclabs/dtc/v2/config"
 	"github.com/niclabs/dtcnode/v2/message"
 	"github.com/niclabs/tcrsa"
 	"github.com/pebbe/zmq4"
@@ -21,7 +22,7 @@ type Node struct {
 	Err    error        // The last error this node had.
 }
 
-func newNode(client *Client, config *NodeConfig) (*Node, error) {
+func newNode(client *Client, config *config.NodeConfig) (*Node, error) {
 	var nodeIP *net.IPAddr
 	nodeIP, err := net.ResolveIPAddr("ip", config.Host)
 	if err != nil {

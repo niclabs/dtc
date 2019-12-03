@@ -8,9 +8,9 @@ import "github.com/niclabs/dtc/v2/config"
 
 // Application contains the essential parts of the HSM
 type Application struct {
-	Storage Storage        // Storage saves the HSM objects.
-	DTC     *DTC           // DTC is in charge of communication with the nodes.
-	Slots   []*Slot        // Represents the slots of the HSM
+	Storage Storage           // Storage saves the HSM objects.
+	DTC     *DTC              // DTC is in charge of communication with the nodes.
+	Slots   []*Slot           // Represents the slots of the HSM
 	Config  *config.Config // has the complete configuration of the HSM
 }
 

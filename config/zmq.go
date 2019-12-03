@@ -1,13 +1,13 @@
-package zmq
+package config
 
 import (
 	"github.com/spf13/viper"
 )
 
-// Config represents a ZMQ network configuration.
+// ZMQConfig represents a ZMQ network configuration.
 // The configuration must have an asymmetric key pair, because the connections are only
 // done in ZMQ CURVE Auth mode (Ironhouse mode as of the ZMQ security tutorial)
-type Config struct {
+type ZMQConfig struct {
 	PublicKey  string        // PublicKey used in ZMQ Curve Auth
 	PrivateKey string        // PrivateKey used in ZMQ Curve Auth
 	Nodes      []*NodeConfig // A list with the nodes configuration.
@@ -21,9 +21,9 @@ type NodeConfig struct {
 	Port      uint16
 }
 
-// GetConfig returns the ZMQ Configuration defined in the config file.
-func GetConfig() (*Config, error) {
-	var conf Config
+// GetZMQConfig returns the ZMQ Configuration defined in the config file.
+func GetZMQConfig() (*ZMQConfig, error) {
+	var conf ZMQConfig
 	err := viper.UnmarshalKey("zmq", &conf)
 	if err != nil {
 		return nil, err
