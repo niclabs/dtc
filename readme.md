@@ -23,7 +23,7 @@ On Ubuntu 18.04 LTS, the commands to run to build are the following:
 
 ```bash
 # Install requirements
-sudo apt install libzmq3-dev libczmq-dev build-essential sqlite3
+sudo apt install libzmq3-dev libczmq-dev build-essential sqlite3 pkg-config
 
 # Download and install Go 1.13.4 for Linux AMD 64 bit.
 wget https://dl.google.com/go/go1.13.4.linux-amd64.tar.gz
