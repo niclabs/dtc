@@ -11,7 +11,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/niclabs/dtcnode/message"
+	"github.com/niclabs/dtcnode/v2/message"
 	"github.com/niclabs/tcrsa"
 	"hash"
 	"log"

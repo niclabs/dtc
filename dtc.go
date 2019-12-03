@@ -2,7 +2,7 @@ package main
 
 import "C"
 import (
-	"github.com/niclabs/dtc/network"
+	"github.com/niclabs/dtc/v2/network"
 	"github.com/niclabs/tcrsa"
 	"log"
 	"sync"

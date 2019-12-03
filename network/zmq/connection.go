@@ -2,7 +2,7 @@ package zmq
 
 import (
 	"fmt"
-	"github.com/niclabs/dtcnode/message"
+	"github.com/niclabs/dtcnode/v2/message"
 	"github.com/niclabs/tcrsa"
 	"github.com/pebbe/zmq4"
 	"log"
