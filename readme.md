@@ -4,30 +4,39 @@ A Golang rework of [our C++ Library](https://github.com/niclabs/tchsm-libdtc) in
 
 This library requires the use of two or more instances of [dtcnode](https://github.com/niclabs/dtcnode).
 
-# How to compile
-
-To compile the library, just clone this repository and execute build.sh. This will create a file named `dtc.so`, which you can use in any PKCS#11-compatible software.
-
-For this signer to work, you need to configure it properly. You can use the config.yml as an example.
-
-
-# How to build
+# How to buil
 
 First, it's necessary to download all the requirements of the Go project. The following libraries should be installed in the systems which are going to use the library:
 
-* libzmq-dev v4 or greater (for zmq communication with the nodes)
-* czmq-dev (for zmq communication with the nodes)
-* gcc (`build-essentials` should suffice in Ubuntu)
+* libzmq3-dev v4 or greater (for zmq communication with the nodes)
+* libczmq-dev (for zmq communication with the nodes)
+* gcc
 * sqlite3 (used in HSM data storage)
-
-
-And the following command installs the required golang libraries:
-
-`go mod tidy`
+* Go (1.13.4 or higher)
 
 for building the project as a library, you should execute the following command. It will produce a file named `dtc.so`, which can be used as a PKCS#11 driver.
 
 `./build.sh`
+
+
+On Ubuntu 18.04 LTS, the commands to run to build are the following:
+
+```bash
+# Install requirements
+sudo apt install libzmq3-dev libczmq-dev build-essential sqlite3
+
+# Download and install Go 1.13.4 for Linux AMD 64 bit.
+wget https://dl.google.com/go/go1.13.4.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.13.4.linux-amd64.tar.gz
+
+# ADD /usr/local/go to PATH
+export PATH=$PATH:/usr/local/go
+
+# Clone and compile repository
+git clone https://github.com/niclabs/dtc
+cd dtc
+./build.sh
+```
 
 # How to configure
 
