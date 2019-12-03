@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/niclabs/dtc/v2/config"
 	"github.com/spf13/viper"
 	"log"
 	"sync"
@@ -36,7 +37,7 @@ func GetSqlite3Config() (*Sqlite3Config, error) {
 	return &conf, nil
 }
 
-func (db *Sqlite3DB) Init(slots []*SlotsConfig) error {
+func (db *Sqlite3DB) Init(slots []*config.SlotsConfig) error {
 	if err := db.createTablesIfNotExist(); err != nil {
 		return fmt.Errorf("create tables: %v", err)
 	}
@@ -199,13 +200,13 @@ func (db *Sqlite3DB) createTablesIfNotExist() error {
 	return nil
 }
 
-func (db *Sqlite3DB) insertTokens(slots []*SlotsConfig) error {
+func (db *Sqlite3DB) insertTokens(slots []*config.SlotsConfig) error {
 	stmt, err := db.Prepare(InsertTokenQuery)
 	if err != nil {
 		return err
 	}
 	if len(slots) == 0 {
-		slots = []*SlotsConfig{{}}
+		slots = []*config.SlotsConfig{{}}
 	}
 	for _, token := range slots {
 		if len(token.Label) == 0 {

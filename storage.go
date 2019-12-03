@@ -4,11 +4,14 @@ package main
 #include "pkcs11go.h"
 */
 import "C"
-import "fmt"
+import (
+	"fmt"
+	"github.com/niclabs/dtc/v2/config"
+)
 
 type Storage interface {
 	// Executes the logic necessary to initialize the storage.
-	Init(slots []*SlotsConfig) error
+	Init(slots []*config.SlotsConfig) error
 
 	// Saves a token into the storage, or returns an error.
 	SaveToken(*Token) error
