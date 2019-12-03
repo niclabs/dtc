@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/niclabs/dtc/config"
+	"github.com/niclabs/dtc/v2/config"
 	"testing"
 )
 
