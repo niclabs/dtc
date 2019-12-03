@@ -95,7 +95,7 @@ func (slot *Slot) GetInfo(pInfo C.CK_SLOT_INFO_PTR) error {
 		description = description[:64]
 	}
 	description += strings.Repeat(" ", 64-len(description)) // spaces
-	cDescription := C.CBytes([]byte(description), len(description))
+	cDescription := C.CBytes([]byte(description))
 	defer C.free(unsafe.Pointer(cDescription))
 	C.memcpy(unsafe.Pointer(&info.slotDescription[0]), cDescription, 64)
 
