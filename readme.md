@@ -4,7 +4,7 @@ A Golang rework of [our C++ Library](https://github.com/niclabs/tchsm-libdtc) in
 
 This library requires the use of two or more instances of [dtcnode](https://github.com/niclabs/dtcnode).
 
-# How to buil
+# How to build
 
 First, it's necessary to download all the requirements of the Go project. The following libraries should be installed in the systems which are going to use the library:
 
@@ -43,50 +43,51 @@ cd dtc
 The configuration file is named `config.yaml` and it can be in the current working directory or in `/etc/dtc/` folder. the structure is similar to the following (**PLEASE DO NOT USE THIS PUBLIC/PRIVATE KEY PAIR FOR THE SERVER**):
 
 ```yaml
-general:
-  logfile: /tmp/dtc.log
-  dtc:
-    messagingType: zmq
-    nodesNumber: 5
-    threshold: 3
+dtc:
+  general:
+    logfile: /tmp/dtc.log
+    dtc:
+      messagingType: zmq
+      nodesNumber: 5
+      threshold: 3
 
-  criptoki:
-    manufacturerId: "NICLabs"
-    model: "TCHSM"
-    description: "Implementación de PKCS11"
-    serialnumber: "1"
-    minPinLen: 3
-    maxPinLen: 10
-    maxSessionCount: 5
-    databaseType: sqlite3
-    slots:
-      - label: TCBHSM
-        PIN: 1234
+    criptoki:
+      manufacturerId: "NICLabs"
+      model: "TCHSM"
+      description: "Implementación de PKCS11"
+      serialnumber: "1"
+      minPinLen: 3
+      maxPinLen: 10
+      maxSessionCount: 5
+      databaseType: sqlite3
+      slots:
+        - label: TCBHSM
+          PIN: 1234
 
-sqlite3:
-  path: db.sqlite3
+  sqlite3:
+    path: db.sqlite3
 
-zmq:
-  timeout: 10
-  publicKey: "{0j3IXL0Jw:)K$b1@(1=<8z/joPM.c+EXVBMS>7$"
-  privateKey: "F(/uq@m$}KW>)X=0yKRh}lg!N![Efl<@3<Bbelp3"
-  nodes:
-    - host: 127.0.0.1
-      publicKey: '@?Bpu79j8JG1$BGhUHx@bl?jaLB6Tg].V3XjCHiy'
-      port: 9871
-    - host: 127.0.0.1
-      publicKey:  '{ru14[eTvFFr^o}wL}#J[z4{ci7+P1gHv<on#[{z'
-      port: 9873
-    - host: 127.0.0.1
-      publicKey: '*@tRX8)p=ty]7oZbJZ/Stm>=3Qd{P$[IG?ba>q3f'
-      port: 9875
-    - host: 127.0.0.1
-      publicKey: pZd<H6rhZ:3Eky<5A=Gvq]BLHL^a-@H+)tP?L-+7
-      port: 9877
-    - host: 127.0.0.1
-      publicKey: WEz4<>x8dul]2ELx$r60C-gTVf0O8=M>Z7ZV%ihW
-      port: 9879
-```
+  zmq:
+    timeout: 10
+    publicKey: "{0j3IXL0Jw:)K$b1@(1=<8z/joPM.c+EXVBMS>7$"
+    privateKey: "F(/uq@m$}KW>)X=0yKRh}lg!N![Efl<@3<Bbelp3"
+    nodes:
+      - host: 127.0.0.1
+        publicKey: '@?Bpu79j8JG1$BGhUHx@bl?jaLB6Tg].V3XjCHiy'
+        port: 9871
+      - host: 127.0.0.1
+        publicKey:  '{ru14[eTvFFr^o}wL}#J[z4{ci7+P1gHv<on#[{z'
+        port: 9873
+      - host: 127.0.0.1
+        publicKey: '*@tRX8)p=ty]7oZbJZ/Stm>=3Qd{P$[IG?ba>q3f'
+        port: 9875
+      - host: 127.0.0.1
+        publicKey: pZd<H6rhZ:3Eky<5A=Gvq]BLHL^a-@H+)tP?L-+7
+        port: 9877
+      - host: 127.0.0.1
+        publicKey: WEz4<>x8dul]2ELx$r60C-gTVf0O8=M>Z7ZV%ihW
+        port: 9879
+  ```
 
 It has a mandatory section, called `general`, where we currently define three variables:
 * `logfile` is the absolute path where the log is going to be saved. If empty or undefined, the log will be printed on the stderr of the program which is using the library.
