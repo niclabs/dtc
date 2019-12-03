@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/niclabs/dtc/config"
 	"testing"
 )
 
@@ -14,7 +15,7 @@ func initDB() (Storage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("couldn't get database: %v", err)
 	}
-	if err := db.Init([]*SlotsConfig{
+	if err := db.Init([]*config.SlotsConfig{
 		{TestFirstTokenLabel, "1234"},
 		{TestOtherTokenLabel, "1234"},
 	}); err != nil {

@@ -4,18 +4,19 @@ package main
 #include "pkcs11go.h"
 */
 import "C"
+import "github.com/niclabs/dtc/config"
 
 // Application contains the essential parts of the HSM
 type Application struct {
-	Storage Storage // Storage saves the HSM objects.
-	DTC     *DTC    // DTC is in charge of communication with the nodes.
-	Slots   []*Slot // Represents the slots of the HSM
-	Config  *Config // has the complete configuration of the HSM
+	Storage Storage        // Storage saves the HSM objects.
+	DTC     *DTC           // DTC is in charge of communication with the nodes.
+	Slots   []*Slot        // Represents the slots of the HSM
+	Config  *config.Config // has the complete configuration of the HSM
 }
 
 // NewApplication returns a new application, using the configuration defined in the config file.
 func NewApplication() (app *Application, err error) {
-	config, err := GetConfig()
+	config, err := config.GetConfig()
 	if err != nil {
 		return
 	}

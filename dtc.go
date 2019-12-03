@@ -2,6 +2,7 @@ package main
 
 import "C"
 import (
+	"github.com/niclabs/dtc/config"
 	"github.com/niclabs/dtc/network"
 	"github.com/niclabs/tcrsa"
 	"log"
@@ -17,7 +18,7 @@ type DTC struct {
 }
 
 // Creates a new and ready DTC struct. It connects automatically to its nodes.
-func NewDTC(config DTCConfig) (*DTC, error) {
+func NewDTC(config config.DTCConfig) (*DTC, error) {
 	connection, err := NewConnection(config.MessagingType)
 	if err != nil {
 		return nil, err
