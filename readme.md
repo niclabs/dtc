@@ -4,7 +4,9 @@ A Golang rework of [our C++ Library](https://github.com/niclabs/tchsm-libdtc) in
 
 This library requires the use of two or more instances of [dtcnode](https://github.com/niclabs/dtcnode).
 
-# How to build
+# Getting Started
+
+## How to build
 
 First, it's necessary to download all the requirements of the Go project. The following libraries should be installed in the systems which are going to use the library:
 
@@ -38,7 +40,25 @@ cd dtc
 ./build.sh
 ```
 
-# How to configure
+# Advanced
+
+This information should not be necessary to use the system. However, it could be useful if you want more information about the tests and configuration scripts.
+
+## How to configure
+
+* Download, clone and build [dtcconfig](https://github.com/niclabs/dtcconfig).
+* Execute `sudo ./dtcconfig rsa -t <threshold> -n <node-data> -H <host-public-ip>`, where:
+  * `threshold` is the minimum number of nodes that should be able to sign to generate a valid signature
+  * `node-data` is a host:port comma separated list with the public IPs of the nodes and the ports where they are listening to DTC messages
+  * `host-public-ip` is the IP the nodes will see when the host connects to it. 
+  
+The config file should be created in `/etc/dtc/config.yaml`, and the nodes config files will be created on `./nodes/`. Each config file will be inside a folder named `<host>_<port>`, with the name `config.yaml`. This files should be used on [dtcnode](https://github.com/niclabs/dtcnode) instances.
+
+## How to install and configure nodes
+
+Follow the instructions on [dtcnode](https://github.com/niclabs/dtcnode) and put the files generated on the previous step on each node deployed.
+
+## The configuration file
 
 The configuration file is named `config.yaml` and it can be in the current working directory or in `/etc/dtc/` folder. the structure is similar to the following (**PLEASE DO NOT USE THIS PUBLIC/PRIVATE KEY PAIR FOR THE SERVER**):
 
