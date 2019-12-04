@@ -25,7 +25,7 @@ type Sqlite3DB struct {
 // Returns the defined sqlite3 configuration.
 func GetSqlite3Config() (*config.Sqlite3Config, error) {
 	var conf config.Sqlite3Config
-	err := viper.UnmarshalKey("sqlite3", &conf)
+	err := viper.UnmarshalKey("dtc.sqlite3", &conf)
 	if err != nil {
 		return nil, err
 	}

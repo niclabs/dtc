@@ -182,7 +182,7 @@ func testDigest(t *testing.T, p *pkcs11.Ctx, session pkcs11.SessionHandle, input
 }
 
 /*
-Purpose: Generate RSA keypair with a given name and persistence.
+Purpose: GenerateConfig RSA keypair with a given name and persistence.
 Inputs: test object
 	context
 	session handle

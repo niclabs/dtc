@@ -1,26 +1,13 @@
 package config
 
 import (
-	"fmt"
 	"github.com/spf13/viper"
 )
-
-func init() {
-	viper.SetConfigName("config")
-	viper.AddConfigPath("/etc/dtc/")
-	viper.AddConfigPath("$HOME/.dtc")
-	viper.AddConfigPath("./")
-	if err := viper.ReadInConfig(); err != nil {
-		panic(fmt.Errorf("config file problem %v", err))
-	}
-}
 
 // ZMQConfig defines the global configuration file.
 type Config struct {
 	DTC      DTCConfig      // DTC related configuration
 	Criptoki CriptokiConfig // Criptoki related configuration
-	Sqlite3  Sqlite3Config  // SQLite 3 related configuration
-	ZMQ      ZMQConfig      // ZMQ related configuration
 }
 
 // DTCConfig manages the configuration related with this implementation, as the messaging type, nodes number and threshold.
@@ -52,7 +39,7 @@ type SlotsConfig struct {
 // GetConfig returns the configuration extracted from the common config file.
 func GetConfig() (*Config, error) {
 	var conf Config
-	err := viper.UnmarshalKey("general", &conf)
+	err := viper.UnmarshalKey("dtc.general", &conf)
 	if err != nil {
 		return nil, err
 	}

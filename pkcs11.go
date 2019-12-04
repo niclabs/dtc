@@ -21,7 +21,7 @@ func init() {
 	viper.AddConfigPath("./")
 	viper.AddConfigPath("/etc/dtc/")
 	viper.SetConfigName("config")
-	logPath := viper.GetString("general.logfile")
+	logPath := viper.GetString("dtc.general.logfile")
 	if logPath != "" {
 		logFile, err := os.OpenFile(logPath, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {

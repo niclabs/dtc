@@ -2,12 +2,26 @@ package main
 
 import "C"
 import (
+	"fmt"
 	"github.com/niclabs/dtc/v2/config"
 	"github.com/niclabs/dtc/v2/network"
 	"github.com/niclabs/tcrsa"
+	"github.com/spf13/viper"
 	"log"
 	"sync"
 )
+
+
+func init() {
+	viper.SetConfigName("config")
+	viper.AddConfigPath("/etc/dtc/")
+	viper.AddConfigPath("$HOME/.dtc")
+	viper.AddConfigPath("./")
+	if err := viper.ReadInConfig(); err != nil {
+		panic(fmt.Errorf("config file problem %v", err))
+	}
+}
+
 
 // DTC represents the Distributed Threshold Criptography library. It manages on its own the nodes, and exposes a simple API to use it.
 type DTC struct {

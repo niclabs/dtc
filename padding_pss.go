@@ -76,7 +76,7 @@ func padPSS(rand io.Reader, hash crypto.Hash, nBits int, hashed []byte) (s []byt
 	db := em[:emLen-sLen-hLen-2+1+sLen]
 	h := em[emLen-sLen-hLen-2+1+sLen : emLen-1]
 
-	// 4.  Generate a random octet string salt of length sLen; if sLen = 0,
+	// 4.  GenerateConfig a random octet string salt of length sLen; if sLen = 0,
 	//     then salt is the empty string.
 	//
 	// 5.  Let
@@ -96,7 +96,7 @@ func padPSS(rand io.Reader, hash crypto.Hash, nBits int, hashed []byte) (s []byt
 	h = hashFunc.Sum(h[:0])
 	hashFunc.Reset()
 
-	// 7.  Generate an octet string PS consisting of emLen - sLen - hLen - 2
+	// 7.  GenerateConfig an octet string PS consisting of emLen - sLen - hLen - 2
 	//     zero octets. The length of PS may be 0.
 	//
 	// 8.  Let DB = PS || 0x01 || salt; DB is an octet string of length

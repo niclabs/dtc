@@ -24,7 +24,7 @@ type NodeConfig struct {
 // GetZMQConfig returns the ZMQ Configuration defined in the config file.
 func GetZMQConfig() (*ZMQConfig, error) {
 	var conf ZMQConfig
-	err := viper.UnmarshalKey("zmq", &conf)
+	err := viper.UnmarshalKey("dtc.zmq", &conf)
 	if err != nil {
 		return nil, err
 	}
