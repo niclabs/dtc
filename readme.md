@@ -40,10 +40,6 @@ cd dtc
 ./build.sh
 ```
 
-# Advanced
-
-This information should not be necessary to use the system. However, it could be useful if you want more information about the tests and configuration scripts.
-
 ## How to configure
 
 * Download, clone and build [dtcconfig](https://github.com/niclabs/dtcconfig).
@@ -57,6 +53,10 @@ The config file should be created in `/etc/dtc/config.yaml`, and the nodes confi
 ## How to install and configure nodes
 
 Follow the instructions on [dtcnode](https://github.com/niclabs/dtcnode) and put the files generated on the previous step on each node deployed.
+
+# Advanced
+
+This information should not be necessary to use the system. However, it could be useful if you want more information about the tests and configuration scripts.
 
 ## The configuration file
 
