@@ -14,9 +14,9 @@ import (
 
 func init() {
 	viper.SetConfigName("config")
-	viper.AddConfigPath("/etc/dtc/")
-	viper.AddConfigPath("$HOME/.dtc")
 	viper.AddConfigPath("./")
+	viper.AddConfigPath("$HOME/.dtc")
+	viper.AddConfigPath("/etc/dtc/")
 	if err := viper.ReadInConfig(); err != nil {
 		panic(fmt.Errorf("config file problem %v", err))
 	}

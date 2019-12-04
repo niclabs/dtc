@@ -42,8 +42,9 @@ cd dtc
 
 ## How to configure
 
-* Download, clone and build [dtcconfig](https://github.com/niclabs/dtcconfig).
-* Execute `sudo ./dtcconfig rsa -t <threshold> -n <node-data> -H <host-public-ip>`, where:
+The configuration is created with [dtcconfig](https://github.com/niclabs/dtcconfig)
+
+* Execute `go run github.com/niclabs/dtcconfig rsa -t <threshold> -n <node-data> -H <host-public-ip>`, where:
   * `threshold` is the minimum number of nodes that should be able to sign to generate a valid signature
   * `node-data` is a host:port comma separated list with the public IPs of the nodes and the ports where they are listening to DTC messages
   * `host-public-ip` is the IP the nodes will see when the host connects to it. 

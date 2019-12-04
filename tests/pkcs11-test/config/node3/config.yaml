@@ -1,9 +1,0 @@
-config:
-  publickey: X]pj#H9ocrI6p[R[M5K!enqB)hzWyT*BC^3f^u]]
-  privatekey: =?HtF.?In<[5k92&ehf=lZB(cS0lKT=Yk#wL!M%K
-  host: 0.0.0.0
-  port: 2030
-  client:
-    publickey: '{0j3IXL0Jw:)K$b1@(1=<8z/joPM.c+EXVBMS>7$'
-    host: 172.18.0.1
-    keys: []

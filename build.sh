@@ -1,2 +1,2 @@
-go build -o dtc.so -buildmode=c-shared -v
+go build -o dtc.so -buildmode=c-shared -v "$@"
 

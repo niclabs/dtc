@@ -3,23 +3,23 @@ services:
   dtcnode1:
     build: dtcnode/
     volumes:
-      - ./dtcnode/config/node1:/etc/dtcnode
+      - ./dtcnode/config/node_0:/etc/dtcnode
   dtcnode2:
     build: dtcnode/
     volumes:
-      - ./dtcnode/config/node2:/etc/dtcnode
+      - ./dtcnode/config/node_1:/etc/dtcnode
   dtcnode3:
     build: dtcnode/
     volumes:
-      - ./dtcnode/config/node3:/etc/dtcnode
+      - ./dtcnode/config/node_2:/etc/dtcnode
   dtcnode4:
     build: dtcnode/
     volumes:
-      - ./dtcnode/config/node4:/etc/dtcnode
+      - ./dtcnode/config/node_3:/etc/dtcnode
   dtcnode5:
     build: dtcnode/
     volumes:
-      - ./dtcnode/config/node5:/etc/dtcnode
+      - ./dtcnode/config/node_4:/etc/dtcnode
   dtcclient:
     build:
       context: ../../../

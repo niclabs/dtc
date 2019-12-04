@@ -1,9 +1,0 @@
-config:
-  publickey: X}!RMGV@q(53RFQ.=73Np>%Gy8FrI{+tdQqBzRE@
-  privatekey: P5f-MF(x/AJh8ih-5>v1Sy#Vh+Yf<1{RU?(So7%.
-  host: 0.0.0.0
-  port: 2030
-  client:
-    publickey: '{0j3IXL0Jw:)K$b1@(1=<8z/joPM.c+EXVBMS>7$'
-    host: 172.18.0.1
-    keys: []

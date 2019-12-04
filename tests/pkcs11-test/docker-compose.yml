@@ -3,31 +3,31 @@ services:
   dtcnode1:
     build: .
     volumes:
-      - ./config/node1/:/etc/dtcnode/
+      - ./config/node_0/:/etc/dtcnode/
     ports:
       - "8871:2030"
   dtcnode2:
     build: .
     volumes:
-      - ./config/node2/:/etc/dtcnode/
+      - ./config/node_1/:/etc/dtcnode/
     ports:
       - "8873:2030"
   dtcnode3:
     build: .
     volumes:
-      - ./config/node3/:/etc/dtcnode/
+      - ./config/node_2/:/etc/dtcnode/
     ports:
       - "8875:2030"
   dtcnode4:
     build: .
     volumes:
-      - ./config/node4/:/etc/dtcnode/
+      - ./config/node_3/:/etc/dtcnode/
     ports:
       - "8877:2030"
   dtcnode5:
     build: .
     volumes:
-      - ./config/node5/:/etc/dtcnode/
+      - ./config/node_4/:/etc/dtcnode/
     ports:
       - "8879:2030"
 
