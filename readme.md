@@ -8,9 +8,9 @@ This library requires the use of two or more instances of [dtcnode](https://gith
 
 ## System Requirements (Recommended)
 
-* Ubuntu Server 18.04 LTS
+* Debian 10.2 (Buster)
 * 2 GB of RAM
-* 1 GB of local storage (for sqlite database)
+* At least 1 GB of available local storage (for sqlite database and logs)
 
 ## How to build
 
