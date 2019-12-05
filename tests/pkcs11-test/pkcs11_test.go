@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	module = "dtc.so"
+	module = "./dtc.so"
 	pin    = "1234"
 )
 

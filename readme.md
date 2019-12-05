@@ -109,6 +109,7 @@ dtc:
         publicKey: WEz4<>x8dul]2ELx$r60C-gTVf0O8=M>Z7ZV%ihW
         port: 9879
   ```
+The complete config tree is under a `dtc` key.
 
 It has a mandatory section, called `general`, where we currently define three variables:
 * `logfile` is the absolute path where the log is going to be saved. If empty or undefined, the log will be printed on the stderr of the program which is using the library.
@@ -141,15 +142,18 @@ If you need to generate a public/private Base85 key pair for ZMQ Curve Authentic
 
 # How to test
 
+The tests require to have installed the following software:
+
+* [Docker](https://docs.docker.com/install/linux/docker-ce/ubuntu/) (v19.03 or higher)
+* [Docker Compose](https://docs.docker.com/compose/install/)) (v1.25 or higher)
+
 This project includes two test types:
  
  ## dhsm-signer
  This test is in `/tests/dhsm-signer/`, and includes a _Docker Compose_ configuration with five DTC ZMQ nodes, used for signing a DNSSEC zone with [dhsm-signer](https://github.com/niclabs/dhsm-signer). 
 
-To run the integration test, first you need to create a file named `dtcnode.env` with the variables `DTC_SERVER` (the IP:Port of the machine in Docker configuration, `DTC_PK` (the public key the server will use)  and `DTC_NODE` (IP:Port used by the node) on the folder `tests/dhsm-signer`. Then, you should execute 
-
+To run the integration test, run
 `./tests/dhsm-signer/test.sh`.
-
 
 For more information about the ports bound in the docker configuration, it's recommended to check the `docker-compose.yml` file.
 
@@ -159,9 +163,7 @@ For more information about the ports bound in the docker configuration, it's rec
  
  The tests are borrowed from the [Go PKCS11 Library](https://github.com/miekg/pkcs11), modifying some paths to use the dtc.so library.
  
- To execute this tests, first you need to compile the shared object executing `./build.sh` on the project root file. 
- 
- Then, you need to start some dtcnodes. We include a dockerfile with 5 dtcnodes and some prefilled key pairs. They are bound to the `tests/pkcs11-test/config.yml` config file, that will be used when executing the PKCS11 go tests. To start the nodes, you must run `./tests/pkcs11-test/test.sh`. This will start the nodes.
- 
- Finally, you need to execute the tests. This can be accomplished executing `go test dtc/tests/pkcs1-test`.
+ To execute this tests, first you need to compile the shared object and start the dockered nodes, executing `./tests/pkcs11-test/test.sh` on the project root file. 
+  
+ Finally, you need to execute the tests. This can be accomplished executing `go test github.com/niclabs/dtc/v2/tests/pkcs11-test`.
 
