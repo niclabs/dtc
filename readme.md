@@ -6,54 +6,65 @@ This library requires the use of two or more instances of [dtcnode](https://gith
 
 # Getting Started
 
+## System Requirements (Recommended)
+
+* Ubuntu Server 18.04 LTS
+* 2 GB of RAM
+* 1 GB of local storage (for sqlite database)
+
 ## How to build
 
-First, it's necessary to download all the requirements of the Go project. The following libraries should be installed in the systems which are going to use the library:
+The following libraries should be installed in the systems which are going to use the compiled library:
 
+* git
+* tar
 * libzmq3-dev v4 or greater (for zmq communication with the nodes)
 * libczmq-dev (for zmq communication with the nodes)
 * gcc
 * sqlite3 (used in HSM data storage)
 * Go (1.13.4 or higher)
 
-for building the project as a library, you should execute the following command. It will produce a file named `dtc.so`, which can be used as a PKCS#11 driver.
-
-`./build.sh`
-
-
-On Ubuntu 18.04 LTS, the commands to run to build are the following:
+On Ubuntu 18.04 LTS, the command to install all the dependencies is the following
 
 ```bash
 # Install requirements
-sudo apt install libzmq3-dev libczmq-dev build-essential sqlite3 pkg-config
+sudo apt install libzmq3-dev libczmq-dev build-essential sqlite3 pkg-config git tar
+```
 
-# Download and install Go 1.13.4 for Linux AMD 64 bit.
-wget https://dl.google.com/go/go1.13.4.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.13.4.linux-amd64.tar.gz
+Then, you need to install Go 1.13.4 or higher. You can find how to install go on [its official page](https://golang.org/doc/install).
 
-# ADD /usr/local/go to PATH
-export PATH=$PATH:/usr/local/go
 
+The following command allows you to clone the repository.
+```
 # Clone and compile repository
 git clone https://github.com/niclabs/dtc
+```
+
+Finally, you can build the library, executing the following commands:
+
+```
 cd dtc
 ./build.sh
 ```
+
+The compiled library is called `dtc.so`, and you can copy it or link it to any PKCS11-compatible application.
 
 ## How to configure
 
 The configuration is created with [dtcconfig](https://github.com/niclabs/dtcconfig)
 
-* Execute `go run github.com/niclabs/dtcconfig rsa -t <threshold> -n <node-data> -H <host-public-ip>`, where:
+* Execute `sudo go run github.com/niclabs/dtcconfig rsa -t <threshold> -n <node-data> -H <host-public-ip>`, where:
   * `threshold` is the minimum number of nodes that should be able to sign to generate a valid signature
   * `node-data` is a host:port comma separated list with the public IPs of the nodes and the ports where they are listening to DTC messages
   * `host-public-ip` is the IP the nodes will see when the host connects to it. 
   
-The config file should be created in `/etc/dtc/config.yaml`, and the nodes config files will be created on `./nodes/`. Each config file will be inside a folder named `<host>_<port>`, with the name `config.yaml`. This files should be used on [dtcnode](https://github.com/niclabs/dtcnode) instances.
+`sudo` is required for creating files in `/etc/dtc`.
+
+The config file should be created in `/etc/dtc/config.yaml`, and the nodes config files will be created on `./nodes/`. Each config file will be inside a folder named `node_<i>`, with the name `config.yaml`. This files should be used on [dtcnode](https://github.com/niclabs/dtcnode) instances.
 
 ## How to install and configure nodes
 
-Follow the instructions on [dtcnode](https://github.com/niclabs/dtcnode) and put the files generated on the previous step on each node deployed.
+Follow the instructions on [dtcnode](https://github.com/niclabs/dtcnode) and put the files generated on the previous step on each node deployed, on `/etc/dtcnode/` path.
 
 # Advanced
 
