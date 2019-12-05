@@ -16,4 +16,6 @@ echo "Verification successful!"
 echo "Resetting keys..."
 ./dhsm-signer reset-keys -p ./dtc.so || { echo "Cannot reset keys :("; exit 1; }
 
-echo "Reset successful! you can kill this process with ^C."
+echo "Reset successful!"
+
+echo "All tests passed. please kill this process with ^C."

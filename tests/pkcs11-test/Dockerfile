@@ -1,4 +1,4 @@
-FROM golang:1.13.4:buster
+FROM golang:1.13.4-buster
 
 MAINTAINER Eduardo Riveros<eduardo@niclabs.cl>
 
