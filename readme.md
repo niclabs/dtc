@@ -214,7 +214,7 @@ To run the integration test, run
 `./tests/dhsm-signer/test.sh`. This test tries to sign the `example.com` zone shown in `tests/dhsm-signer/dtc/example.com`. 
 The standard output of the command will show the output sent by the nodes (node1,node2,node3,node4,node5) and the `client`.
 The system is working correctly if after launching the nodes (5-10 minutes) the `client` achieves to sign `example.com`,
-showing the signed zone on the standard output.
+showing a message reporting that on standard output.
 
  When the previous situation happens, you can kill the execution of the script without problems, sending an interruption.
 
