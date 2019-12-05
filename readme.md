@@ -155,7 +155,7 @@ This project includes two test types:
 To run the integration test, run
 `./tests/dhsm-signer/test.sh`.
 
-For more information about the ports bound in the docker configuration, it's recommended to check the `docker-compose.yml` file.
+ When the tests end, you can kill `test.sh` script.
 
 ## pkcs11-test
 
@@ -166,4 +166,8 @@ For more information about the ports bound in the docker configuration, it's rec
  To execute this tests, first you need to compile the shared object and start the dockered nodes, executing `./tests/pkcs11-test/test.sh` on the project root file. 
   
  Finally, you need to execute the tests. This can be accomplished executing `go test github.com/niclabs/dtc/v2/tests/pkcs11-test`.
+ 
+ When the tests end, you can kill `test.sh` script.
+ 
+ 
 

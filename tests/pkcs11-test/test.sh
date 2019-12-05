@@ -10,5 +10,5 @@ go run github.com/niclabs/dtcconfig rsa \
             -k "config/" \
             -d "db.sqlite3"
 docker-compose build
-docker-compose up -d
+docker-compose up
 sleep 30
