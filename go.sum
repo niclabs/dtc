@@ -70,7 +70,9 @@ github.com/mwitkow/go-conntrack v0.0.0-20161129095857-cc309e4a2223/go.mod h1:qRW
 github.com/niclabs/dtc/v2 v2.0.5/go.mod h1:OUYXly+mENfTf30K2IF2kN/xnPLW23KeFpBMvYXGJ34=
 github.com/niclabs/dtcconfig v1.0.1 h1:HSdpzv03jA9y7BU5y1ee0vDp5DFHQrSuWDeodKTmSmQ=
 github.com/niclabs/dtcconfig v1.0.1/go.mod h1:XrrWKYytCJ2NRf4XZlll+ryZ3h8bx3TU2WHIkrykN1w=
+github.com/niclabs/dtcconfig v1.0.2 h1:XNSSdf4ESCl3NxfhmwidQWYhfKUCRvETYDaJAxCKp10=
 github.com/niclabs/dtcconfig v1.0.2/go.mod h1:XrrWKYytCJ2NRf4XZlll+ryZ3h8bx3TU2WHIkrykN1w=
+github.com/niclabs/dtcconfig v1.0.3/go.mod h1:XrrWKYytCJ2NRf4XZlll+ryZ3h8bx3TU2WHIkrykN1w=
 github.com/niclabs/dtcnode/v2 v2.0.0 h1:9Zs54VBRAzRM0vdWj2ja3ohu1jw5ck6Gse2Bgl5bL/s=
 github.com/niclabs/dtcnode/v2 v2.0.0/go.mod h1:fJR9NXNsuLWsoqqJwmEXSGlHZ1FsZg8VgG1nvlSNFKM=
 github.com/niclabs/tcrsa v0.0.3 h1:RQUvaPGo0PC8i2xahN8BEDA8y992/GN+vF6awu4D/TY=
