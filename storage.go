@@ -6,7 +6,7 @@ package main
 import "C"
 import (
 	"fmt"
-	"github.com/niclabs/dtc/v2/config"
+	"github.com/niclabs/dtc/v3/config"
 )
 
 type Storage interface {

@@ -14,7 +14,7 @@ type ZMQConfig struct {
 	Timeout    uint16        // The max time the system waits for an answer when sends a message to the nodes.
 }
 
-// NodeConfig represents the basic connection data the server requires to connect to a node: its public key (for ZMQ CURVE Auth), its IP and the port where it is listening its messages.
+// NodeConfig represents the basic connection data the server requires to connect to a node: its public key (for ZMQ CURVE Auth), its IP and the port where it is listening its message.
 type NodeConfig struct {
 	PublicKey string
 	Host      string

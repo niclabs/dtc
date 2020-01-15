@@ -8,7 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/niclabs/dtc/v2/config"
+	"github.com/niclabs/dtc/v3/config"
 	"github.com/spf13/viper"
 	"log"
 	"sync"

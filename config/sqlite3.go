@@ -4,4 +4,3 @@ package config
 type Sqlite3Config struct {
 	Path string // Path to database.
 }
-

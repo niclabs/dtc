@@ -2,9 +2,8 @@ package zmq
 
 import (
 	"fmt"
-	"github.com/niclabs/dtc/v2/config"
-	"github.com/niclabs/dtcnode/v2/message"
-	"github.com/niclabs/tcrsa"
+	"github.com/niclabs/dtc/v3/config"
+	"github.com/niclabs/dtcnode/v3/message"
 	"github.com/pebbe/zmq4"
 	"log"
 	"net"
@@ -83,50 +82,6 @@ func (node *Node) connect() error {
 	return nil
 }
 
-func (node *Node) sendKeyShare(id string, key *tcrsa.KeyShare, meta *tcrsa.KeyMeta) (*message.Message, error) {
-	keyBinary, err := message.EncodeKeyShare(key)
-	if err != nil {
-		return nil, err
-	}
-	metaBinary, err := message.EncodeKeyMeta(meta)
-	if err != nil {
-		return nil, err
-	}
-	msg, err := message.NewMessage(message.SendKeyShare, node.getID(), []byte(id), keyBinary, metaBinary)
-	if err != nil {
-		return nil, err
-	}
-	_, err = node.socket.SendMessage(msg.GetBytesLists()...)
-	if err != nil {
-		return nil, err
-	}
-	return msg, nil
-
-}
-
-func (node *Node) askForSigShare(id string, doc []byte) (msg *message.Message, err error) {
-	msg, err = message.NewMessage(message.AskForSigShare, node.getID(), []byte(id), doc)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := node.socket.SendMessage(msg.GetBytesLists()...); err != nil {
-		return nil, err
-	}
-	return msg, nil
-}
-
-func (node *Node) deleteKeyShare(id string) (*message.Message, error) {
-	msg, err := message.NewMessage(message.DeleteKeyShare, node.getID(), []byte(id))
-	if err != nil {
-		return nil, err
-	}
-	_, err = node.socket.SendMessage(msg.GetBytesLists()...)
-	if err != nil {
-		return nil, err
-	}
-	return msg, nil
-}
-
 func (node *Node) recvMessage() {
 	rawMsg, err := node.socket.RecvMessageBytes(0)
 	if err != nil {
@@ -135,7 +90,7 @@ func (node *Node) recvMessage() {
 	}
 	msg, err := message.FromBytes(rawMsg)
 	if err != nil {
-		log.Printf("Cannot parse messages: %s\n", err)
+		log.Printf("Cannot parse message: %s\n", err)
 		return
 	}
 	node.client.channel <- msg

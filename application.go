@@ -4,36 +4,36 @@ package main
 #include "pkcs11go.h"
 */
 import "C"
-import "github.com/niclabs/dtc/v2/config"
+import "github.com/niclabs/dtc/v3/config"
 
 // Application contains the essential parts of the HSM
 type Application struct {
-	Storage Storage           // Storage saves the HSM objects.
-	DTC     *DTC              // DTC is in charge of communication with the nodes.
-	Slots   []*Slot           // Represents the slots of the HSM
+	Storage Storage        // Storage saves the HSM objects.
+	DTC     *DTC           // DTC is in charge of communication with the nodes.
+	Slots   []*Slot        // Represents the slots of the HSM
 	Config  *config.Config // has the complete configuration of the HSM
 }
 
 // NewApplication returns a new application, using the configuration defined in the config file.
 func NewApplication() (app *Application, err error) {
-	config, err := config.GetConfig()
+	conf, err := config.GetConfig()
 	if err != nil {
 		return
 	}
-	db, err := NewDatabase(config.Criptoki.DatabaseType)
+	db, err := NewDatabase(conf.Criptoki.DatabaseType)
 	if err != nil {
 		err = NewError("NewApplication", err.Error(), C.CKR_DEVICE_ERROR)
 		return
 	}
 
-	if err = db.Init(config.Criptoki.Slots); err != nil {
+	if err = db.Init(conf.Criptoki.Slots); err != nil {
 		err = NewError("NewApplication", err.Error(), C.CKR_DEVICE_ERROR)
 		return
 	}
 
-	slots := make([]*Slot, len(config.Criptoki.Slots))
+	slots := make([]*Slot, len(conf.Criptoki.Slots))
 
-	dtc, err := NewDTC(config.DTC)
+	dtc, err := NewDTC(conf.DTC)
 	if err != nil {
 		return
 	}
@@ -41,11 +41,11 @@ func NewApplication() (app *Application, err error) {
 	app = &Application{
 		Storage: db,
 		Slots:   slots,
-		Config:  config,
+		Config:  conf,
 		DTC:     dtc,
 	}
 
-	for i, slotConf := range config.Criptoki.Slots {
+	for i, slotConf := range conf.Criptoki.Slots {
 		slot := &Slot{
 			ID:          C.CK_SLOT_ID(i),
 			Application: app,

@@ -55,7 +55,7 @@ func (attributes Attributes) Equals(attributes2 Attributes) bool {
 
 // Adds an attribute only if it doesn't exist
 func (attributes Attributes) SetIfUndefined(attr *Attribute) bool {
-	if _, ok := attributes[uint32(attr.Type)]; !ok {
+	if _, ok := attributes[attr.Type]; !ok {
 		attributes[attr.Type] = attr
 		return true
 	}

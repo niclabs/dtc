@@ -114,7 +114,7 @@ func padPSS(rand io.Reader, hash crypto.Hash, nBits int, hashed []byte) (s []byt
 	// 11. Set the leftmost 8 * emLen - emBits bits of the leftmost octet in
 	//     maskedDB to zero.
 
-	db[0] &= (0xFF >> uint(8*emLen-emBits))
+	db[0] &= 0xFF >> uint(8*emLen-emBits)
 
 	// 12. Let EM = maskedDB || H || 0xbc.
 	em[emLen-1] = 0xBC

@@ -5,18 +5,15 @@ package main
 */
 import "C"
 import (
-	"bytes"
 	"crypto"
 	"encoding/binary"
-	"encoding/gob"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/niclabs/dtcnode/v2/message"
+	"github.com/niclabs/dtcnode/v3/message"
 	"github.com/niclabs/tcrsa"
 	"hash"
 	"log"
 	"math/rand"
-	"reflect"
 	"sync"
 	"unsafe"
 )
@@ -35,22 +32,23 @@ type Session struct {
 	// finding things
 	findInitialized bool // True if the user executed a Find method and it has not finished yet.
 	// signing things
-	signMechanism   *Mechanism     // Mechanism used to sign in a Sign session.
-	signKeyName     string         // Key ID used in signing
-	signKeyMeta     *tcrsa.KeyMeta // Key Metainfo used in signing
-	signData        []byte         // Data to sign.
-	signInitialized bool           // // True if the user executed a Find method and it has not finished yet.
+	signMechanism   *Mechanism // Mechanism used to sign in a Sign session.
+	signKeyName     string     // Key ID used in signing
+	signData        []byte     // Data to sign.
+	signInitialized bool       // // True if the user executed a Find method and it has not finished yet.
 	// verifying things
-	verifyMechanism   *Mechanism     // Mechanism used to verify a signature in a Verify session
-	verifyKeyName     string         // Key ID used in sign verification
-	verifyKeyMeta     *tcrsa.KeyMeta // Key Metainfo used in sign verification
-	verifyData        []byte         // Data to verify
-	verifyInitialized bool           // True if the user executed a Verify method and it has not finished yet.
+	verifyMechanism   *Mechanism // Mechanism used to verify a signature in a Verify session
+	verifyKeyName     string     // Key ID used in sign verification
+	verifyData        []byte     // Data to verify
+	verifyInitialized bool       // True if the user executed a Verify method and it has not finished yet.
 	// hashing things
 	digestHash        hash.Hash // Hash used for hashing
 	digestInitialized bool      // True if the user executed a Hash method and it has not finished yet
 	// random
-	randSrc *rand.Rand // Seedable random source.
+	randSrc *rand.Rand   // Seedable random source.
+	// algorithm-specific variables
+	RSA     RSASession   // RSA session variables
+	ECDSA   ECDSASession // ECDSA session variables
 }
 
 // Map of sessions identified by their handle. It's very similar to an array because the handles are integers.
@@ -103,7 +101,7 @@ func (session *Session) CreateObject(attrs Attributes) (*CryptoObject, error) {
 		return nil, NewError("Session.CreateObject", "is_token attr not defined", C.CKR_ARGUMENTS_BAD)
 	}
 
-	isToken := uint8(isTokenAttr.Value[0]) != 0
+	isToken := isTokenAttr.Value[0] != 0
 	var objType CryptoObjectType
 
 	if isToken {
@@ -186,11 +184,11 @@ func (session *Session) DestroyObject(hObject C.CK_OBJECT_HANDLE) error {
 					if err != nil {
 						return err
 					}
-					n, err := dtc.DeleteKey(keyID)
-					if err != nil && n == 0 {
+					err = dtc.DeleteKeyRSA(keyID)
+					if err != nil {
 						return err
 					}
-					log.Printf("%d nodes deleted key shares for keyid=%s", n, keyID)
+					log.Printf("all nodes deleted key shares for keyid=%s", keyID)
 				}
 			}
 		}
@@ -306,7 +304,6 @@ func (session *Session) SaveObject(object *CryptoObject) error {
 	return nil
 }
 
-
 // GetState returns the session state.
 func (session *Session) GetState() (C.CK_STATE, error) {
 	switch session.Slot.token.GetSecurityLevel() {
@@ -387,21 +384,21 @@ func (session *Session) GenerateKeyPair(mechanism *Mechanism, pkAttrs, skAttrs A
 
 	bitSize := binary.LittleEndian.Uint64(bitSizeAttr.Value)
 
+	keyID := uuid.New().String()
+	var dtc *DTC
+	dtc, err = session.GetDTC()
+	if err != nil {
+		return
+	}
 	switch mechanism.Type {
 	case C.CKM_RSA_PKCS_KEY_PAIR_GEN:
-		keyID := uuid.New().String()
-		var dtc *DTC
-		dtc, err = session.GetDTC()
-		if err != nil {
-			return
-		}
 		var keyMeta *tcrsa.KeyMeta
 		var pk, sk Attributes
-		keyMeta, err = dtc.CreateNewKey(keyID, int(bitSize), nil)
+		keyMeta, err = dtc.CreateNewKeyRSA(keyID, int(bitSize), nil)
 		if err != nil {
 			return
 		}
-		pk, err = createPublicKey(keyID, pkAttrs, keyMeta)
+		pk, err = createRSAPublicKey(keyID, pkAttrs, keyMeta)
 		if err != nil {
 			return
 		}
@@ -409,7 +406,7 @@ func (session *Session) GenerateKeyPair(mechanism *Mechanism, pkAttrs, skAttrs A
 		if err != nil {
 			return
 		}
-		sk, err = createPrivateKey(keyID, skAttrs, keyMeta)
+		sk, err = createRSAPrivateKey(keyID, skAttrs, keyMeta)
 		if err != nil {
 			return
 		}
@@ -417,6 +414,8 @@ func (session *Session) GenerateKeyPair(mechanism *Mechanism, pkAttrs, skAttrs A
 		if err != nil {
 			return
 		}
+	case C.CKM_EC_KEY_PAIR_GEN:
+		// TODO: ECDSA
 	default:
 		return nil, nil, NewError("Session.GenerateKeyPair", "mechanism invalid", C.CKR_MECHANISM_INVALID)
 	}
@@ -445,7 +444,7 @@ func (session *Session) SignInit(mechanism *Mechanism, hKey C.CK_OBJECT_HANDLE) 
 		return NewError("Session.SignInit", "object handle does not contain any key metainfo attribute", C.CKR_ARGUMENTS_BAD)
 	}
 
-	session.signKeyMeta, err = message.DecodeKeyMeta(keyMetaAttr.Value)
+	session.RSA.signKeyMeta, err = message.DecodeRSAKeyMeta(keyMetaAttr.Value)
 	if err != nil {
 		return NewError("Session.SignInit", "key metainfo is corrupt", C.CKR_ARGUMENTS_BAD)
 	}
@@ -461,7 +460,7 @@ func (session *Session) SignLength() (C.ulong, error) {
 	if !session.signInitialized {
 		return 0, NewError("Session.SignLength", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
 	}
-	return C.ulong(session.signKeyMeta.PublicKey.Size()), nil
+	return C.ulong(session.RSA.signKeyMeta.PublicKey.Size()), nil
 }
 
 // SignUpdate updates the signature with data to sign.
@@ -479,25 +478,25 @@ func (session *Session) SignFinal() ([]byte, error) {
 		return nil, NewError("Session.SignFinal", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
 	}
 	defer func() {
-		session.signKeyMeta = nil
+		session.RSA.signKeyMeta = nil
 		session.signKeyName = ""
 		session.signData = nil
 		session.signInitialized = false
 	}()
 	prepared, err := session.signMechanism.Prepare(
 		session.randSrc,
-		session.signKeyMeta.PublicKey.Size(),
+		session.RSA.signKeyMeta.PublicKey.Size(),
 		session.signData,
 	)
 	if err != nil {
 		return nil, err
 	}
-	sign, err := session.Slot.Application.DTC.SignData(session.signKeyName, session.signKeyMeta, prepared)
+	sign, err := session.Slot.Application.DTC.SignDataRSA(session.signKeyName, session.RSA.signKeyMeta, prepared)
 	if err != nil {
 		return nil, err
 	}
 	if err = session.signMechanism.Verify(
-		session.signKeyMeta.PublicKey,
+		session.RSA.signKeyMeta.PublicKey,
 		session.signData,
 		sign,
 	); err != nil {
@@ -528,7 +527,7 @@ func (session *Session) VerifyInit(mechanism *Mechanism, hKey C.CK_OBJECT_HANDLE
 		return NewError("Session.VerifyInit", "object handle does not contain any key metainfo", C.CKR_ARGUMENTS_BAD)
 	}
 
-	session.signKeyMeta, err = message.DecodeKeyMeta(keyMetaAttr.Value)
+	session.RSA.signKeyMeta, err = message.DecodeRSAKeyMeta(keyMetaAttr.Value)
 	if err != nil {
 		return NewError("Session.VerifyInit", "key metainfo is corrupt", C.CKR_ARGUMENTS_BAD)
 	}
@@ -544,7 +543,7 @@ func (session *Session) VerifyLength() (uint64, error) {
 	if !session.verifyInitialized {
 		return 0, NewError("Session.verifyLength", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
 	}
-	return uint64(session.verifyKeyMeta.PublicKey.Size()), nil
+	return uint64(session.RSA.verifyKeyMeta.PublicKey.Size()), nil
 }
 
 // VerifyUpdate adds more data to verify the signature.
@@ -562,11 +561,11 @@ func (session *Session) VerifyFinal(signature []byte) error {
 		return NewError("Session.VerifyFinal", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
 	}
 	err := session.verifyMechanism.Verify(
-		session.verifyKeyMeta.PublicKey,
+		session.RSA.verifyKeyMeta.PublicKey,
 		session.verifyData,
 		signature,
 	)
-	session.verifyKeyMeta = nil
+	session.RSA.verifyKeyMeta = nil
 	session.verifyKeyName = ""
 	session.verifyData = nil
 	session.verifyInitialized = false
@@ -674,120 +673,4 @@ func GetUserAuthorization(state C.CK_STATE, isToken, isPrivate, userAction bool)
 		return false
 	}
 	return false
-}
-
-func createPublicKey(keyID string, pkAttrs Attributes, keyMeta *tcrsa.KeyMeta) (Attributes, error) {
-
-	// Create
-	pubKeyBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(pubKeyBytes, C.CKO_PUBLIC_KEY)
-
-	// This fields are defined in SoftHSM implementation
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_CLASS, pubKeyBytes})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_KEY_TYPE, []byte{C.CKK_RSA}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_KEY_GEN_MECHANISM, []byte{C.CKM_RSA_PKCS_KEY_PAIR_GEN}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_LOCAL, []byte{C.CK_TRUE}})
-
-	// This fields are our defaults
-
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_LABEL, nil})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_ID, nil})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_SUBJECT, nil})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_PRIVATE, []byte{C.CK_FALSE}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_MODIFIABLE, []byte{C.CK_TRUE}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_TOKEN, []byte{C.CK_FALSE}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_DERIVE, []byte{C.CK_FALSE}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_ENCRYPT, []byte{C.CK_TRUE}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_VERIFY, []byte{C.CK_TRUE}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_VERIFY_RECOVER, []byte{C.CK_TRUE}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_WRAP, []byte{C.CK_TRUE}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_TRUSTED, []byte{C.CK_FALSE}})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_START_DATE, make([]byte, 8)})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_END_DATE, make([]byte, 8)})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_MODULUS_BITS, nil})
-
-	// E and N from PK
-
-	eBytes := make([]byte, reflect.TypeOf(keyMeta.PublicKey.E).Size())
-	binary.LittleEndian.PutUint64(eBytes, uint64(keyMeta.PublicKey.E))
-
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_MODULUS, keyMeta.PublicKey.N.Bytes()})
-	pkAttrs.SetIfUndefined(&Attribute{C.CKA_PUBLIC_EXPONENT, eBytes})
-
-	// Custom Fields
-
-	encodedKeyMeta, err := encodeKeyMeta(keyMeta)
-	if err != nil {
-		return nil, NewError("Session.createPublicKey", fmt.Sprintf("%s", err.Error()), C.CKR_ARGUMENTS_BAD)
-	}
-
-	pkAttrs.SetIfUndefined(&Attribute{AttrTypeKeyHandler, []byte(keyID)})
-	pkAttrs.SetIfUndefined(&Attribute{AttrTypeKeyMeta, encodedKeyMeta})
-
-	return pkAttrs, nil
-}
-
-func createPrivateKey(keyID string, skAttrs Attributes, keyMeta *tcrsa.KeyMeta) (Attributes, error) {
-
-	privKeyBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(privKeyBytes, C.CKO_PRIVATE_KEY)
-
-	// This fields are defined in SoftHSM implementation
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_CLASS, privKeyBytes})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_KEY_TYPE, []byte{C.CKK_RSA}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_KEY_GEN_MECHANISM, []byte{C.CKM_RSA_PKCS_KEY_PAIR_GEN}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_LOCAL, []byte{C.CK_TRUE}})
-
-	// This fields are our defaults
-
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_LABEL, nil})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_ID, nil})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_SUBJECT, nil})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_PRIVATE, []byte{C.CK_TRUE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_MODIFIABLE, []byte{C.CK_TRUE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_TOKEN, []byte{C.CK_FALSE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_DERIVE, []byte{C.CK_FALSE}})
-
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_WRAP_WITH_TRUSTED, []byte{C.CK_TRUE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_ALWAYS_AUTHENTICATE, []byte{C.CK_FALSE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_SENSITIVE, []byte{C.CK_TRUE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_ALWAYS_SENSITIVE, []byte{C.CK_TRUE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_DECRYPT, []byte{C.CK_TRUE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_SIGN, []byte{C.CK_TRUE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_SIGN_RECOVER, []byte{C.CK_TRUE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_UNWRAP, []byte{C.CK_TRUE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_EXTRACTABLE, []byte{C.CK_FALSE}})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_NEVER_EXTRACTABLE, []byte{C.CK_TRUE}})
-
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_START_DATE, make([]byte, 8)})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_END_DATE, make([]byte, 8)})
-
-	// E and N from PK
-
-	eBytes := make([]byte, reflect.TypeOf(keyMeta.PublicKey.E).Size())
-	binary.LittleEndian.PutUint64(eBytes, uint64(keyMeta.PublicKey.E))
-
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_MODULUS, keyMeta.PublicKey.N.Bytes()})
-	skAttrs.SetIfUndefined(&Attribute{C.CKA_PUBLIC_EXPONENT, eBytes})
-
-	// Custom Fields
-	encodedKeyMeta, err := encodeKeyMeta(keyMeta)
-
-	if err != nil {
-		return nil, NewError("Session.createPrivateKey", fmt.Sprintf("%s", err.Error()), C.CKR_ARGUMENTS_BAD)
-	}
-
-	skAttrs.SetIfUndefined(&Attribute{AttrTypeKeyHandler, []byte(keyID)})
-	skAttrs.SetIfUndefined(&Attribute{AttrTypeKeyMeta, encodedKeyMeta})
-
-	return skAttrs, nil
-}
-
-func encodeKeyMeta(meta *tcrsa.KeyMeta) ([]byte, error) {
-	var buffer bytes.Buffer
-	encoder := gob.NewEncoder(&buffer)
-	if err := encoder.Encode(meta); err != nil {
-		return nil, err
-	}
-	return buffer.Bytes(), nil
 }
