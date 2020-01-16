@@ -35,7 +35,7 @@ func newNode(client *Client, config *config.NodeConfig) (*Node, error) {
 	}, nil
 }
 
-func (node *Node) getID() string {
+func (node *Node) id() string {
 	return node.client.ID
 }
 
@@ -55,7 +55,7 @@ func (node *Node) connect() error {
 		return err
 	}
 	node.socket = s
-	if err := node.socket.SetIdentity(node.getID()); err != nil {
+	if err := node.socket.SetIdentity(node.id()); err != nil {
 		node.Err = err
 		return err
 	}
@@ -66,7 +66,7 @@ func (node *Node) connect() error {
 	}
 
 	// connect
-	log.Printf("connecting to %s socket in %s", node.getID(), node.getConnString())
+	log.Printf("connecting to %s socket in %s", node.id(), node.getConnString())
 	if err = node.socket.Connect(node.getConnString()); err != nil {
 		node.Err = err
 		return err

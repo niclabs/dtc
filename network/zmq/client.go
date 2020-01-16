@@ -30,7 +30,7 @@ type Client struct {
 	privKey         string                      // Private Key of node
 	pubKey          string                      // Public Key of node
 	timeout         time.Duration               // Length of timeout in seconds
-	nodes           []*Node                     // List of connected nodes of type ZMQ
+	nodes           map[string]*Node            // Map of connected nodes of type ZMQ
 	ctx             *zmq4.Context               // ZMQ Context
 	pendingMessages map[string]*message.Message // A map with requests without response. To know what message I'm expecting.
 	channel         chan *message.Message       // The channel where all the responses from router are sent.
@@ -59,14 +59,14 @@ func New(config *config.ZMQConfig) (client *Client, err error) {
 		ctx:             context,
 		channel:         make(chan *message.Message),
 		pendingMessages: make(map[string]*message.Message),
-		nodes:           make([]*Node, 0),
+		nodes:           make(map[string]*Node, 0),
 	}
 	for i := 0; i < len(config.Nodes); i++ {
 		newNode, err := newNode(client, config.Nodes[i])
 		if err != nil {
 			return nil, fmt.Errorf("Node number %i has a bad configuration", i+1)
 		}
-		client.nodes = append(client.nodes, newNode)
+		client.nodes[newNode.id()] = newNode
 	}
 	return
 }
@@ -107,24 +107,24 @@ func (client *Client) Close() error {
 }
 
 func (client *Client) getPubKeys() []string {
-	pubKeys := make([]string, len(client.nodes))
-	for i, node := range client.nodes {
-		pubKeys[i] = node.pubKey
+	pubKeys := make([]string, 0)
+	for _, node := range client.nodes {
+		pubKeys = append(pubKeys, node.pubKey)
 	}
 	return pubKeys
 }
 
 func (client *Client) getIPs() ([]string, error) {
-	ips := make([]string, len(client.nodes))
-	for i, node := range client.nodes {
-		ips[i] = node.host.String()
+	ips := make([]string, 0)
+	for _, node := range client.nodes {
+		ips = append(ips, node.host.String())
 	}
 	return ips, nil
 }
 
 func (client *Client) getNodeByID(id string) *Node {
 	for _, node := range client.nodes {
-		if node.getID() == id {
+		if node.id() == id {
 			return node
 		}
 	}

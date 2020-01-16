@@ -9,6 +9,7 @@ import "C"
 import (
 	"crypto"
 	"crypto/rsa"
+	"github.com/niclabs/dtcnode/v3/message"
 	"io"
 	"unsafe"
 )
@@ -53,13 +54,13 @@ func (mechanism *Mechanism) GetHashType() (h crypto.Hash, err error) {
 		return crypto.Hash(0), nil
 	case C.CKM_MD5_RSA_PKCS, C.CKM_MD5:
 		h = crypto.MD5
-	case C.CKM_SHA1_RSA_PKCS_PSS, C.CKM_SHA1_RSA_PKCS, C.CKM_SHA_1:
+	case C.CKM_SHA1_RSA_PKCS_PSS, C.CKM_SHA1_RSA_PKCS, C.CKM_SHA_1, C.CKM_ECDSA_SHA1:
 		h = crypto.SHA1
-	case C.CKM_SHA256_RSA_PKCS_PSS, C.CKM_SHA256_RSA_PKCS, C.CKM_SHA256:
+	case C.CKM_SHA256_RSA_PKCS_PSS, C.CKM_SHA256_RSA_PKCS, C.CKM_SHA256, C.CKM_ECDSA_SHA256:
 		h = crypto.SHA256
-	case C.CKM_SHA384_RSA_PKCS_PSS, C.CKM_SHA384_RSA_PKCS, C.CKM_SHA384:
+	case C.CKM_SHA384_RSA_PKCS_PSS, C.CKM_SHA384_RSA_PKCS, C.CKM_SHA384, C.CKM_ECDSA_SHA384:
 		h = crypto.SHA384
-	case C.CKM_SHA512_RSA_PKCS_PSS, C.CKM_SHA512_RSA_PKCS, C.CKM_SHA512:
+	case C.CKM_SHA512_RSA_PKCS_PSS, C.CKM_SHA512_RSA_PKCS, C.CKM_SHA512, C.CKM_ECDSA_SHA512:
 		h = crypto.SHA512
 	default:
 		err = NewError("Mechanism.Sign", "mechanism not supported yet for hashing", C.CKR_MECHANISM_INVALID)
@@ -99,10 +100,34 @@ func (mechanism *Mechanism) Prepare(randSrc io.Reader, nBits int, data []byte) (
 		}
 		hash = hashFunc.Sum(nil)
 		return padPSS(randSrc, hashType, nBits, hash)
+	case C.CKM_ECDSA_SHA1, C.CKM_ECDSA_SHA256, C.CKM_ECDSA_SHA384, C.CKM_ECDSA_SHA512:
+		// TODO: ECDSA
+		err = NewError("Mechanism.Sign", "mechanism not supported yet for preparing", C.CKR_MECHANISM_INVALID)
+		return
 	default:
 		err = NewError("Mechanism.Sign", "mechanism not supported yet for preparing", C.CKR_MECHANISM_INVALID)
 		return
 	}
+}
+
+func (mechanism *Mechanism) SignInit(session *Session, meta []byte) (err error) {
+	switch mechanism.Type {
+	case C.CKM_RSA_PKCS, C.CKM_MD5_RSA_PKCS, C.CKM_SHA1_RSA_PKCS, C.CKM_SHA256_RSA_PKCS, C.CKM_SHA384_RSA_PKCS, C.CKM_SHA512_RSA_PKCS,
+		C.CKM_SHA1_RSA_PKCS_PSS, C.CKM_SHA256_RSA_PKCS_PSS, C.CKM_SHA384_RSA_PKCS_PSS, C.CKM_SHA512_RSA_PKCS_PSS:
+		session.RSA.signKeyMeta, err = message.DecodeRSAKeyMeta(meta)
+		if err != nil {
+			return NewError("Mechanism.SignInit", "key metainfo is corrupt", C.CKR_ARGUMENTS_BAD)
+		}
+	case C.CKM_ECDSA_SHA1, C.CKM_ECDSA_SHA256, C.CKM_ECDSA_SHA384, C.CKM_ECDSA_SHA512:
+	default:
+		session.ECDSA.signKeyMeta, err = message.DecodeECDSAKeyMeta(meta)
+		if err != nil {
+			return NewError("Mechanism.SignInit", "key metainfo is corrupt", C.CKR_ARGUMENTS_BAD)
+		}
+		err = NewError("Mechanism.SignInit", "mechanism not supported yet for signing", C.CKR_MECHANISM_INVALID)
+		return
+	}
+	return
 }
 
 // Verify verifies that a signature is coherent with the data that it signs, using the public key.
@@ -136,6 +161,10 @@ func (mechanism *Mechanism) Verify(pubKey crypto.PublicKey, data []byte, signatu
 		}
 		hash = hashFunc.Sum(nil)
 		return rsa.VerifyPSS(pubKey.(*rsa.PublicKey), hashType, hash, signature, &rsa.PSSOptions{})
+	case C.CKM_ECDSA_SHA1, C.CKM_ECDSA_SHA256, C.CKM_ECDSA_SHA384, C.CKM_ECDSA_SHA512:
+		// TODO: ECDSA
+		err = NewError("Mechanism.Sign", "mechanism not supported yet for preparing", C.CKR_MECHANISM_INVALID)
+		return
 	default:
 		err = NewError("Mechanism.Sign", "mechanism not supported yet for preparing", C.CKR_MECHANISM_INVALID)
 		return

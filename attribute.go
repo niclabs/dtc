@@ -53,13 +53,20 @@ func (attributes Attributes) Equals(attributes2 Attributes) bool {
 	return true
 }
 
-// Adds an attribute only if it doesn't exist
-func (attributes Attributes) SetIfUndefined(attr *Attribute) bool {
-	if _, ok := attributes[attr.Type]; !ok {
-		attributes[attr.Type] = attr
-		return true
+// SetIfUndefined adds an attribute only if it doesn't exist
+func (attributes Attributes) SetIfUndefined(attrs  ...*Attribute) {
+	for _, attr := range attrs {
+		if _, ok := attributes[attr.Type]; !ok {
+			attributes[attr.Type] = attr
+		}
 	}
-	return false
+}
+
+// Set adds an attribute or modifies it if it already exists
+func (attributes Attributes) Set(attrs  ...*Attribute) {
+	for _, attr := range attrs {
+		attributes[attr.Type] = attr
+	}
 }
 
 // CToAttribute transforms a single C attribute struct into an Attribute Golang struct.

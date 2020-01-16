@@ -8,9 +8,7 @@ import (
 	"crypto"
 	"encoding/binary"
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/niclabs/dtcnode/v3/message"
-	"github.com/niclabs/tcrsa"
 	"hash"
 	"log"
 	"math/rand"
@@ -32,8 +30,9 @@ type Session struct {
 	// finding things
 	findInitialized bool // True if the user executed a Find method and it has not finished yet.
 	// signing things
+	signSession SignSession
 	signMechanism   *Mechanism // Mechanism used to sign in a Sign session.
-	signKeyName     string     // Key ID used in signing
+	signKeyID       string     // Key ID used in signing
 	signData        []byte     // Data to sign.
 	signInitialized bool       // // True if the user executed a Find method and it has not finished yet.
 	// verifying things
@@ -45,10 +44,22 @@ type Session struct {
 	digestHash        hash.Hash // Hash used for hashing
 	digestInitialized bool      // True if the user executed a Hash method and it has not finished yet
 	// random
-	randSrc *rand.Rand   // Seedable random source.
+	randSrc *rand.Rand // Seedable random source.
 	// algorithm-specific variables
-	RSA     RSASession   // RSA session variables
-	ECDSA   ECDSASession // ECDSA session variables
+	RSA   RSASession   // RSA session variables
+	ECDSA ECDSASession // ECDSA session variables
+}
+
+type SignSession interface {
+	GenerateKeyPair() (pkObject, skObject *CryptoObject, err error)
+	SignInit(mechanism Mechanism, metaBytes []byte) error
+	SignLength() error
+	SignUpdate() error
+	SignFinal() error
+	VerifyInit(mechanism Mechanism, metaBytes []byte) error
+	VerifyLength() error
+	VerifyUpdate() error
+	VerifyFinal() error
 }
 
 // Map of sessions identified by their handle. It's very similar to an array because the handles are integers.
@@ -184,7 +195,7 @@ func (session *Session) DestroyObject(hObject C.CK_OBJECT_HANDLE) error {
 					if err != nil {
 						return err
 					}
-					err = dtc.DeleteKeyRSA(keyID)
+					err = dtc.RSADeleteKey(keyID)
 					if err != nil {
 						return err
 					}
@@ -375,51 +386,14 @@ func (session *Session) GenerateKeyPair(mechanism *Mechanism, pkAttrs, skAttrs A
 		err = NewError("Session.GenerateKeyPair", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
 		return
 	}
-
-	bitSizeAttr, err := pkAttrs.GetAttributeByType(C.CKA_MODULUS_BITS)
-	if err != nil {
-		err = NewError("Session.GenerateKeyPair", "got NULL pointer", C.CKR_TEMPLATE_INCOMPLETE)
-		return
-	}
-
-	bitSize := binary.LittleEndian.Uint64(bitSizeAttr.Value)
-
-	keyID := uuid.New().String()
-	var dtc *DTC
-	dtc, err = session.GetDTC()
-	if err != nil {
-		return
-	}
 	switch mechanism.Type {
 	case C.CKM_RSA_PKCS_KEY_PAIR_GEN:
-		var keyMeta *tcrsa.KeyMeta
-		var pk, sk Attributes
-		keyMeta, err = dtc.CreateNewKeyRSA(keyID, int(bitSize), nil)
-		if err != nil {
-			return
-		}
-		pk, err = createRSAPublicKey(keyID, pkAttrs, keyMeta)
-		if err != nil {
-			return
-		}
-		pkObject, err = session.CreateObject(pk)
-		if err != nil {
-			return
-		}
-		sk, err = createRSAPrivateKey(keyID, skAttrs, keyMeta)
-		if err != nil {
-			return
-		}
-		skObject, err = session.CreateObject(sk)
-		if err != nil {
-			return
-		}
+		return session.generateRSAKeyPair(pkAttrs, skAttrs)
 	case C.CKM_EC_KEY_PAIR_GEN:
-		// TODO: ECDSA
+		return session.generateECDSAKeyPair(pkAttrs, skAttrs)
 	default:
 		return nil, nil, NewError("Session.GenerateKeyPair", "mechanism invalid", C.CKR_MECHANISM_INVALID)
 	}
-	return pkObject, skObject, nil
 }
 
 // SignInit starts the signing process.
@@ -435,8 +409,8 @@ func (session *Session) SignInit(mechanism *Mechanism, hKey C.CK_OBJECT_HANDLE) 
 	if err != nil {
 		return err
 	}
-	keyNameAttr := keyObject.FindAttribute(AttrTypeKeyHandler)
-	if keyNameAttr == nil {
+	keyIDAttr := keyObject.FindAttribute(AttrTypeKeyHandler)
+	if keyIDAttr == nil {
 		return NewError("Session.SignInit", "object handle does not contain a key handler attribute", C.CKR_ARGUMENTS_BAD)
 	}
 	keyMetaAttr := keyObject.FindAttribute(AttrTypeKeyMeta)
@@ -444,11 +418,23 @@ func (session *Session) SignInit(mechanism *Mechanism, hKey C.CK_OBJECT_HANDLE) 
 		return NewError("Session.SignInit", "object handle does not contain any key metainfo attribute", C.CKR_ARGUMENTS_BAD)
 	}
 
-	session.RSA.signKeyMeta, err = message.DecodeRSAKeyMeta(keyMetaAttr.Value)
-	if err != nil {
-		return NewError("Session.SignInit", "key metainfo is corrupt", C.CKR_ARGUMENTS_BAD)
+	switch mechanism.Type {
+	case C.CKM_RSA_PKCS, C.CKM_MD5_RSA_PKCS, C.CKM_SHA1_RSA_PKCS, C.CKM_SHA256_RSA_PKCS, C.CKM_SHA384_RSA_PKCS, C.CKM_SHA512_RSA_PKCS,
+		C.CKM_SHA1_RSA_PKCS_PSS, C.CKM_SHA256_RSA_PKCS_PSS, C.CKM_SHA384_RSA_PKCS_PSS, C.CKM_SHA512_RSA_PKCS_PSS:
+		session.RSA.signKeyMeta, err = message.DecodeRSAKeyMeta(keyMetaAttr.Value)
+		if err != nil {
+			return NewError("Mechanism.SignInit", "key metainfo is corrupt", C.CKR_ARGUMENTS_BAD)
+		}
+	case C.CKM_ECDSA_SHA1, C.CKM_ECDSA_SHA256, C.CKM_ECDSA_SHA384, C.CKM_ECDSA_SHA512:
+	default:
+		session.ECDSA.signKeyMeta, err = message.DecodeECDSAKeyMeta(keyMetaAttr.Value)
+		if err != nil {
+			return NewError("Mechanism.SignInit", "key metainfo is corrupt", C.CKR_ARGUMENTS_BAD)
+		}
+		return NewError("Mechanism.SignInit", "mechanism not supported yet for signing", C.CKR_MECHANISM_INVALID)
 	}
-	session.signKeyName = string(keyNameAttr.Value)
+
+	session.signKeyID = string(keyIDAttr.Value)
 	session.signMechanism = mechanism
 	session.signData = make([]byte, 0)
 	session.signInitialized = true
@@ -479,7 +465,7 @@ func (session *Session) SignFinal() ([]byte, error) {
 	}
 	defer func() {
 		session.RSA.signKeyMeta = nil
-		session.signKeyName = ""
+		session.signKeyID = ""
 		session.signData = nil
 		session.signInitialized = false
 	}()
@@ -491,7 +477,7 @@ func (session *Session) SignFinal() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	sign, err := session.Slot.Application.DTC.SignDataRSA(session.signKeyName, session.RSA.signKeyMeta, prepared)
+	sign, err := session.Slot.Application.DTC.RSASignData(session.signKeyID, session.RSA.signKeyMeta, prepared)
 	if err != nil {
 		return nil, err
 	}
@@ -531,7 +517,7 @@ func (session *Session) VerifyInit(mechanism *Mechanism, hKey C.CK_OBJECT_HANDLE
 	if err != nil {
 		return NewError("Session.VerifyInit", "key metainfo is corrupt", C.CKR_ARGUMENTS_BAD)
 	}
-	session.signKeyName = string(keyNameAttr.Value)
+	session.signKeyID = string(keyNameAttr.Value)
 	session.signMechanism = mechanism
 	session.signData = make([]byte, 0)
 	session.signInitialized = true

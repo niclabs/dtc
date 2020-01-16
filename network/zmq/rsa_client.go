@@ -19,7 +19,8 @@ func (client *Client) SendRSAKeyShares(keyID string, keys tcrsa.KeyShareList, me
 	if client.currentMessage != message.None {
 		return fmt.Errorf("cannot send key shares in a currentMessage state different to None")
 	}
-	for i, node := range client.nodes {
+	i := 0
+	for _, node := range client.nodes {
 		log.Printf("Sending key share to node in %s:%d", node.host, node.port)
 		msg, err := node.sendRSAKeyShare(keyID, keys[i], meta)
 		if err != nil {
@@ -27,6 +28,7 @@ func (client *Client) SendRSAKeyShares(keyID string, keys tcrsa.KeyShareList, me
 		}
 		client.pendingMessages[msg.ID] = msg
 		go node.recvMessage()
+		i++
 	}
 	client.currentMessage = message.SendRSAKeyShare
 	return nil
@@ -62,7 +64,7 @@ func (client *Client) AskForRSASigShares(keyID string, hash []byte) error {
 		log.Printf("Asking for sig share to node in %s:%d", node.host, node.port)
 		msg, err := node.getRSASigShare(keyID, hash)
 		if err != nil {
-			return fmt.Errorf("error asking sigshare with node %s: %s", node.getID(), err)
+			return fmt.Errorf("error asking sigshare with node %s: %s", node.id(), err)
 		}
 		client.pendingMessages[msg.ID] = msg
 		go node.recvMessage()

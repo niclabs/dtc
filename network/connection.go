@@ -9,6 +9,7 @@ import (
 // A connection represents a way to communicate with the nodes.
 type Connection interface {
 	RSAConnection
+	ECDSAConnection
 	// Open opens the connection and initializes the binding with the nodes.
 	// If it is already open, it does nothing.
 	Open() error
@@ -52,7 +53,7 @@ type ECDSAConnection interface {
 
 	// SendECDSAKeyInitMessageList sends the KeyInitMessageList to all the participant
 	// nodes.
-	SendECDSAKeyInitMessageList(tcecdsa.KeyInitMessageList) error
+	SendECDSAKeyInitMessageList(id string, messages tcecdsa.KeyInitMessageList) error
 
 	// AckECDSAKeyInitReception confirms that all the nodes have received the
 	// KeyInitMessageList.
@@ -60,40 +61,47 @@ type ECDSAConnection interface {
 
 	// AskForECDSARound1MessageList asks all the nodes for its ECDSARound1MessageList,
 	// sending them the message that will be signed.
-	AskForECDSARound1MessageList(string, []byte) error
+	AskForECDSARound1MessageList(id string, message []byte) error
 
-	// GetECDSARound1MessageList receives the Round1Message from K nodes.
+	// GetECDSARound1MessageList receives the ids and Round1Messages from K nodes.
 	// the reception of this messages fix the nodes that will participate on
 	// future rounds.
-	GetECDSARound1MessageList() (tcecdsa.Round1MessageList, error)
+	GetECDSARound1MessageList(k int) ([]string, tcecdsa.Round1MessageList, error)
 
 	// AskForECDSARound2MessageList sends a list of K Round1Message to the
 	// selected nodes.
-	AskForECDSARound2MessageList(string, tcecdsa.Round1MessageList) error
+	AskForECDSARound2MessageList(id string, nodeIDs []string, messages tcecdsa.Round1MessageList) error
 
 	// GetECDSARound2MessageList returns a list of K Round2Message.
-	GetECDSARound2MessageList() (tcecdsa.Round2MessageList, error)
+	GetECDSARound2MessageList(k int) (tcecdsa.Round2MessageList, error)
 
 	// AskForECDSARound3MessageList sends a list of K Round2Message to the
 	// selected nodes.
-	AskForECDSARound3MessageList(string, tcecdsa.Round2MessageList) error
+	AskForECDSARound3MessageList(id string, nodeIDs []string, messages tcecdsa.Round2MessageList) error
 
 	// GetECDSARound2MessageList returns a list of K Round3Message.
-	GetECDSARound3MessageList() (tcecdsa.Round3MessageList, error)
+	GetECDSARound3MessageList(k int) (tcecdsa.Round3MessageList, error)
 
 	// AskForECDSASignature sends a list of K Round3Message to the
 	// selected nodes.
-	AskForECDSASignature(string, tcecdsa.Round3MessageList) error
+	AskForECDSASignature(id string, nodeIDs []string, messages tcecdsa.Round3MessageList) error
 
 	// GetECDSASignature returns r and s, parameters of the signature over
 	// the message.
-	GetECDSASignature() (*big.Int, *big.Int, error)
+	GetECDSASignature(k int) (*big.Int, *big.Int, error)
 
 
 	// AskForECDSAKeyDeletion asks the nodes to delete a key share.
 	AskForECDSAKeyDeletion(id string) error
 
-	// AckECDSAKeyDeletion receives the acks from the nodes for having deleted the keys. It returns an error on timeout and the number of acks received. The error should not be critical.
-	// The connection is started automatically if not started before.
-	AckECDSAKeyDeletion() (int, error)
+	// AckECDSAKeyDeletion receives the acks from the nodes for having deleted the keys.
+	// It returns an error on timeout.
+	AckECDSAKeyDeletion() error
+
+	// AskForECDSASessionRestart asks the nodes to restart their sessions.
+	AskForECDSASessionRestart() error
+
+	// AckECDSASessionRestart receives the acks from the nodes for having restarted its session.
+	// It returns an error on timeout.
+	AckECDSASessionRestart() error
 }
