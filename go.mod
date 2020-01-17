@@ -13,4 +13,4 @@ require (
 	github.com/spf13/viper v1.4.0
 )
 
-replace github.com/niclabs/dtcnode/v3 v3.0.0 => /home/eriveros/go/src/dtcnode
+replace github.com/niclabs/dtcnode/v3 v3.0.0 => /mnt/data/code/go/dtcnode

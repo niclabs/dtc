@@ -8,7 +8,8 @@ import (
 	"crypto"
 	"encoding/binary"
 	"fmt"
-	"github.com/niclabs/dtcnode/v3/message"
+	"github.com/google/uuid"
+	"github.com/niclabs/tcrsa"
 	"hash"
 	"log"
 	"math/rand"
@@ -22,44 +23,17 @@ const AttrTypeKeyMeta = 1<<31 + 1
 // Session represents a session in the HSM. It saves all the session variables needed to preserve the user state.
 type Session struct {
 	sync.Mutex
-	Slot           *Slot                // The slot where the session is being used
-	Handle         C.CK_SESSION_HANDLE  // A session handle
-	flags          C.CK_FLAGS           // Session flags
-	refreshedToken bool                 // True if the token have been refreshed
-	foundObjects   []C.CK_OBJECT_HANDLE // List of found objects
-	// finding things
-	findInitialized bool // True if the user executed a Find method and it has not finished yet.
-	// signing things
-	signSession SignSession
-	signMechanism   *Mechanism // Mechanism used to sign in a Sign session.
-	signKeyID       string     // Key ID used in signing
-	signData        []byte     // Data to sign.
-	signInitialized bool       // // True if the user executed a Find method and it has not finished yet.
-	// verifying things
-	verifyMechanism   *Mechanism // Mechanism used to verify a signature in a Verify session
-	verifyKeyName     string     // Key ID used in sign verification
-	verifyData        []byte     // Data to verify
-	verifyInitialized bool       // True if the user executed a Verify method and it has not finished yet.
-	// hashing things
-	digestHash        hash.Hash // Hash used for hashing
-	digestInitialized bool      // True if the user executed a Hash method and it has not finished yet
-	// random
-	randSrc *rand.Rand // Seedable random source.
-	// algorithm-specific variables
-	RSA   RSASession   // RSA session variables
-	ECDSA ECDSASession // ECDSA session variables
-}
-
-type SignSession interface {
-	GenerateKeyPair() (pkObject, skObject *CryptoObject, err error)
-	SignInit(mechanism Mechanism, metaBytes []byte) error
-	SignLength() error
-	SignUpdate() error
-	SignFinal() error
-	VerifyInit(mechanism Mechanism, metaBytes []byte) error
-	VerifyLength() error
-	VerifyUpdate() error
-	VerifyFinal() error
+	Slot              *Slot                // The slot where the session is being used
+	Handle            C.CK_SESSION_HANDLE  // A session handle
+	flags             C.CK_FLAGS           // Session flags
+	refreshedToken    bool                 // True if the token have been refreshed
+	foundObjects      []C.CK_OBJECT_HANDLE // List of found objects
+	findInitialized   bool                 // True if the user executed a Find method and it has not finished yet.
+	signCtx           SignContext          // Signing Context
+	verifyCtx         VerifyContext        // Verification Context
+	digestHash        hash.Hash            // Hash used for hashing
+	digestInitialized bool                 // True if the user executed a Hash method and it has not finished yet
+	randSrc           *rand.Rand           // Seedable random source.
 }
 
 // Map of sessions identified by their handle. It's very similar to an array because the handles are integers.
@@ -380,29 +354,90 @@ func (session *Session) GetDTC() (*DTC, error) {
 }
 
 // GenerateKeyPair creates a public and a private key, or an error if it fails.
-func (session *Session) GenerateKeyPair(mechanism *Mechanism, pkAttrs, skAttrs Attributes) (pkObject, skObject *CryptoObject, err error) {
+func (session *Session) GenerateKeyPair(mechanism *Mechanism, pkTemplate, skTemplate Attributes) (pkObject, skObject *CryptoObject, err error) {
 	// TODO: Verify access permissions
-	if mechanism == nil || pkAttrs == nil || skAttrs == nil { // maybe this should be 0?
+	if mechanism == nil || pkTemplate == nil || skTemplate == nil { // maybe this should be 0?
 		err = NewError("Session.GenerateKeyPair", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
 		return
 	}
+	var pk, sk Attributes
 	switch mechanism.Type {
-	case C.CKM_RSA_PKCS_KEY_PAIR_GEN:
-		return session.generateRSAKeyPair(pkAttrs, skAttrs)
 	case C.CKM_EC_KEY_PAIR_GEN:
-		return session.generateECDSAKeyPair(pkAttrs, skAttrs)
-	default:
-		return nil, nil, NewError("Session.GenerateKeyPair", "mechanism invalid", C.CKR_MECHANISM_INVALID)
+		pk, sk, err = session.generateRSAKeyPair(pkTemplate, skTemplate)
+	case C.CKM_RSA_PKCS_KEY_PAIR_GEN:
+		pk, sk, err = session.generateECDSAKeyPair(pkTemplate, skTemplate)
 	}
+	if err != nil {
+		return
+	}
+	pkObject, err = session.CreateObject(pk)
+	if err != nil {
+		return
+	}
+	skObject, err = session.CreateObject(sk)
+	if err != nil {
+		return
+	}
+	return
+
 }
 
 // SignInit starts the signing process.
 func (session *Session) SignInit(mechanism *Mechanism, hKey C.CK_OBJECT_HANDLE) error {
-	if session.signInitialized {
+	if session.signCtx != nil && session.signCtx.Initialized() {
 		return NewError("Session.SignInit", "operation active", C.CKR_OPERATION_ACTIVE)
 	}
 	if mechanism == nil {
 		return NewError("Session.SignInit", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
+	}
+
+	signCtx, err := NewSignContext(session, mechanism, hKey)
+	if err != nil {
+		return err
+	}
+	session.signCtx = signCtx
+	return nil
+}
+
+// SignLength returns the signature length.
+func (session *Session) SignLength() (C.ulong, error) {
+	if session.signCtx == nil || !session.signCtx.Initialized() {
+		return 0, NewError("Session.SignLength", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
+	}
+	return session.signCtx.Length()
+}
+
+// SignUpdate updates the signature with data to sign.
+func (session *Session) SignUpdate(data []byte) error {
+	if session.signCtx == nil || !session.signCtx.Initialized() {
+		return NewError("Session.SignUpdate", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
+	}
+	return session.signCtx.Update(data)
+}
+
+// SignFinal returns the signature and resets the state.
+func (session *Session) SignFinal() ([]byte, error) {
+	if session.signCtx == nil || !session.signCtx.Initialized() {
+		return nil, NewError("Session.SignFinal", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
+	}
+	defer func() {
+		session.signCtx = nil
+	}()
+	return session.signCtx.Final()
+}
+
+// VerifyInit starts a signature verification session with the key with the provided ID.
+func (session *Session) VerifyInit(mechanism *Mechanism, hKey C.CK_OBJECT_HANDLE) error {
+	if session.verifyCtx != nil && session.verifyCtx.Initialized() {
+		return NewError("Session.VerifyInit", "operation active", C.CKR_OPERATION_ACTIVE)
+	}
+	if mechanism == nil {
+		return NewError("Session.VerifyInit", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
+	}
+
+	dtc, err := session.GetDTC()
+	if err != nil {
+		return err
 	}
 
 	keyObject, err := session.GetObject(hKey)
@@ -411,151 +446,46 @@ func (session *Session) SignInit(mechanism *Mechanism, hKey C.CK_OBJECT_HANDLE) 
 	}
 	keyIDAttr := keyObject.FindAttribute(AttrTypeKeyHandler)
 	if keyIDAttr == nil {
-		return NewError("Session.SignInit", "object handle does not contain a key handler attribute", C.CKR_ARGUMENTS_BAD)
+		return NewError("Session.VerifyInit", "object handle does not contain a key handler attribute", C.CKR_ARGUMENTS_BAD)
 	}
 	keyMetaAttr := keyObject.FindAttribute(AttrTypeKeyMeta)
 	if keyMetaAttr == nil {
-		return NewError("Session.SignInit", "object handle does not contain any key metainfo attribute", C.CKR_ARGUMENTS_BAD)
+		return NewError("Session.VerifyInit", "object handle does not contain any key metainfo attribute", C.CKR_ARGUMENTS_BAD)
 	}
 
-	switch mechanism.Type {
-	case C.CKM_RSA_PKCS, C.CKM_MD5_RSA_PKCS, C.CKM_SHA1_RSA_PKCS, C.CKM_SHA256_RSA_PKCS, C.CKM_SHA384_RSA_PKCS, C.CKM_SHA512_RSA_PKCS,
-		C.CKM_SHA1_RSA_PKCS_PSS, C.CKM_SHA256_RSA_PKCS_PSS, C.CKM_SHA384_RSA_PKCS_PSS, C.CKM_SHA512_RSA_PKCS_PSS:
-		session.RSA.signKeyMeta, err = message.DecodeRSAKeyMeta(keyMetaAttr.Value)
-		if err != nil {
-			return NewError("Mechanism.SignInit", "key metainfo is corrupt", C.CKR_ARGUMENTS_BAD)
-		}
-	case C.CKM_ECDSA_SHA1, C.CKM_ECDSA_SHA256, C.CKM_ECDSA_SHA384, C.CKM_ECDSA_SHA512:
-	default:
-		session.ECDSA.signKeyMeta, err = message.DecodeECDSAKeyMeta(keyMetaAttr.Value)
-		if err != nil {
-			return NewError("Mechanism.SignInit", "key metainfo is corrupt", C.CKR_ARGUMENTS_BAD)
-		}
-		return NewError("Mechanism.SignInit", "mechanism not supported yet for signing", C.CKR_MECHANISM_INVALID)
-	}
-
-	session.signKeyID = string(keyIDAttr.Value)
-	session.signMechanism = mechanism
-	session.signData = make([]byte, 0)
-	session.signInitialized = true
-	return nil
-}
-
-// SignLength returns the signature length.
-func (session *Session) SignLength() (C.ulong, error) {
-	if !session.signInitialized {
-		return 0, NewError("Session.SignLength", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
-	}
-	return C.ulong(session.RSA.signKeyMeta.PublicKey.Size()), nil
-}
-
-// SignUpdate updates the signature with data to sign.
-func (session *Session) SignUpdate(data []byte) error {
-	if !session.signInitialized {
-		return NewError("Session.SignLength", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
-	}
-	session.signData = append(session.signData, data...)
-	return nil
-}
-
-// SignFinal returns the signature and resets the state.
-func (session *Session) SignFinal() ([]byte, error) {
-	if !session.signInitialized {
-		return nil, NewError("Session.SignFinal", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
-	}
-	defer func() {
-		session.RSA.signKeyMeta = nil
-		session.signKeyID = ""
-		session.signData = nil
-		session.signInitialized = false
-	}()
-	prepared, err := session.signMechanism.Prepare(
-		session.randSrc,
-		session.RSA.signKeyMeta.PublicKey.Size(),
-		session.signData,
-	)
-	if err != nil {
-		return nil, err
-	}
-	sign, err := session.Slot.Application.DTC.RSASignData(session.signKeyID, session.RSA.signKeyMeta, prepared)
-	if err != nil {
-		return nil, err
-	}
-	if err = session.signMechanism.Verify(
-		session.RSA.signKeyMeta.PublicKey,
-		session.signData,
-		sign,
-	); err != nil {
-		return nil, err
-	}
-	return sign, nil
-}
-
-// VerifyInit starts a signature verification session with the key with the provided ID.
-func (session *Session) VerifyInit(mechanism *Mechanism, hKey C.CK_OBJECT_HANDLE) error {
-	if session.verifyInitialized {
-		return NewError("Session.VerifyInit", "operation active", C.CKR_OPERATION_ACTIVE)
-	}
-	if mechanism == nil {
-		return NewError("Session.VerifyInit", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
-	}
-
-	keyObject, err := session.GetObject(hKey)
+	verifyCtx, err := NewVerifyContext(dtc, mechanism, string(keyIDAttr.Value), keyMetaAttr.Value)
 	if err != nil {
 		return err
 	}
-	keyNameAttr := keyObject.FindAttribute(AttrTypeKeyHandler)
-	if keyNameAttr == nil {
-		return NewError("Session.VerifyInit", "object handle does not contain any key", C.CKR_ARGUMENTS_BAD)
-	}
-	keyMetaAttr := keyObject.FindAttribute(AttrTypeKeyMeta)
-	if keyMetaAttr == nil {
-		return NewError("Session.VerifyInit", "object handle does not contain any key metainfo", C.CKR_ARGUMENTS_BAD)
-	}
-
-	session.RSA.signKeyMeta, err = message.DecodeRSAKeyMeta(keyMetaAttr.Value)
-	if err != nil {
-		return NewError("Session.VerifyInit", "key metainfo is corrupt", C.CKR_ARGUMENTS_BAD)
-	}
-	session.signKeyID = string(keyNameAttr.Value)
-	session.signMechanism = mechanism
-	session.signData = make([]byte, 0)
-	session.signInitialized = true
+	session.verifyCtx = verifyCtx
 	return nil
 }
 
 // VerifyLength returns the size of the verification key Public Key Size.
-func (session *Session) VerifyLength() (uint64, error) {
-	if !session.verifyInitialized {
-		return 0, NewError("Session.verifyLength", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
+func (session *Session) VerifyLength() (C.ulong, error) {
+	if session.verifyCtx == nil || !session.verifyCtx.Initialized() {
+		return 0, NewError("Session.VerifyLength", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
 	}
-	return uint64(session.RSA.verifyKeyMeta.PublicKey.Size()), nil
+	return session.verifyCtx.Length()
 }
 
 // VerifyUpdate adds more data to verify the signature.
 func (session *Session) VerifyUpdate(data []byte) error {
-	if !session.verifyInitialized {
-		return NewError("Session.VerifyLength", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
+	if session.verifyCtx == nil || !session.verifyCtx.Initialized() {
+		return NewError("Session.VerifyUpdate", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
 	}
-	session.verifyData = append(session.signData, data...)
-	return nil
+	return session.verifyCtx.Update(data)
 }
 
 // VerifyFinal receives the signature and verifies it based on the key and data provided on earlier methods.
 func (session *Session) VerifyFinal(signature []byte) error {
-	if !session.verifyInitialized {
+	if session.verifyCtx == nil || !session.verifyCtx.Initialized() {
 		return NewError("Session.VerifyFinal", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
 	}
-	err := session.verifyMechanism.Verify(
-		session.RSA.verifyKeyMeta.PublicKey,
-		session.verifyData,
-		signature,
-	)
-	session.RSA.verifyKeyMeta = nil
-	session.verifyKeyName = ""
-	session.verifyData = nil
-	session.verifyInitialized = false
-	return err
+	defer func() {
+		session.verifyCtx = nil
+	}()
+	return session.verifyCtx.Final(signature)
 }
 
 // DigestInit starts a digest session.
@@ -638,6 +568,70 @@ func (session *Session) SeedRandom(seed []byte) {
 		seedInt += int64(binary.LittleEndian.Uint64(slice)) // it overflows
 	}
 	session.randSrc.Seed(seedInt)
+}
+
+func (session *Session) generateECDSAKeyPair(pkTemplate, skTemplate Attributes) (pkAttrs, skAttrs Attributes, err error) {
+	dtc, err := session.GetDTC()
+	if err != nil {
+		return nil, nil, err
+	}
+	keyID := uuid.New().String()
+	curveParams, err := pkTemplate.GetAttributeByType(C.CKA_EC_PARAMS)
+	if err != nil {
+		err = NewError("Session.GenerateECDSAKeyPair", "curve not defined", C.CKR_TEMPLATE_INCOMPLETE)
+
+	}
+	curveName, err := asn1ToCurveName(curveParams.Value)
+	if err != nil {
+		return
+	}
+	curve, ok := curveNameToCurve[curveName]
+	if !ok {
+		err = NewError("Session.GenerateECDSAKeyPair", "curve not supported", C.CKR_CURVE_NOT_SUPPORTED)
+		return
+	}
+	keyMeta, ecPK, err := dtc.ECDSACreateKey(keyID, curve)
+	if err != nil {
+		return
+	}
+	pk, err := createECDSAPublicKey(keyID, pkTemplate, ecPK, keyMeta)
+	if err != nil {
+		return
+	}
+	sk, err := createECDSAPrivateKey(keyID, skTemplate, ecPK, keyMeta)
+	if err != nil {
+		return
+	}
+	return pk, sk, nil
+}
+
+func (session *Session) generateRSAKeyPair(pkTemplate, skTemplate Attributes) (pk, sk Attributes, err error) {
+	dtc, err := session.GetDTC()
+	if err != nil {
+		return nil, nil, err
+	}
+	var keyMeta *tcrsa.KeyMeta
+	keyID := uuid.New().String()
+	bitSizeAttr, err := pkTemplate.GetAttributeByType(C.CKA_MODULUS_BITS)
+	if err != nil {
+		err = NewError("Session.GenerateRSAKeyPair", "got NULL pointer", C.CKR_TEMPLATE_INCOMPLETE)
+		return
+	}
+
+	bitSize := binary.LittleEndian.Uint64(bitSizeAttr.Value)
+	keyMeta, err = dtc.RSACreateKey(keyID, int(bitSize))
+	if err != nil {
+		return
+	}
+	pk, err = createRSAPublicKey(keyID, pkTemplate, keyMeta)
+	if err != nil {
+		return
+	}
+	sk, err = createRSAPrivateKey(keyID, skTemplate, keyMeta)
+	if err != nil {
+		return
+	}
+	return
 }
 
 // GetUserAuthorization returns the authorization level of the state.

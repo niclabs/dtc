@@ -114,17 +114,17 @@ func (mechanism *Mechanism) SignInit(session *Session, meta []byte) (err error) 
 	switch mechanism.Type {
 	case C.CKM_RSA_PKCS, C.CKM_MD5_RSA_PKCS, C.CKM_SHA1_RSA_PKCS, C.CKM_SHA256_RSA_PKCS, C.CKM_SHA384_RSA_PKCS, C.CKM_SHA512_RSA_PKCS,
 		C.CKM_SHA1_RSA_PKCS_PSS, C.CKM_SHA256_RSA_PKCS_PSS, C.CKM_SHA384_RSA_PKCS_PSS, C.CKM_SHA512_RSA_PKCS_PSS:
-		session.RSA.signKeyMeta, err = message.DecodeRSAKeyMeta(meta)
+		session.RSA.keyMeta, err = message.DecodeRSAKeyMeta(meta)
 		if err != nil {
-			return NewError("Mechanism.SignInit", "key metainfo is corrupt", C.CKR_ARGUMENTS_BAD)
+			return NewError("Mechanism.Init", "key metainfo is corrupt", C.CKR_ARGUMENTS_BAD)
 		}
 	case C.CKM_ECDSA_SHA1, C.CKM_ECDSA_SHA256, C.CKM_ECDSA_SHA384, C.CKM_ECDSA_SHA512:
 	default:
-		session.ECDSA.signKeyMeta, err = message.DecodeECDSAKeyMeta(meta)
+		session.ECDSA.keyMeta, err = message.DecodeECDSAKeyMeta(meta)
 		if err != nil {
-			return NewError("Mechanism.SignInit", "key metainfo is corrupt", C.CKR_ARGUMENTS_BAD)
+			return NewError("Mechanism.Init", "key metainfo is corrupt", C.CKR_ARGUMENTS_BAD)
 		}
-		err = NewError("Mechanism.SignInit", "mechanism not supported yet for signing", C.CKR_MECHANISM_INVALID)
+		err = NewError("Mechanism.Init", "mechanism not supported yet for signing", C.CKR_MECHANISM_INVALID)
 		return
 	}
 	return

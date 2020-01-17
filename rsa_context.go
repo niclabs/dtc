@@ -8,58 +8,99 @@ import "C"
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/niclabs/dtcnode/v3/message"
 	"github.com/niclabs/tcrsa"
+	"io"
 	"reflect"
 )
 
-type RSASession struct {
-	signKeyMeta   *tcrsa.KeyMeta // Key Metainfo used in signing
-	verifyKeyMeta *tcrsa.KeyMeta // Key Metainfo used in sign verification
+type RSASignContext struct {
+	dtc         *DTC
+	randSrc     io.Reader
+	keyMeta     *tcrsa.KeyMeta // Key Metainfo used in signing.
+	mechanism   *Mechanism     // Mechanism used to sign in a Sign session.
+	keyID       string         // Key ID used in signing.
+	data        []byte         // Data to sign.
+	initialized bool           // // True if the user executed a Sign method and it has not finished yet.
 }
 
+type RSAVerifyContext struct {
+	dtc         *DTC
+	randSrc     io.Reader
+	keyMeta     *tcrsa.KeyMeta // Key Metainfo used in sign verification.
+	mechanism   *Mechanism     // Mechanism used to verify a signature in a Verify session.
+	keyID       string         // Key ID used in sign verification.
+	data        []byte         // Data to verify.
+	initialized bool           // True if the user executed a Verify method and it has not finished yet.
+}
 
-func (session *Session) generateRSAKeyPair(pkAttrs, skAttrs Attributes) (pkObject, skObject *CryptoObject, err error) {
-	var keyMeta *tcrsa.KeyMeta
-	var pk, sk Attributes
+func (context *RSASignContext) Initialized() bool {
+	return context.initialized
+}
 
-	var dtc *DTC
-	dtc, err = session.GetDTC()
-	if err != nil {
-		return
-	}
-
-	keyID := uuid.New().String()
-
-	bitSizeAttr, err := pkAttrs.GetAttributeByType(C.CKA_MODULUS_BITS)
-	if err != nil {
-		err = NewError("Session.GenerateRSAKeyPair", "got NULL pointer", C.CKR_TEMPLATE_INCOMPLETE)
-		return
-	}
-
-	bitSize := binary.LittleEndian.Uint64(bitSizeAttr.Value)
-	keyMeta, err = dtc.RSACreateKey(keyID, int(bitSize))
-	if err != nil {
-		return
-	}
-	pk, err = createRSAPublicKey(keyID, pkAttrs, keyMeta)
-	if err != nil {
-		return
-	}
-	pkObject, err = session.CreateObject(pk)
-	if err != nil {
-		return
-	}
-	sk, err = createRSAPrivateKey(keyID, skAttrs, keyMeta)
-	if err != nil {
-		return
-	}
-	skObject, err = session.CreateObject(sk)
-	if err != nil {
-		return
-	}
+func (context *RSASignContext) Init(metaBytes []byte) (err error) {
+	context.keyMeta, err = message.DecodeRSAKeyMeta(metaBytes)
+	context.initialized = true
 	return
+}
+
+func (context *RSASignContext) Length() int {
+	return C.ulong(context.keyMeta.PublicKey.Size())
+}
+
+func (context *RSASignContext) Update(data []byte) error {
+	context.data = append(context.data, data...)
+	return nil
+}
+
+func (context *RSASignContext) Final() ([]byte, error) {
+	prepared, err := context.mechanism.Prepare(
+		context.randSrc,
+		context.keyMeta.PublicKey.Size(),
+		context.data,
+	)
+	if err != nil {
+		return nil, err
+	}
+	sign, err := context.dtc.RSASignData(context.keyID, context.keyMeta, prepared)
+	if err != nil {
+		return nil, err
+	}
+	if err = context.mechanism.Verify(
+		context.keyMeta.PublicKey,
+		context.data,
+		sign,
+	); err != nil {
+		return nil, err
+	}
+	return sign, nil
+}
+
+func (context *RSAVerifyContext) Initialized() bool {
+	return context.initialized
+}
+
+func (context *RSAVerifyContext) Init(metaBytes []byte) (err error) {
+	context.keyMeta, err = message.DecodeRSAKeyMeta(metaBytes)
+	context.initialized = true
+	return
+}
+
+func (context *RSAVerifyContext) Length() int {
+	return C.ulong(context.keyMeta.PublicKey.Size())
+}
+
+func (context *RSAVerifyContext) Update(data []byte) error {
+	context.data = append(context.data, data...)
+	return nil
+}
+
+func (context *RSAVerifyContext) Final(signature []byte) error {
+	return context.mechanism.Verify(
+		context.keyMeta.PublicKey,
+		context.data,
+		signature,
+	)
 }
 
 func createRSAPublicKey(keyID string, pkAttrs Attributes, keyMeta *tcrsa.KeyMeta) (Attributes, error) {

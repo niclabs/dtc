@@ -11,60 +11,100 @@ import (
 	"encoding/asn1"
 	"encoding/binary"
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/niclabs/dtcnode/v3/message"
 	"github.com/niclabs/tcecdsa"
+	"io"
 )
 
-type ECDSASession struct {
-	signKeyMeta   *tcecdsa.KeyMeta // Key Metainfo used in signing
-	verifyKeyMeta *tcecdsa.KeyMeta // Key Metainfo used in sign verification
+type ECDSASignContext struct {
+	dtc         *DTC
+	randSrc     io.Reader
+	keyMeta     *tcecdsa.KeyMeta // Key Metainfo used in signing.
+	pubKey      *ecdsa.PublicKey // Public Key used in signing.
+	mechanism   *Mechanism       // Mechanism used to sign in a Sign session.
+	keyID       string           // Key ID used in signing.
+	data        []byte           // Data to sign.
+	initialized bool             // // True if the user executed a Sign method and it has not finished yet.
 }
 
-func (session *Session) generateECDSAKeyPair(pkTemplate, skTemplate Attributes) (pkObject, skObject *CryptoObject, err error) {
-	var dtc *DTC
-	dtc, err = session.GetDTC()
-	if err != nil {
-		return
-	}
-	keyID := uuid.New().String()
+type ECDSAVerifyContext struct {
+	dtc         *DTC
+	randSrc     io.Reader
+	keyMeta     *tcecdsa.KeyMeta // Key Metainfo used in sign verification.
+	pubKey      *ecdsa.PublicKey // Public Key used in signing verification.
+	mechanism   *Mechanism       // Mechanism used to verify a signature in a Verify session.
+	keyID       string           // Key ID used in sign verification.
+	data        []byte           // Data to verify.
+	initialized bool             // True if the user executed a Verify method and it has not finished yet.
+}
 
-	// TODO: ECDSA
-	curveParams, err := pkTemplate.GetAttributeByType(C.CKA_EC_PARAMS)
-	if err != nil {
-		err = NewError("Session.GenerateECDSAKeyPair", "curve not defined", C.CKR_TEMPLATE_INCOMPLETE)
+func (context *ECDSASignContext) Initialized() bool {
+	return context.initialized
+}
 
-	}
-	curveName, err := asn1ToCurveName(curveParams.Value)
-	if err != nil {
-		return
-	}
-	curve, ok := curveNameToCurve[curveName]
-	if !ok {
-		err = NewError("Session.GenerateECDSAKeyPair", "curve not supported", C.CKR_CURVE_NOT_SUPPORTED)
-		return
-	}
-	keyMeta, ecPK, err := dtc.ECDSACreateKey(keyID, curve)
-	if err != nil {
-		return
-	}
-	pk, err := createECDSAPublicKey(keyID, pkTemplate, ecPK, keyMeta)
-	if err != nil {
-		return
-	}
-	pkObject, err = session.CreateObject(pk)
-	if err != nil {
-		return
-	}
-	sk, err := createECDSAPrivateKey(keyID, skTemplate, ecPK, keyMeta)
-	if err != nil {
-		return
-	}
-	skObject, err = session.CreateObject(sk)
-	if err != nil {
-		return
-	}
+func (context *ECDSASignContext) Init(metaBytes []byte) (err error) {
+	context.keyMeta, err = message.DecodeECDSAKeyMeta(metaBytes)
+	context.initialized = true
 	return
+}
+
+func (context *ECDSASignContext) Length() int {
+	return (context.pubKey.Params().BitSize + 7)/8
+}
+
+func (context *ECDSASignContext) Update(data []byte) error {
+	context.data = append(context.data, data...)
+	return nil
+}
+
+func (context *ECDSASignContext) Final() ([]byte, error) {
+	prepared, err := context.mechanism.Prepare(
+		context.randSrc,
+		context.Length(),
+		context.data,
+	)
+	if err != nil {
+		return nil, err
+	}
+	r, s, err := context.dtc.ECDSASignData(context.keyID, context.keyMeta, prepared)
+	if err != nil {
+		return nil, err
+	}
+	if err = context.mechanism.Verify(
+		context.keyMeta.PublicKey,
+		context.data,
+		sign,
+	); err != nil {
+		return nil, err
+	}
+	return sign, nil
+}
+
+func (context *ECDSAVerifyContext) Initialized() bool {
+	return context.initialized
+}
+
+func (context *ECDSAVerifyContext) Init(metaBytes []byte) (err error) {
+	context.keyMeta, err = message.DecodeECDSAKeyMeta(metaBytes)
+	context.initialized = true
+	return
+}
+
+func (context *ECDSAVerifyContext) Length() int {
+	return (context.pubKey.Params().BitSize + 7)/8
+}
+
+func (context *ECDSAVerifyContext) Update(data []byte) error {
+	context.data = append(context.data, data...)
+	return nil
+}
+
+func (context *ECDSAVerifyContext) Final(signature []byte) error {
+	return context.mechanism.Verify(
+		context.pubKey,
+		context.data,
+		signature,
+	)
 }
 
 func createECDSAPublicKey(keyID string, pkAttrs Attributes, pk *ecdsa.PublicKey, keyMeta *tcecdsa.KeyMeta) (Attributes, error) {
@@ -210,7 +250,25 @@ func pubKeyToASN1(pk *ecdsa.PublicKey) ([]byte, error) {
 	ecPointBytes := elliptic.Marshal(pk.Curve, pk.X, pk.Y)
 	ecPointASN1, err := asn1.Marshal(ecPointBytes)
 	if err != nil {
-		return nil, NewError("Session.createECDSAPublicKey", fmt.Sprintf("%s", err.Error()), C.CKR_ARGUMENTS_BAD)
+		return nil, NewError("pubKeyToASN1", fmt.Sprintf("%s", err.Error()), C.CKR_ARGUMENTS_BAD)
 	}
 	return ecPointASN1, nil
+}
+
+func asn1ToPublicKey(c elliptic.Curve, b []byte) (*ecdsa.PublicKey, error) {
+	var pointBytes []byte
+	ecPointASN1, err := asn1.Unmarshal(b, pointBytes)
+	if err != nil {
+		return nil, NewError("asn1ToPubKey", fmt.Sprintf("error decoding ec pubkey: %s", err.Error()), C.CKR_ARGUMENTS_BAD)
+	}
+	x, y := elliptic.Unmarshal(c, ecPointASN1)
+	if x == nil {
+		return nil, NewError("asn1ToPubKey", "error decoding ec pubkey: cannot transform the binary value into a point", C.CKR_ARGUMENTS_BAD)
+
+	}
+	return &ecdsa.PublicKey{
+		Curve: c,
+		X:     x,
+		Y:     y,
+	}, nil
 }
