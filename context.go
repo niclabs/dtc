@@ -147,6 +147,6 @@ func NewVerifyContext(session *Session, mechanism *Mechanism, hKey  C.CK_OBJECT_
 
 func ulongToArr(n C.ulong) []byte {
 	arr := make([]byte, 8)
-	binary.LittleEndian.PutUint64(arr, n)
+	binary.LittleEndian.PutUint64(arr, uint64(n))
 	return arr
 }

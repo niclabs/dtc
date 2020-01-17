@@ -115,7 +115,7 @@ func (client *Client) AskForECDSARound1MessageList(keyID string, msgToSign []byt
 		log.Printf("Asking for sig share to node in %s:%d", node.host, node.port)
 		msg, err := node.ecdsaRound1(keyID, msgToSign)
 		if err != nil {
-			return fmt.Errorf("error sending Round1Message with node %s: %s", node.id(), err)
+			return fmt.Errorf("error sending Round1Message with node %s: %s", node.ID(), err)
 		}
 		client.pendingMessages[msg.ID] = msg
 		go node.recvMessage()

@@ -66,7 +66,7 @@ func New(config *config.ZMQConfig) (client *Client, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("Node number %i has a bad configuration", i+1)
 		}
-		client.nodes[newNode.id()] = newNode
+		client.nodes[newNode.ID()] = newNode
 	}
 	return
 }
@@ -124,7 +124,7 @@ func (client *Client) getIPs() ([]string, error) {
 
 func (client *Client) getNodeByID(id string) *Node {
 	for _, node := range client.nodes {
-		if node.id() == id {
+		if node.ID() == id {
 			return node
 		}
 	}

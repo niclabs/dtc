@@ -14,7 +14,7 @@ func (node *Node) sendECDSAKeyShare(id string, key *tcecdsa.KeyShare, meta *tcec
 	if err != nil {
 		return nil, err
 	}
-	msg, err := message.NewMessage(message.SendECDSAKeyShare, node.id(), []byte(id), keyBinary, metaBinary)
+	msg, err := message.NewMessage(message.SendECDSAKeyShare, node.ID(), []byte(id), keyBinary, metaBinary)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +31,7 @@ func (node *Node) ecdsaInitKeys(id string, initKeyMessages tcecdsa.KeyInitMessag
 	if err != nil {
 		return nil, err
 	}
-	msg, err = message.NewMessage(message.ECDSAInitKeys, node.id(), []byte(id), initKeyMsgsBin)
+	msg, err = message.NewMessage(message.ECDSAInitKeys, node.ID(), []byte(id), initKeyMsgsBin)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func (node *Node) ecdsaInitKeys(id string, initKeyMessages tcecdsa.KeyInitMessag
 }
 
 func (node *Node) ecdsaRound1(id string, doc []byte) (msg *message.Message, err error) {
-	msg, err = message.NewMessage(message.ECDSARound1, node.id(), []byte(id), doc)
+	msg, err = message.NewMessage(message.ECDSARound1, node.ID(), []byte(id), doc)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (node *Node) ecdsaRound2(id string, messages tcecdsa.Round1MessageList) (ms
 	if err != nil {
 		return nil, err
 	}
-	msg, err = message.NewMessage(message.ECDSARound2, node.id(), []byte(id), msgsBin)
+	msg, err = message.NewMessage(message.ECDSARound2, node.ID(), []byte(id), msgsBin)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func (node *Node) ecdsaRound3(id string, messages tcecdsa.Round2MessageList) (ms
 	if err != nil {
 		return nil, err
 	}
-	msg, err = message.NewMessage(message.ECDSARound3, node.id(), []byte(id), msgsBin)
+	msg, err = message.NewMessage(message.ECDSARound3, node.ID(), []byte(id), msgsBin)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (node *Node) ecdsaGetSignature(id string, messages tcecdsa.Round3MessageLis
 	if err != nil {
 		return nil, err
 	}
-	msg, err = message.NewMessage(message.ECDSAGetSignature, node.id(), []byte(id), msgsBin)
+	msg, err = message.NewMessage(message.ECDSAGetSignature, node.ID(), []byte(id), msgsBin)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func (node *Node) ecdsaGetSignature(id string, messages tcecdsa.Round3MessageLis
 }
 
 func (node *Node) deleteECDSAKeyShare(id string) (*message.Message, error) {
-	msg, err := message.NewMessage(message.DeleteECDSAKeyShare, node.id(), []byte(id))
+	msg, err := message.NewMessage(message.DeleteECDSAKeyShare, node.ID(), []byte(id))
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (node *Node) deleteECDSAKeyShare(id string) (*message.Message, error) {
 }
 
 func (node *Node) restartECDSASession() (*message.Message, error) {
-	msg, err := message.NewMessage(message.RestartECDSASession, node.id())
+	msg, err := message.NewMessage(message.RestartECDSASession, node.ID())
 	if err != nil {
 		return nil, err
 	}

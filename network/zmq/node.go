@@ -13,6 +13,7 @@ type NodeState int
 
 // Node represents a remote machine connection. It has all the data required to connect to a node, and a pointer to use the respective Client struct.
 type Node struct {
+	id     string       // Internal Node ID
 	host   *net.IPAddr  // Host of remote node
 	port   uint16       // Port of remote node SUB
 	pubKey string       // Public key of remote node used in ZMQ CURVE Auth
@@ -27,7 +28,12 @@ func newNode(client *Client, config *config.NodeConfig) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
+	id, err := message.GetRandomHexString(8)
+	if err != nil {
+		return nil, err
+	}
 	return &Node{
+		id:     id,
 		host:   nodeIP,
 		port:   config.Port,
 		pubKey: config.PublicKey,
@@ -35,8 +41,9 @@ func newNode(client *Client, config *config.NodeConfig) (*Node, error) {
 	}, nil
 }
 
-func (node *Node) id() string {
-	return node.client.ID
+// Returns client ID
+func (node *Node) ID() string {
+	return node.id
 }
 
 func (node *Node) getConnString() string {
@@ -55,7 +62,7 @@ func (node *Node) connect() error {
 		return err
 	}
 	node.socket = s
-	if err := node.socket.SetIdentity(node.id()); err != nil {
+	if err := node.socket.SetIdentity(node.ID()); err != nil {
 		node.Err = err
 		return err
 	}
@@ -66,7 +73,7 @@ func (node *Node) connect() error {
 	}
 
 	// connect
-	log.Printf("connecting to %s socket in %s", node.id(), node.getConnString())
+	log.Printf("connecting to %s socket in %s", node.ID(), node.getConnString())
 	if err = node.socket.Connect(node.getConnString()); err != nil {
 		node.Err = err
 		return err

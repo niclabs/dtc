@@ -363,9 +363,9 @@ func (session *Session) GenerateKeyPair(mechanism *Mechanism, pkTemplate, skTemp
 	var pk, sk Attributes
 	switch mechanism.Type {
 	case C.CKM_EC_KEY_PAIR_GEN:
-		pk, sk, err = session.generateRSAKeyPair(pkTemplate, skTemplate)
-	case C.CKM_RSA_PKCS_KEY_PAIR_GEN:
 		pk, sk, err = session.generateECDSAKeyPair(pkTemplate, skTemplate)
+	case C.CKM_RSA_PKCS_KEY_PAIR_GEN:
+		pk, sk, err = session.generateRSAKeyPair(pkTemplate, skTemplate)
 	}
 	if err != nil {
 		return
@@ -560,7 +560,7 @@ func (session *Session) generateECDSAKeyPair(pkTemplate, skTemplate Attributes) 
 	curveParams, err := pkTemplate.GetAttributeByType(C.CKA_EC_PARAMS)
 	if err != nil {
 		err = NewError("Session.GenerateECDSAKeyPair", "curve not defined", C.CKR_TEMPLATE_INCOMPLETE)
-
+		return
 	}
 	curveName, err := asn1ToCurveName(curveParams.Value)
 	if err != nil {
