@@ -404,7 +404,7 @@ func (session *Session) SignLength() (C.ulong, error) {
 	if session.signCtx == nil || !session.signCtx.Initialized() {
 		return 0, NewError("Session.SignLength", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
 	}
-	return session.signCtx.Length()
+	return C.ulong(session.signCtx.Length()), nil
 }
 
 // SignUpdate updates the signature with data to sign.
@@ -434,26 +434,7 @@ func (session *Session) VerifyInit(mechanism *Mechanism, hKey C.CK_OBJECT_HANDLE
 	if mechanism == nil {
 		return NewError("Session.VerifyInit", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
 	}
-
-	dtc, err := session.GetDTC()
-	if err != nil {
-		return err
-	}
-
-	keyObject, err := session.GetObject(hKey)
-	if err != nil {
-		return err
-	}
-	keyIDAttr := keyObject.FindAttribute(AttrTypeKeyHandler)
-	if keyIDAttr == nil {
-		return NewError("Session.VerifyInit", "object handle does not contain a key handler attribute", C.CKR_ARGUMENTS_BAD)
-	}
-	keyMetaAttr := keyObject.FindAttribute(AttrTypeKeyMeta)
-	if keyMetaAttr == nil {
-		return NewError("Session.VerifyInit", "object handle does not contain any key metainfo attribute", C.CKR_ARGUMENTS_BAD)
-	}
-
-	verifyCtx, err := NewVerifyContext(dtc, mechanism, string(keyIDAttr.Value), keyMetaAttr.Value)
+	verifyCtx, err := NewVerifyContext(session, mechanism, hKey)
 	if err != nil {
 		return err
 	}
@@ -466,7 +447,7 @@ func (session *Session) VerifyLength() (C.ulong, error) {
 	if session.verifyCtx == nil || !session.verifyCtx.Initialized() {
 		return 0, NewError("Session.VerifyLength", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
 	}
-	return session.verifyCtx.Length()
+	return C.ulong(session.verifyCtx.Length()), nil
 }
 
 // VerifyUpdate adds more data to verify the signature.

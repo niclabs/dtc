@@ -3,6 +3,7 @@ package main
 #include "pkcs11go.h"
 */
 import "C"
+import "encoding/binary"
 
 // SignContext represents a structure which groups parameters that allow to sign
 // a document.
@@ -24,7 +25,7 @@ type VerifyContext interface {
 	Initialized() bool
 }
 
-func NewSignContext(session *Session, mechanism *Mechanism, hKey string) (context SignContext, err error) {
+func NewSignContext(session *Session, mechanism *Mechanism, hKey  C.CK_OBJECT_HANDLE) (context SignContext, err error) {
 	keyObject, err := session.GetObject(hKey)
 	if err != nil {
 		return nil, err
@@ -45,7 +46,7 @@ func NewSignContext(session *Session, mechanism *Mechanism, hKey string) (contex
 
 	switch mechanism.Type {
 	case C.CKM_RSA_PKCS, C.CKM_MD5_RSA_PKCS, C.CKM_SHA1_RSA_PKCS, C.CKM_SHA256_RSA_PKCS, C.CKM_SHA384_RSA_PKCS, C.CKM_SHA512_RSA_PKCS, C.CKM_SHA1_RSA_PKCS_PSS, C.CKM_SHA256_RSA_PKCS_PSS, C.CKM_SHA384_RSA_PKCS_PSS, C.CKM_SHA512_RSA_PKCS_PSS:
-		c := &RSASignContext{
+		c := &SignContextRSA{
 			dtc:       dtc,
 			randSrc:   session.randSrc,
 			keyID:     string(keyIDAttr.Value),
@@ -84,7 +85,7 @@ func NewSignContext(session *Session, mechanism *Mechanism, hKey string) (contex
 	return context, nil
 }
 
-func NewVerifyContext(session *Session, mechanism *Mechanism, hKey string) (context VerifyContext, err error) {
+func NewVerifyContext(session *Session, mechanism *Mechanism, hKey  C.CK_OBJECT_HANDLE) (context VerifyContext, err error) {
 	keyObject, err := session.GetObject(hKey)
 	if err != nil {
 		return nil, err
@@ -105,7 +106,7 @@ func NewVerifyContext(session *Session, mechanism *Mechanism, hKey string) (cont
 
 	switch mechanism.Type {
 	case C.CKM_RSA_PKCS, C.CKM_MD5_RSA_PKCS, C.CKM_SHA1_RSA_PKCS, C.CKM_SHA256_RSA_PKCS, C.CKM_SHA384_RSA_PKCS, C.CKM_SHA512_RSA_PKCS, C.CKM_SHA1_RSA_PKCS_PSS, C.CKM_SHA256_RSA_PKCS_PSS, C.CKM_SHA384_RSA_PKCS_PSS, C.CKM_SHA512_RSA_PKCS_PSS:
-		c := &RSAVerifyContext{
+		c := &VerifyContextRSA{
 			dtc:       dtc,
 			randSrc:   session.randSrc,
 			keyID:     string(keyIDAttr.Value),
@@ -142,4 +143,10 @@ func NewVerifyContext(session *Session, mechanism *Mechanism, hKey string) (cont
 		err = NewError("NewVerifyContext", "sign mechanism invalid", C.CKR_MECHANISM_INVALID)
 	}
 	return context, nil
+}
+
+func ulongToArr(n C.ulong) []byte {
+	arr := make([]byte, 8)
+	binary.LittleEndian.PutUint64(arr, n)
+	return arr
 }

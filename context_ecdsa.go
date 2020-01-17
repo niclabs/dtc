@@ -6,14 +6,15 @@ package main
 import "C"
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"encoding/asn1"
-	"encoding/binary"
 	"fmt"
 	"github.com/niclabs/dtcnode/v3/message"
 	"github.com/niclabs/tcecdsa"
 	"io"
+	"math/big"
 )
 
 type ECDSASignContext struct {
@@ -49,7 +50,7 @@ func (context *ECDSASignContext) Init(metaBytes []byte) (err error) {
 }
 
 func (context *ECDSASignContext) Length() int {
-	return (context.pubKey.Params().BitSize + 7)/8
+	return (context.pubKey.Params().BitSize + 7) / 8
 }
 
 func (context *ECDSASignContext) Update(data []byte) error {
@@ -66,18 +67,19 @@ func (context *ECDSASignContext) Final() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	r, s, err := context.dtc.ECDSASignData(context.keyID, context.keyMeta, prepared)
+	sig, err := context.dtc.ECDSASignData(context.keyID, context.keyMeta, prepared)
 	if err != nil {
 		return nil, err
 	}
-	if err = context.mechanism.Verify(
-		context.keyMeta.PublicKey,
+	if err = verifyECDSA(
+		context.mechanism,
+		context.pubKey,
 		context.data,
-		sign,
+		sig,
 	); err != nil {
 		return nil, err
 	}
-	return sign, nil
+	return sig, nil
 }
 
 func (context *ECDSAVerifyContext) Initialized() bool {
@@ -91,7 +93,7 @@ func (context *ECDSAVerifyContext) Init(metaBytes []byte) (err error) {
 }
 
 func (context *ECDSAVerifyContext) Length() int {
-	return (context.pubKey.Params().BitSize + 7)/8
+	return (context.pubKey.Params().BitSize + 7) / 8
 }
 
 func (context *ECDSAVerifyContext) Update(data []byte) error {
@@ -99,12 +101,50 @@ func (context *ECDSAVerifyContext) Update(data []byte) error {
 	return nil
 }
 
-func (context *ECDSAVerifyContext) Final(signature []byte) error {
-	return context.mechanism.Verify(
+func (context *ECDSAVerifyContext) Final(sig []byte) error {
+	return verifyECDSA(
+		context.mechanism,
 		context.pubKey,
 		context.data,
-		signature,
+		sig,
 	)
+}
+
+func verifyECDSA(mechanism *Mechanism, pubKey crypto.PublicKey, data []byte, signature []byte) (err error) {
+	var hash []byte
+	hashType, err := mechanism.GetHashType()
+	if err != nil {
+		return
+	}
+	ecdsaPK, ok := pubKey.(*ecdsa.PublicKey)
+	if !ok {
+		return NewError("verifyECDSA", "public key invalid for this type of signature", C.CKR_ARGUMENTS_BAD)
+	}
+	switch mechanism.Type {
+	case C.CKM_ECDSA_SHA1, C.CKM_ECDSA_SHA256, C.CKM_ECDSA_SHA384, C.CKM_ECDSA_SHA512:
+		if hashType == crypto.Hash(0) {
+			err = NewError("verifyECDSA", "mechanism hash type is not supported with ECDSA", C.CKR_MECHANISM_INVALID)
+			return
+		}
+		hashFunc := hashType.New()
+		_, err = hashFunc.Write(data)
+		if err != nil {
+			return
+		}
+		hash = hashFunc.Sum(nil)
+		var r, s *big.Int
+		r, s, err = tcecdsa.UnmarshalSignature(signature)
+		if err != nil {
+			return
+		}
+		if !ecdsa.Verify(ecdsaPK, hash, r, s) {
+			return NewError("verifyECDSA", "invalid signature", C.CKR_SIGNATURE_INVALID)
+		}
+	default:
+		err = NewError("verifyECDSA", "mechanism not supported yet for verifying", C.CKR_MECHANISM_INVALID)
+		return
+	}
+	return
 }
 
 func createECDSAPublicKey(keyID string, pkAttrs Attributes, pk *ecdsa.PublicKey, keyMeta *tcecdsa.KeyMeta) (Attributes, error) {
@@ -119,29 +159,26 @@ func createECDSAPublicKey(keyID string, pkAttrs Attributes, pk *ecdsa.PublicKey,
 		return nil, err
 	}
 
-	pubKeyBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(pubKeyBytes, C.CKO_PUBLIC_KEY)
-
 	// This fields are defined in SoftHSM implementation
 	pkAttrs.SetIfUndefined(
-		&Attribute{C.CKA_CLASS, pubKeyBytes},
-		&Attribute{C.CKA_KEY_TYPE, []byte{C.CKK_EC}},
-		&Attribute{C.CKA_KEY_GEN_MECHANISM, []byte{C.CKM_EC_KEY_PAIR_GEN}},
-		&Attribute{C.CKA_LOCAL, []byte{C.CK_TRUE}},
+		&Attribute{C.CKA_CLASS, ulongToArr(C.CKO_PUBLIC_KEY)},
+		&Attribute{C.CKA_KEY_TYPE, ulongToArr(C.CKK_EC)},
+		&Attribute{C.CKA_KEY_GEN_MECHANISM, ulongToArr(C.CKM_EC_KEY_PAIR_GEN)},
+		&Attribute{C.CKA_LOCAL, ulongToArr(C.CK_TRUE)},
 
 		// This fields are our defaults
 		&Attribute{C.CKA_LABEL, nil},
 		&Attribute{C.CKA_ID, nil},
 		&Attribute{C.CKA_SUBJECT, nil},
-		&Attribute{C.CKA_PRIVATE, []byte{C.CK_FALSE}},
-		&Attribute{C.CKA_MODIFIABLE, []byte{C.CK_TRUE}},
-		&Attribute{C.CKA_TOKEN, []byte{C.CK_FALSE}},
-		&Attribute{C.CKA_DERIVE, []byte{C.CK_FALSE}},
-		&Attribute{C.CKA_ENCRYPT, []byte{C.CK_TRUE}},
-		&Attribute{C.CKA_VERIFY, []byte{C.CK_TRUE}},
-		&Attribute{C.CKA_VERIFY_RECOVER, []byte{C.CK_TRUE}},
-		&Attribute{C.CKA_WRAP, []byte{C.CK_TRUE}},
-		&Attribute{C.CKA_TRUSTED, []byte{C.CK_FALSE}},
+		&Attribute{C.CKA_PRIVATE, ulongToArr(C.CK_FALSE)},
+		&Attribute{C.CKA_MODIFIABLE, ulongToArr(C.CK_TRUE)},
+		&Attribute{C.CKA_TOKEN, ulongToArr(C.CK_FALSE)},
+		&Attribute{C.CKA_DERIVE, ulongToArr(C.CK_FALSE)},
+		&Attribute{C.CKA_ENCRYPT, ulongToArr(C.CK_TRUE)},
+		&Attribute{C.CKA_VERIFY, ulongToArr(C.CK_TRUE)},
+		&Attribute{C.CKA_VERIFY_RECOVER, ulongToArr(C.CK_TRUE)},
+		&Attribute{C.CKA_WRAP, ulongToArr(C.CK_TRUE)},
+		&Attribute{C.CKA_TRUSTED, ulongToArr(C.CK_FALSE)},
 		&Attribute{C.CKA_START_DATE, make([]byte, 8)},
 		&Attribute{C.CKA_END_DATE, make([]byte, 8)},
 	)
@@ -170,35 +207,32 @@ func createECDSAPrivateKey(keyID string, skAttrs Attributes, pk *ecdsa.PublicKey
 		return nil, err
 	}
 
-	privKeyBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(privKeyBytes, C.CKO_PRIVATE_KEY)
-
 	// This fields are defined in SoftHSM implementation
 	skAttrs.SetIfUndefined(
-		&Attribute{C.CKA_CLASS, privKeyBytes},
-		&Attribute{C.CKA_KEY_TYPE, []byte{C.CKK_EC}},
-		&Attribute{C.CKA_KEY_GEN_MECHANISM, []byte{C.CKM_EC_KEY_PAIR_GEN}},
-		&Attribute{C.CKA_LOCAL, []byte{C.CK_TRUE}},
+		&Attribute{C.CKA_CLASS, ulongToArr(C.CKO_PRIVATE_KEY)},
+		&Attribute{C.CKA_KEY_TYPE, ulongToArr(C.CKK_EC)},
+		&Attribute{C.CKA_KEY_GEN_MECHANISM, ulongToArr(C.CKK_EC)},
+		&Attribute{C.CKA_LOCAL, ulongToArr(C.CK_TRUE)},
 
 		// This fields are our defaults
 		&Attribute{C.CKA_LABEL, nil},
 		&Attribute{C.CKA_ID, nil},
 		&Attribute{C.CKA_SUBJECT, nil},
-		&Attribute{C.CKA_PRIVATE, []byte{C.CK_TRUE}},
-		&Attribute{C.CKA_MODIFIABLE, []byte{C.CK_TRUE}},
-		&Attribute{C.CKA_TOKEN, []byte{C.CK_FALSE}},
-		&Attribute{C.CKA_DERIVE, []byte{C.CK_FALSE}},
+		&Attribute{C.CKA_PRIVATE, ulongToArr(C.CK_TRUE)},
+		&Attribute{C.CKA_MODIFIABLE, ulongToArr(C.CK_TRUE)},
+		&Attribute{C.CKA_TOKEN, ulongToArr(C.CK_FALSE)},
+		&Attribute{C.CKA_DERIVE, ulongToArr(C.CK_FALSE)},
 
-		&Attribute{C.CKA_WRAP_WITH_TRUSTED, []byte{C.CK_TRUE}},
-		&Attribute{C.CKA_ALWAYS_AUTHENTICATE, []byte{C.CK_FALSE}},
-		&Attribute{C.CKA_SENSITIVE, []byte{C.CK_TRUE}},
-		&Attribute{C.CKA_ALWAYS_SENSITIVE, []byte{C.CK_TRUE}},
-		&Attribute{C.CKA_DECRYPT, []byte{C.CK_TRUE}},
-		&Attribute{C.CKA_SIGN, []byte{C.CK_TRUE}},
-		&Attribute{C.CKA_SIGN_RECOVER, []byte{C.CK_TRUE}},
-		&Attribute{C.CKA_UNWRAP, []byte{C.CK_TRUE}},
-		&Attribute{C.CKA_EXTRACTABLE, []byte{C.CK_FALSE}},
-		&Attribute{C.CKA_NEVER_EXTRACTABLE, []byte{C.CK_TRUE}},
+		&Attribute{C.CKA_WRAP_WITH_TRUSTED, ulongToArr(C.CK_TRUE)},
+		&Attribute{C.CKA_ALWAYS_AUTHENTICATE, ulongToArr(C.CK_FALSE)},
+		&Attribute{C.CKA_SENSITIVE, ulongToArr(C.CK_TRUE)},
+		&Attribute{C.CKA_ALWAYS_SENSITIVE, ulongToArr(C.CK_TRUE)},
+		&Attribute{C.CKA_DECRYPT, ulongToArr(C.CK_TRUE)},
+		&Attribute{C.CKA_SIGN, ulongToArr(C.CK_TRUE)},
+		&Attribute{C.CKA_SIGN_RECOVER, ulongToArr(C.CK_TRUE)},
+		&Attribute{C.CKA_UNWRAP, ulongToArr(C.CK_TRUE)},
+		&Attribute{C.CKA_EXTRACTABLE, ulongToArr(C.CK_FALSE)},
+		&Attribute{C.CKA_NEVER_EXTRACTABLE, ulongToArr(C.CK_TRUE)},
 		&Attribute{C.CKA_START_DATE, make([]byte, 8)},
 		&Attribute{C.CKA_END_DATE, make([]byte, 8)},
 

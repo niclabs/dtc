@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"github.com/niclabs/tcecdsa"
 	"log"
-	"math/big"
 )
 
 // ECDSACreateKey creates a new key and saves its shares distributed among all the nodes.
@@ -41,7 +40,7 @@ func (dtc *DTC) ECDSACreateKey(keyID string, curve elliptic.Curve) (*tcecdsa.Key
 }
 
 // ECDSASignData with a key name a byte hash, sending it to all the keyshare holders.
-func (dtc *DTC) ECDSASignData(keyID string, meta *tcecdsa.KeyMeta, data []byte) (*big.Int, *big.Int, error) {
+func (dtc *DTC) ECDSASignData(keyID string, meta *tcecdsa.KeyMeta, data []byte) ([]byte, error) {
 	dtc.Lock()
 	defer dtc.Unlock()
 	log.Printf("Signing data with key of id=%s", keyID)
@@ -52,41 +51,41 @@ func (dtc *DTC) ECDSASignData(keyID string, meta *tcecdsa.KeyMeta, data []byte) 
 	}()
 	// Round 1
 	if err := dtc.Connection.AskForECDSARound1MessageList(keyID, data); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	nodeIDs, round1List, err := dtc.Connection.GetECDSARound1MessageList(int(meta.Paillier.K))
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	//Round 2
 	if err := dtc.Connection.AskForECDSARound2MessageList(keyID, nodeIDs, round1List); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	round2List, err := dtc.Connection.GetECDSARound2MessageList(int(meta.Paillier.K))
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Round 3
 	if err := dtc.Connection.AskForECDSARound3MessageList(keyID, nodeIDs, round2List); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	round3List, err := dtc.Connection.GetECDSARound3MessageList(int(meta.Paillier.K))
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// GetSignature
 	if err := dtc.Connection.AskForECDSASignature(keyID, nodeIDs, round3List); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	r, s, err := dtc.Connection.GetECDSASignature(int(meta.Paillier.K))
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	// Finally we return the signature
-	return r, s, nil
+	return tcecdsa.MarshalSignature(r, s)
 }
 
 // ECDSADeleteKey deletes the key shares of the key with id = keyID from all the nodes.

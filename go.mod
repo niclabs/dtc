@@ -7,10 +7,10 @@ require (
 	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/miekg/pkcs11 v1.0.2
 	github.com/niclabs/dtcnode/v3 v3.0.0
-	github.com/niclabs/tcecdsa v0.0.2
+	github.com/niclabs/tcecdsa v0.0.3
 	github.com/niclabs/tcrsa v0.0.4
 	github.com/pebbe/zmq4 v1.0.0
 	github.com/spf13/viper v1.4.0
 )
 
-replace github.com/niclabs/dtcnode/v3 v3.0.0 => /mnt/data/code/go/dtcnode
+replace github.com/niclabs/dtcnode/v3 v3.0.0 => /home/eriveros/go/src/dtcnode
