@@ -73,10 +73,10 @@ github.com/niclabs/dtcconfig v1.0.5 h1:PKJoUxxhv1T8CvM1gw2cDOOULf1h4PbF2B5B7P9v9
 github.com/niclabs/dtcconfig v1.0.5/go.mod h1:XrrWKYytCJ2NRf4XZlll+ryZ3h8bx3TU2WHIkrykN1w=
 github.com/niclabs/dtcnode/v2 v2.0.0 h1:9Zs54VBRAzRM0vdWj2ja3ohu1jw5ck6Gse2Bgl5bL/s=
 github.com/niclabs/dtcnode/v2 v2.0.0/go.mod h1:fJR9NXNsuLWsoqqJwmEXSGlHZ1FsZg8VgG1nvlSNFKM=
-github.com/niclabs/tcecdsa v0.0.3 h1:isFBQY7i8VoIKys4JCBgWsZhVqM+EA1B+kGbDEd1VxM=
-github.com/niclabs/tcecdsa v0.0.3/go.mod h1:Lmx3SfXPs/YmUgCvlO8wZeHKtBQgpfLTP0qkwV2cBbA=
+github.com/niclabs/tcecdsa v0.0.4/go.mod h1:geBKXtMKmKTw72NSU01C0/5Q8YZqy4N4R+vuVpVISa8=
 github.com/niclabs/tcpaillier v0.0.5 h1:9AMAf/f5QckO4JgBTgeDimgLPjELWU/pHDzN8a2gzL4=
 github.com/niclabs/tcpaillier v0.0.5/go.mod h1:PnZgJxcHZFSuXo6oSK6kMABkChr9URTmmGLNjgjkbNs=
+github.com/niclabs/tcpaillier v0.0.6/go.mod h1:PnZgJxcHZFSuXo6oSK6kMABkChr9URTmmGLNjgjkbNs=
 github.com/niclabs/tcrsa v0.0.3/go.mod h1:ratVlzSF2LkdYLmDDvqwmpQFtHbyZIWTa1J02Ogxw+A=
 github.com/niclabs/tcrsa v0.0.4 h1:0UG7xVEFE7TV+epTrwGxMrMX0+9PHLT4kbBut4J//bk=
 github.com/niclabs/tcrsa v0.0.4/go.mod h1:ratVlzSF2LkdYLmDDvqwmpQFtHbyZIWTa1J02Ogxw+A=

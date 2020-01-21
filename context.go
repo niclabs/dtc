@@ -3,7 +3,11 @@ package main
 #include "pkcs11go.h"
 */
 import "C"
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"fmt"
+	"github.com/niclabs/dtc/v3/utils"
+)
 
 // SignContext represents a structure which groups parameters that allow to sign
 // a document.
@@ -73,9 +77,9 @@ func NewSignContext(session *Session, mechanism *Mechanism, hKey  C.CK_OBJECT_HA
 		if err := c.Init(keyMetaAttr.Value); err != nil {
 			return nil, err
 		}
-		pk, err := asn1ToPublicKey(c.keyMeta.Curve, pkAttr.Value)
+		pk, err := utils.ASN1BytesToPubKey(c.keyMeta.Curve(), pkAttr.Value)
 		if err != nil {
-			return nil, err
+			return nil, NewError("NewSignContext", fmt.Sprintf("%s", err), C.CKR_ARGUMENTS_BAD)
 		}
 		c.pubKey = pk
 		context = c
@@ -121,7 +125,7 @@ func NewVerifyContext(session *Session, mechanism *Mechanism, hKey  C.CK_OBJECT_
 		// Get PK
 		pkAttr := keyObject.FindAttribute(C.CKA_EC_POINT)
 		if pkAttr == nil {
-			return nil, NewError("NewSignContext", "object handle does not contain any ec public key attribute", C.CKR_ARGUMENTS_BAD)
+			return nil, NewError("NewVerifyContext", "object handle does not contain any ec public key attribute", C.CKR_ARGUMENTS_BAD)
 		}
 		c := &ECDSAVerifyContext{
 			dtc:       dtc,
@@ -133,9 +137,9 @@ func NewVerifyContext(session *Session, mechanism *Mechanism, hKey  C.CK_OBJECT_
 		if err := c.Init(keyMetaAttr.Value); err != nil {
 			return nil, err
 		}
-		pk, err := asn1ToPublicKey(c.keyMeta.Curve, pkAttr.Value)
+		pk, err := utils.ASN1BytesToPubKey(c.keyMeta.Curve(), pkAttr.Value)
 		if err != nil {
-			return nil, err
+			return nil, NewError("NewVerifyContext", fmt.Sprintf("%s", err), C.CKR_ARGUMENTS_BAD)
 		}
 		c.pubKey = pk
 		context = c

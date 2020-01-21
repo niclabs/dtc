@@ -112,6 +112,7 @@ func ErrorToRV(err error) C.CK_RV {
 	if err == nil {
 		return C.CKR_OK
 	}
+	log.Printf("%+v\n", err)
 	switch err.(type) {
 	case TcbError:
 		tcb := err.(TcbError)

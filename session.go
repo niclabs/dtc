@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/niclabs/dtc/v3/utils"
 	"github.com/niclabs/tcrsa"
 	"hash"
 	"log"
@@ -562,16 +563,11 @@ func (session *Session) generateECDSAKeyPair(pkTemplate, skTemplate Attributes) 
 		err = NewError("Session.GenerateECDSAKeyPair", "curve not defined", C.CKR_TEMPLATE_INCOMPLETE)
 		return
 	}
-	curveName, err := asn1ToCurveName(curveParams.Value)
+	curveName, err := utils.ASN1ToCurveName(curveParams.Value)
 	if err != nil {
-		return
+		return nil, nil, NewError("Session.GenerateECDSAKeyPair", fmt.Sprintf("%s", err), C.CKR_ARGUMENTS_BAD)
 	}
-	curve, ok := curveNameToCurve[curveName]
-	if !ok {
-		err = NewError("Session.GenerateECDSAKeyPair", "curve not supported", C.CKR_CURVE_NOT_SUPPORTED)
-		return
-	}
-	keyMeta, ecPK, err := dtc.ECDSACreateKey(keyID, curve)
+	keyMeta, ecPK, err := dtc.ECDSACreateKey(keyID, curveName)
 	if err != nil {
 		return
 	}

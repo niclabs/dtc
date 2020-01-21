@@ -8,9 +8,8 @@ import "C"
 import (
 	"crypto"
 	"crypto/ecdsa"
-	"crypto/elliptic"
-	"encoding/asn1"
 	"fmt"
+	"github.com/niclabs/dtc/v3/utils"
 	"github.com/niclabs/dtcnode/v3/message"
 	"github.com/niclabs/tcecdsa"
 	"io"
@@ -154,9 +153,9 @@ func createECDSAPublicKey(keyID string, pkAttrs Attributes, pk *ecdsa.PublicKey,
 		return nil, NewError("Session.createECDSAPublicKey", fmt.Sprintf("%s", err.Error()), C.CKR_ARGUMENTS_BAD)
 	}
 
-	ecPointSerialized, err := pubKeyToASN1(pk)
+	ecPointSerialized, err := utils.PubKeyToASN1Bytes(pk)
 	if err != nil {
-		return nil, err
+		return nil, NewError("Session.createECDSAPublicKey", "cannot interpret ec point", C.CKR_ARGUMENTS_BAD)
 	}
 
 	// This fields are defined in SoftHSM implementation
@@ -202,9 +201,9 @@ func createECDSAPrivateKey(keyID string, skAttrs Attributes, pk *ecdsa.PublicKey
 		return nil, NewError("Session.createECDSAPublicKey", fmt.Sprintf("%s", err.Error()), C.CKR_ARGUMENTS_BAD)
 	}
 
-	ecPointSerialized, err := pubKeyToASN1(pk)
+	ecPointSerialized, err := utils.PubKeyToASN1Bytes(pk)
 	if err != nil {
-		return nil, err
+		return nil, NewError("Session.createECDSAPublicKey", "cannot interpret ec point", C.CKR_ARGUMENTS_BAD)
 	}
 
 	// This fields are defined in SoftHSM implementation
@@ -246,63 +245,4 @@ func createECDSAPrivateKey(keyID string, skAttrs Attributes, pk *ecdsa.PublicKey
 	)
 
 	return skAttrs, nil
-}
-
-var curveNameToCurve = map[string]elliptic.Curve{
-	"P-224": elliptic.P224(),
-	"P-256": elliptic.P256(),
-	"P-384": elliptic.P384(),
-	"P-521": elliptic.P521(),
-}
-
-// from github.com/Thalesignite/crypto11
-var curveNameToASN1 = map[string]asn1.ObjectIdentifier{
-	"P-224": {1, 3, 132, 0, 33},
-	"P-256": {1, 2, 840, 10045, 3, 1, 7},
-	"P-384": {1, 3, 132, 0, 34},
-	"P-521": {1, 3, 132, 0, 35},
-}
-
-func asn1ToCurveName(b []byte) (string, error) {
-	var v asn1.ObjectIdentifier
-	extra, err := asn1.Unmarshal(b, v)
-	if len(extra) > 0 {
-		return "", NewError("Session.GenerateKeyPair", "extra data in params", C.CKR_DOMAIN_PARAMS_INVALID)
-	}
-	if err != nil {
-		return "", NewError("Session.GenerateKeyPair", fmt.Sprintf("error decrypting params: %s", err), C.CKR_DOMAIN_PARAMS_INVALID)
-	}
-	for name, item := range curveNameToASN1 {
-		if v.Equal(item) {
-			return name, nil
-		}
-	}
-	return "", NewError("Session.GenerateKeyPair", "curve unsupported", C.CKR_CURVE_NOT_SUPPORTED)
-}
-
-func pubKeyToASN1(pk *ecdsa.PublicKey) ([]byte, error) {
-	ecPointBytes := elliptic.Marshal(pk.Curve, pk.X, pk.Y)
-	ecPointASN1, err := asn1.Marshal(ecPointBytes)
-	if err != nil {
-		return nil, NewError("pubKeyToASN1", fmt.Sprintf("%s", err.Error()), C.CKR_ARGUMENTS_BAD)
-	}
-	return ecPointASN1, nil
-}
-
-func asn1ToPublicKey(c elliptic.Curve, b []byte) (*ecdsa.PublicKey, error) {
-	var pointBytes []byte
-	ecPointASN1, err := asn1.Unmarshal(b, pointBytes)
-	if err != nil {
-		return nil, NewError("asn1ToPubKey", fmt.Sprintf("error decoding ec pubkey: %s", err.Error()), C.CKR_ARGUMENTS_BAD)
-	}
-	x, y := elliptic.Unmarshal(c, ecPointASN1)
-	if x == nil {
-		return nil, NewError("asn1ToPubKey", "error decoding ec pubkey: cannot transform the binary value into a point", C.CKR_ARGUMENTS_BAD)
-
-	}
-	return &ecdsa.PublicKey{
-		Curve: c,
-		X:     x,
-		Y:     y,
-	}, nil
 }

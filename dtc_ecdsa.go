@@ -2,18 +2,16 @@ package main
 
 import (
 	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"github.com/niclabs/tcecdsa"
 	"log"
 )
 
 // ECDSACreateKey creates a new key and saves its shares distributed among all the nodes.
-func (dtc *DTC) ECDSACreateKey(keyID string, curve elliptic.Curve) (*tcecdsa.KeyMeta, *ecdsa.PublicKey, error) {
+func (dtc *DTC) ECDSACreateKey(keyID string, curveName string) (*tcecdsa.KeyMeta, *ecdsa.PublicKey, error) {
 	dtc.Lock()
 	defer dtc.Unlock()
-	log.Printf("Creating new key with curve=%s, threshold=%d and nodes=%d", curve.Params().Name, dtc.Threshold, dtc.Nodes)
-	keyShares, keyMeta, err := tcecdsa.NewKey(uint8(dtc.Threshold), uint8(dtc.Nodes), curve, rand.Reader, nil)
+	log.Printf("Creating new key with curveName=%s, threshold=%d and nodes=%d", curveName, dtc.Threshold, dtc.Nodes)
+	keyShares, keyMeta, err := tcecdsa.NewKey(uint8(dtc.Nodes), uint8(dtc.Threshold), curveName, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -21,7 +19,7 @@ func (dtc *DTC) ECDSACreateKey(keyID string, curve elliptic.Curve) (*tcecdsa.Key
 	if err := dtc.Connection.SendECDSAKeyShares(keyID, keyShares, keyMeta); err != nil {
 		return nil, nil, err
 	}
-	log.Printf("Acking key shares related to keyid=%s", keyID)
+	log.Printf("Receiving keyInit messages from keyid=%s", keyID)
 	keyInitMessageList, err := dtc.Connection.GetECDSAKeyInitMessageList()
 	if err != nil {
 		return nil, nil, err
@@ -30,9 +28,11 @@ func (dtc *DTC) ECDSACreateKey(keyID string, curve elliptic.Curve) (*tcecdsa.Key
 	if err != nil {
 		return nil, nil, err
 	}
+	log.Printf("Sending keyInit messages for keyid=%s", keyID)
 	if err := dtc.Connection.SendECDSAKeyInitMessageList(keyID, keyInitMessageList); err != nil {
 		return nil, nil, err
 	}
+	log.Printf("Acking keyInit message reception for keyid=%s", keyID)
 	if err := dtc.Connection.AckECDSAKeyInitReception(); err != nil {
 		return nil, nil, err
 	}
@@ -50,36 +50,44 @@ func (dtc *DTC) ECDSASignData(keyID string, meta *tcecdsa.KeyMeta, data []byte) 
 		dtc.Connection.AckECDSASessionRestart()
 	}()
 	// Round 1
+	log.Printf("Sending Round 1 messages...")
 	if err := dtc.Connection.AskForECDSARound1MessageList(keyID, data); err != nil {
 		return nil, err
 	}
+	log.Printf("Receiving Round 1 responses...")
 	nodeIDs, round1List, err := dtc.Connection.GetECDSARound1MessageList(int(meta.Paillier.K))
 	if err != nil {
 		return nil, err
 	}
 
 	//Round 2
+	log.Printf("Sending Round 2 messages...")
 	if err := dtc.Connection.AskForECDSARound2MessageList(keyID, nodeIDs, round1List); err != nil {
 		return nil, err
 	}
+	log.Printf("Receiving Round 2 responses...")
 	round2List, err := dtc.Connection.GetECDSARound2MessageList(int(meta.Paillier.K))
 	if err != nil {
 		return nil, err
 	}
 
 	// Round 3
+	log.Printf("Sending Round 3 messages...")
 	if err := dtc.Connection.AskForECDSARound3MessageList(keyID, nodeIDs, round2List); err != nil {
 		return nil, err
 	}
+	log.Printf("Receiving Round 3 responses...")
 	round3List, err := dtc.Connection.GetECDSARound3MessageList(int(meta.Paillier.K))
 	if err != nil {
 		return nil, err
 	}
 
 	// GetSignature
+	log.Printf("Sending Round 4 (getSignature) messages...")
 	if err := dtc.Connection.AskForECDSASignature(keyID, nodeIDs, round3List); err != nil {
 		return nil, err
 	}
+	log.Printf("Receiving Round 4 (getSignature) responses...")
 	r, s, err := dtc.Connection.GetECDSASignature(int(meta.Paillier.K))
 	if err != nil {
 		return nil, err
