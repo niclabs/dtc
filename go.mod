@@ -16,7 +16,7 @@ require (
 
 replace (
 	github.com/niclabs/dtcnode/v3 v3.0.0 => /mnt/data/code/go/dtcnode
-	github.com/niclabs/tcecdsa v0.0.3 => /mnt/data/code/go/tcecdsa
-	github.com/niclabs/tcpaillier v0.0.5 => /mnt/data/code/go/tcpaillier
+	github.com/niclabs/tcecdsa v0.0.4 => /mnt/data/code/go/tcecdsa
+	github.com/niclabs/tcpaillier v0.0.6 => /mnt/data/code/go/tcpaillier
 
 )

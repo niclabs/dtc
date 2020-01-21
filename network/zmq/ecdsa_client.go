@@ -46,7 +46,7 @@ func (client *Client) GetECDSAKeyInitMessageList() (tcecdsa.KeyInitMessageList, 
 		return nil, fmt.Errorf("cannot ask for KeyInitMessages in a currentMessage state different to SendECDSAKeyShare")
 	}
 	list := make(tcecdsa.KeyInitMessageList, 0)
-	if err := doForNTimeout(client.channel, len(client.nodes), client.timeout, func(msg *message.Message) error {
+	if err := doForNTimeout(client.channel, len(client.nodes), client.timeout, client.doMessage(func(msg *message.Message) error {
 		keyInitMsg, err := message.DecodeECDSAKeyInitMessage(msg.Data[0])
 		if err != nil {
 			return fmt.Errorf("corrupt key: %v\n", msg)
@@ -54,7 +54,7 @@ func (client *Client) GetECDSAKeyInitMessageList() (tcecdsa.KeyInitMessageList, 
 			list = append(list, keyInitMsg)
 			return nil
 		}
-	}); err != nil {
+	})); err != nil {
 		return nil, err
 	}
 	return list, nil
@@ -139,7 +139,7 @@ func (client *Client) GetECDSARound1MessageList(k int) ([]string, tcecdsa.Round1
 	}
 	list := make(tcecdsa.Round1MessageList, 0)
 	msgIDs := make([]string, 0)
-	if err := doForNTimeout(client.channel, k, client.timeout, func(msg *message.Message) error {
+	if err := doForNTimeout(client.channel, k, client.timeout, client.doMessage(func(msg *message.Message) error {
 		keyInitMsg, err := message.DecodeECDSARound1Message(msg.Data[0])
 		if err != nil {
 			return fmt.Errorf("corrupt key: %v\n", msg)
@@ -148,7 +148,7 @@ func (client *Client) GetECDSARound1MessageList(k int) ([]string, tcecdsa.Round1
 			msgIDs = append(msgIDs, msg.NodeID)
 			return nil
 		}
-	}); err != nil {
+	})); err != nil {
 		return nil, nil, err
 	}
 	if len(list) != k || len(msgIDs) != k{
@@ -200,7 +200,7 @@ func (client *Client) GetECDSARound2MessageList(k int) (tcecdsa.Round2MessageLis
 		return nil, fmt.Errorf("cannot get Round2MessageList in a currentMessage state different to ECDSARound1")
 	}
 	list := make(tcecdsa.Round2MessageList, 0)
-	if err := doForNTimeout(client.channel, k, client.timeout, func(msg *message.Message) error {
+	if err := doForNTimeout(client.channel, k, client.timeout, client.doMessage(func(msg *message.Message) error {
 		keyInitMsg, err := message.DecodeECDSARound2Message(msg.Data[0])
 		if err != nil {
 			return fmt.Errorf("corrupt key: %v\n", msg)
@@ -208,7 +208,7 @@ func (client *Client) GetECDSARound2MessageList(k int) (tcecdsa.Round2MessageLis
 			list = append(list, keyInitMsg)
 			return nil
 		}
-	}); err != nil {
+	})); err != nil {
 		return nil, err
 	}
 	if len(list) != k {
@@ -260,7 +260,7 @@ func (client *Client) GetECDSARound3MessageList(k int) (tcecdsa.Round3MessageLis
 		return nil, fmt.Errorf("cannot get Round3MessageList in a currentMessage state different to ECDSARound1")
 	}
 	list := make(tcecdsa.Round3MessageList, 0)
-	if err := doForNTimeout(client.channel, k, client.timeout, func(msg *message.Message) error {
+	if err := doForNTimeout(client.channel, k, client.timeout, client.doMessage(func(msg *message.Message) error {
 		keyInitMsg, err := message.DecodeECDSARound3Message(msg.Data[0])
 		if err != nil {
 			return fmt.Errorf("corrupt key: %v\n", msg)
@@ -268,7 +268,7 @@ func (client *Client) GetECDSARound3MessageList(k int) (tcecdsa.Round3MessageLis
 			list = append(list, keyInitMsg)
 			return nil
 		}
-	}); err != nil {
+	})); err != nil {
 		return nil, err
 	}
 	if len(list) != k {
@@ -321,7 +321,7 @@ func (client *Client) GetECDSASignature(k int) (*big.Int, *big.Int, error) {
 	}
 	rList := make([]*big.Int, 0)
 	sList := make([]*big.Int, 0)
-	if err := doForNTimeout(client.channel, k, client.timeout, func(msg *message.Message) error {
+	if err := doForNTimeout(client.channel, k, client.timeout, client.doMessage(func(msg *message.Message) error {
 		r, s, err := message.DecodeECDSASignature(msg.Data[0])
 		if err != nil {
 			return fmt.Errorf("corrupt key: %v\n", msg)
@@ -330,7 +330,7 @@ func (client *Client) GetECDSASignature(k int) (*big.Int, *big.Int, error) {
 			sList = append(sList, s)
 			return nil
 		}
-	}); err != nil {
+	})); err != nil {
 		return nil, nil, err
 	}
 	if len(rList) != k || len(sList) != k {

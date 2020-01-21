@@ -84,7 +84,8 @@ func (client *Client) GetRSASigShares(k int) (tcrsa.SigShareList, error) {
 		return nil, fmt.Errorf("cannot get sig shares in a currentMessage state different to getRSASigShare")
 	}
 	sigShares := make(tcrsa.SigShareList, 0)
-	if err := doForNTimeout(client.channel, k, client.timeout, func(msg *message.Message) error {
+	if err := doForNTimeout(client.channel, k, client.timeout, client.doMessage(func(msg *message.Message) error {
+
 		sigShare, err := message.DecodeRSASigShare(msg.Data[0])
 		if err != nil {
 			return fmt.Errorf("corrupt key: %v\n", msg)
@@ -92,7 +93,7 @@ func (client *Client) GetRSASigShares(k int) (tcrsa.SigShareList, error) {
 			sigShares = append(sigShares, sigShare)
 			return nil
 		}
-	}); err != nil {
+	})); err != nil {
 		return nil, err
 	}
 	return sigShares, nil
