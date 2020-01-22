@@ -70,26 +70,25 @@ type ECDSAConnection interface {
 
 	// AskForECDSARound2MessageList sends a list of K Round1Message to the
 	// selected nodes.
-	AskForECDSARound2MessageList(id string, nodeIDs []string, messages tcecdsa.Round1MessageList) error
+	AskForECDSARound2MessageList(nodeIDs []string, messages tcecdsa.Round1MessageList) error
 
 	// GetECDSARound2MessageList returns a list of K Round2Message.
 	GetECDSARound2MessageList(k int) (tcecdsa.Round2MessageList, error)
 
 	// AskForECDSARound3MessageList sends a list of K Round2Message to the
 	// selected nodes.
-	AskForECDSARound3MessageList(id string, nodeIDs []string, messages tcecdsa.Round2MessageList) error
+	AskForECDSARound3MessageList(nodeIDs []string, messages tcecdsa.Round2MessageList) error
 
 	// GetECDSARound2MessageList returns a list of K Round3Message.
 	GetECDSARound3MessageList(k int) (tcecdsa.Round3MessageList, error)
 
 	// AskForECDSASignature sends a list of K Round3Message to the
 	// selected nodes.
-	AskForECDSASignature(id string, nodeIDs []string, messages tcecdsa.Round3MessageList) error
+	AskForECDSASignature(nodeIDs []string, messages tcecdsa.Round3MessageList) error
 
 	// GetECDSASignature returns r and s, parameters of the signature over
 	// the message.
 	GetECDSASignature(k int) (*big.Int, *big.Int, error)
-
 
 	// AskForECDSAKeyDeletion asks the nodes to delete a key share.
 	AskForECDSAKeyDeletion(id string) error
@@ -97,11 +96,4 @@ type ECDSAConnection interface {
 	// AckECDSAKeyDeletion receives the acks from the nodes for having deleted the keys.
 	// It returns an error on timeout.
 	AckECDSAKeyDeletion() error
-
-	// AskForECDSASessionRestart asks the nodes to restart their sessions.
-	AskForECDSASessionRestart() error
-
-	// AckECDSASessionRestart receives the acks from the nodes for having restarted its session.
-	// It returns an error on timeout.
-	AckECDSASessionRestart() error
 }

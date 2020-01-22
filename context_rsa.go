@@ -46,7 +46,7 @@ func (context *SignContextRSA) Init(metaBytes []byte) (err error) {
 	return
 }
 
-func (context *SignContextRSA) Length() int {
+func (context *SignContextRSA) SignatureLength() int {
 	return context.keyMeta.PublicKey.Size()
 }
 

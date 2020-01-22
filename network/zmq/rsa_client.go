@@ -27,7 +27,6 @@ func (client *Client) SendRSAKeyShares(keyID string, keys tcrsa.KeyShareList, me
 			return fmt.Errorf("error with node %d: %s", i, err)
 		}
 		client.pendingMessages[msg.ID] = msg
-		go node.recvMessage()
 		i++
 	}
 	client.currentMessage = message.SendRSAKeyShare
@@ -67,7 +66,6 @@ func (client *Client) AskForRSASigShares(keyID string, hash []byte) error {
 			return fmt.Errorf("error asking sigshare with node %s: %s", node.ID(), err)
 		}
 		client.pendingMessages[msg.ID] = msg
-		go node.recvMessage()
 	}
 	client.currentMessage = message.GetRSASigShare
 	return nil
@@ -84,8 +82,7 @@ func (client *Client) GetRSASigShares(k int) (tcrsa.SigShareList, error) {
 		return nil, fmt.Errorf("cannot get sig shares in a currentMessage state different to getRSASigShare")
 	}
 	sigShares := make(tcrsa.SigShareList, 0)
-	if err := doForNTimeout(client.channel, k, client.timeout, client.doMessage(func(msg *message.Message) error {
-
+	err := doForNTimeout(client.channel, len(client.nodes), client.timeout, client.doMessage(func(msg *message.Message) error {
 		sigShare, err := message.DecodeRSASigShare(msg.Data[0])
 		if err != nil {
 			return fmt.Errorf("corrupt key: %v\n", msg)
@@ -93,10 +90,11 @@ func (client *Client) GetRSASigShares(k int) (tcrsa.SigShareList, error) {
 			sigShares = append(sigShares, sigShare)
 			return nil
 		}
-	})); err != nil {
+	}))
+	if (err != nil && err != TimeoutError) || (len(sigShares) < k) {
 		return nil, err
 	}
-	return sigShares, nil
+	return sigShares[:k], nil
 }
 
 func (client *Client) AskForRSAKeyDeletion(keyID string) error {
@@ -115,7 +113,6 @@ func (client *Client) AskForRSAKeyDeletion(keyID string) error {
 			return fmt.Errorf("error with node %d: %s", i, err)
 		}
 		client.pendingMessages[msg.ID] = msg
-		go node.recvMessage()
 	}
 	client.currentMessage = message.DeleteRSAKeyShare
 	return nil

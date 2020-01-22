@@ -43,4 +43,3 @@ func NewDTC(config config.DTCConfig) (*DTC, error) {
 	}
 	return dtc, nil
 }
-

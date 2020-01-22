@@ -133,14 +133,15 @@ func (session *Session) CreateObject(attrs Attributes) (*CryptoObject, error) {
 
 	switch oClass {
 	case C.CKO_PUBLIC_KEY, C.CKO_PRIVATE_KEY:
-		if keyType == C.CKK_RSA {
+		switch keyType {
+		case C.CKK_RSA, C.CKK_EC:
 			token.AddObject(object)
 			err := session.Slot.Application.Storage.SaveToken(token)
 			if err != nil {
 				return nil, NewError("Session.CreateObject", err.Error(), C.CKR_DEVICE_ERROR)
 			}
 			return object, nil
-		} else {
+		default:
 			return nil, NewError("Session.CreateObject", "key type not supported yet", C.CKR_ATTRIBUTE_VALUE_INVALID)
 		}
 	}
@@ -405,7 +406,7 @@ func (session *Session) SignLength() (C.ulong, error) {
 	if session.signCtx == nil || !session.signCtx.Initialized() {
 		return 0, NewError("Session.SignLength", "operation not initialized", C.CKR_OPERATION_NOT_INITIALIZED)
 	}
-	return C.ulong(session.signCtx.Length()), nil
+	return C.ulong(session.signCtx.SignatureLength()), nil
 }
 
 // SignUpdate updates the signature with data to sign.
@@ -560,7 +561,7 @@ func (session *Session) generateECDSAKeyPair(pkTemplate, skTemplate Attributes) 
 	keyID := uuid.New().String()
 	curveParams, err := pkTemplate.GetAttributeByType(C.CKA_EC_PARAMS)
 	if err != nil {
-		err = NewError("Session.GenerateECDSAKeyPair", "curve not defined", C.CKR_TEMPLATE_INCOMPLETE)
+		err = NewError("Session.GenerateECDSAKeyPair", fmt.Sprintf("error getting curve: %s", err), C.CKR_TEMPLATE_INCOMPLETE)
 		return
 	}
 	curveName, err := utils.ASN1ToCurveName(curveParams.Value)

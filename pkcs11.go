@@ -127,18 +127,19 @@ func ErrorToRV(err error) C.CK_RV {
 
 //export C_Initialize
 func C_Initialize(pInitArgs C.CK_VOID_PTR) C.CK_RV {
-	log.Printf("Called: C_Initialize\n")
+	log.Printf("Called: C_Initialize")
 	// by now, we support only CKF_OS_LOCKING_OK
 	if App != nil {
 		return C.CKR_CRYPTOKI_ALREADY_INITIALIZED
 	}
-
 	cInitArgs := (*C.CK_C_INITIALIZE_ARGS)(unsafe.Pointer(pInitArgs))
 	if (cInitArgs.flags&C.CKF_OS_LOCKING_OK == 0) || (cInitArgs.pReserved != nil) {
 		return C.CKR_ARGUMENTS_BAD
 	}
 	var err error
+	log.Printf("Creating new app")
 	App, err = NewApplication()
+	log.Printf("Created new app")
 	return ErrorToRV(err)
 }
 
@@ -718,7 +719,9 @@ func C_SignFinal(hSession C.CK_SESSION_HANDLE, pSignature C.CK_BYTE_PTR, pulSign
 		*pulSignatureLen = sigLen
 		return C.CKR_BUFFER_TOO_SMALL
 	} else {
+		log.Printf("starting signFinal")
 		signature, err := session.SignFinal()
+		log.Printf("signFinal done")
 		if err != nil {
 			return ErrorToRV(err)
 		}
@@ -755,13 +758,16 @@ func C_Sign(hSession C.CK_SESSION_HANDLE, pData C.CK_BYTE_PTR, ulDataLen C.CK_UL
 		data := C.GoBytes(unsafe.Pointer(pData), C.int(ulDataLen))
 		err = session.SignUpdate(data)
 		signature, err := session.SignFinal()
+		log.Printf("signFinal ended")
 		if err != nil {
 			return ErrorToRV(err)
 		}
 		cSignature := C.CBytes(signature)
-		defer C.free(cSignature)
 		*pulSignatureLen = C.ulong(len(signature))
 		C.memcpy(unsafe.Pointer(pSignature), cSignature, *pulSignatureLen)
+		log.Printf("freeing cSignature")
+		C.free(cSignature)
+		log.Printf("done with this branch")
 	}
 	return C.CKR_OK
 }

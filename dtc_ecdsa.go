@@ -44,11 +44,6 @@ func (dtc *DTC) ECDSASignData(keyID string, meta *tcecdsa.KeyMeta, data []byte) 
 	dtc.Lock()
 	defer dtc.Unlock()
 	log.Printf("Signing data with key of id=%s", keyID)
-	defer func() {
-		// Reset Session
-		dtc.Connection.AskForECDSASessionRestart()
-		dtc.Connection.AckECDSASessionRestart()
-	}()
 	// Round 1
 	log.Printf("Sending Round 1 messages...")
 	if err := dtc.Connection.AskForECDSARound1MessageList(keyID, data); err != nil {
@@ -62,7 +57,7 @@ func (dtc *DTC) ECDSASignData(keyID string, meta *tcecdsa.KeyMeta, data []byte) 
 
 	//Round 2
 	log.Printf("Sending Round 2 messages...")
-	if err := dtc.Connection.AskForECDSARound2MessageList(keyID, nodeIDs, round1List); err != nil {
+	if err := dtc.Connection.AskForECDSARound2MessageList(nodeIDs, round1List); err != nil {
 		return nil, err
 	}
 	log.Printf("Receiving Round 2 responses...")
@@ -73,7 +68,7 @@ func (dtc *DTC) ECDSASignData(keyID string, meta *tcecdsa.KeyMeta, data []byte) 
 
 	// Round 3
 	log.Printf("Sending Round 3 messages...")
-	if err := dtc.Connection.AskForECDSARound3MessageList(keyID, nodeIDs, round2List); err != nil {
+	if err := dtc.Connection.AskForECDSARound3MessageList(nodeIDs, round2List); err != nil {
 		return nil, err
 	}
 	log.Printf("Receiving Round 3 responses...")
@@ -84,7 +79,7 @@ func (dtc *DTC) ECDSASignData(keyID string, meta *tcecdsa.KeyMeta, data []byte) 
 
 	// GetSignature
 	log.Printf("Sending Round 4 (getSignature) messages...")
-	if err := dtc.Connection.AskForECDSASignature(keyID, nodeIDs, round3List); err != nil {
+	if err := dtc.Connection.AskForECDSASignature(nodeIDs, round3List); err != nil {
 		return nil, err
 	}
 	log.Printf("Receiving Round 4 (getSignature) responses...")

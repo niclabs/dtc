@@ -48,8 +48,12 @@ func (context *ECDSASignContext) Init(metaBytes []byte) (err error) {
 	return
 }
 
-func (context *ECDSASignContext) Length() int {
-	return (context.pubKey.Params().BitSize + 7) / 8
+func (context *ECDSASignContext) SignatureLength() int {
+	// Signature is composed by two numbers of bitsize = pubkey size
+	// ASN.1 has overhead so we multiply it by 3 instead of two
+	// (it is not so costly, and on signaturefinal we correct the final size)
+	// of the signature
+	return 3 * ((context.pubKey.Params().BitSize + 7) / 8)
 }
 
 func (context *ECDSASignContext) Update(data []byte) error {
@@ -60,7 +64,7 @@ func (context *ECDSASignContext) Update(data []byte) error {
 func (context *ECDSASignContext) Final() ([]byte, error) {
 	prepared, err := context.mechanism.Prepare(
 		context.randSrc,
-		context.Length(),
+		context.SignatureLength(),
 		context.data,
 	)
 	if err != nil {

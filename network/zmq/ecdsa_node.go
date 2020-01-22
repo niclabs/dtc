@@ -52,12 +52,12 @@ func (node *Node) ecdsaRound1(id string, doc []byte) (msg *message.Message, err 
 	return msg, nil
 }
 
-func (node *Node) ecdsaRound2(id string, messages tcecdsa.Round1MessageList) (msg *message.Message, err error) {
+func (node *Node) ecdsaRound2(messages tcecdsa.Round1MessageList) (msg *message.Message, err error) {
 	msgsBin, err := message.EncodeECDSARound1MessageList(messages)
 	if err != nil {
 		return nil, err
 	}
-	msg, err = message.NewMessage(message.ECDSARound2, node.ID(), []byte(id), msgsBin)
+	msg, err = message.NewMessage(message.ECDSARound2, node.ID(), msgsBin)
 	if err != nil {
 		return nil, err
 	}
@@ -67,12 +67,12 @@ func (node *Node) ecdsaRound2(id string, messages tcecdsa.Round1MessageList) (ms
 	return msg, nil
 }
 
-func (node *Node) ecdsaRound3(id string, messages tcecdsa.Round2MessageList) (msg *message.Message, err error) {
+func (node *Node) ecdsaRound3(messages tcecdsa.Round2MessageList) (msg *message.Message, err error) {
 	msgsBin, err := message.EncodeECDSARound2MessageList(messages)
 	if err != nil {
 		return nil, err
 	}
-	msg, err = message.NewMessage(message.ECDSARound3, node.ID(), []byte(id), msgsBin)
+	msg, err = message.NewMessage(message.ECDSARound3, node.ID(), msgsBin)
 	if err != nil {
 		return nil, err
 	}
@@ -82,12 +82,12 @@ func (node *Node) ecdsaRound3(id string, messages tcecdsa.Round2MessageList) (ms
 	return msg, nil
 }
 
-func (node *Node) ecdsaGetSignature(id string, messages tcecdsa.Round3MessageList) (msg *message.Message, err error) {
+func (node *Node) ecdsaGetSignature(messages tcecdsa.Round3MessageList) (msg *message.Message, err error) {
 	msgsBin, err := message.EncodeECDSARound3MessageList(messages)
 	if err != nil {
 		return nil, err
 	}
-	msg, err = message.NewMessage(message.ECDSAGetSignature, node.ID(), []byte(id), msgsBin)
+	msg, err = message.NewMessage(message.ECDSAGetSignature, node.ID(), msgsBin)
 	if err != nil {
 		return nil, err
 	}
@@ -99,18 +99,6 @@ func (node *Node) ecdsaGetSignature(id string, messages tcecdsa.Round3MessageLis
 
 func (node *Node) deleteECDSAKeyShare(id string) (*message.Message, error) {
 	msg, err := message.NewMessage(message.DeleteECDSAKeyShare, node.ID(), []byte(id))
-	if err != nil {
-		return nil, err
-	}
-	_, err = node.socket.SendMessage(msg.GetBytesLists()...)
-	if err != nil {
-		return nil, err
-	}
-	return msg, nil
-}
-
-func (node *Node) restartECDSASession() (*message.Message, error) {
-	msg, err := message.NewMessage(message.RestartECDSASession, node.ID())
 	if err != nil {
 		return nil, err
 	}

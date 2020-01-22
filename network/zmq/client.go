@@ -29,10 +29,10 @@ type Client struct {
 	running         bool                        // true if it is running
 	privKey         string                      // Private Key of node
 	pubKey          string                      // Public Key of node
-	timeout         time.Duration               // Length of timeout in seconds
+	timeout         time.Duration               // SignatureLength of timeout in seconds
 	nodes           map[string]*Node            // Map of connected nodes of type ZMQ
 	ctx             *zmq4.Context               // ZMQ Context
-	pendingMessages map[string]*message.Message // A map with requests without response. To know what message I'm expecting.
+	pendingMessages map[string]*message.Message // A map with requests without response. ResponseOf know what message I'm expecting.
 	channel         chan *message.Message       // The channel where all the responses from router are sent.
 	mutex           sync.Mutex                  // A mutex to operate the pendingMessages map.
 	currentMessage  message.Type                // A label which indicates the operation the connection is doing right now. It avoids inconsistent states (i.e. ask for a type of resource and then collect another one).
@@ -85,6 +85,7 @@ func (client *Client) Open() (err error) {
 			zmq4.AuthStop()
 			return
 		}
+		node.listen()
 	}
 	client.running = true
 	return
@@ -97,6 +98,7 @@ func (client *Client) Close() error {
 	// Try to disconnect from peers
 	for _, node := range client.nodes {
 		err := node.disconnect()
+		node.stopReceiving()
 		if err != nil {
 			return err
 		}
@@ -142,19 +144,18 @@ func (client *Client) ackOnly(msg *message.Message) error {
 // It returns an error from the preliminary check or an error from fn.
 func (client *Client) doMessage(fn func(msg *message.Message) error) func(msg *message.Message) error {
 	return func(msg *message.Message) error {
-		log.Printf("message received from node %s\n", msg.NodeID)
+		log.Printf("message received from node %s\n", msg.From)
 		if pending, exists := client.pendingMessages[msg.ID]; exists {
-			if err := msg.Ok(pending); err != nil {
-				log.Printf("error with message from node %s: %v\n", msg.NodeID, message.ErrorToString[msg.Error])
-			}
 			delete(client.pendingMessages, msg.ID)
+			if err := msg.ResponseOK(pending); err != nil {
+				log.Printf("error with message from node %s: %v\n", msg.From, err)
+				return err
+			}
 			if fn != nil {
-				if err := fn(msg); err != nil {
-					return err
-				}
+				return fn(msg)
 			}
 		} else {
-			log.Printf("unexpected message: %+v\n", msg)
+			log.Printf("unexpected message, ignoring (id: %s, type: %s, from: %s, responseOf: %s)", msg.ID, msg.Type.String(), msg.From, msg.ResponseOf)
 		}
 		return nil
 	}

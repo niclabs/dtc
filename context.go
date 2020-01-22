@@ -1,4 +1,5 @@
 package main
+
 /*
 #include "pkcs11go.h"
 */
@@ -13,7 +14,7 @@ import (
 // a document.
 type SignContext interface {
 	Init(metaBytes []byte) error
-	Length() int
+	SignatureLength() int
 	Update(data []byte) error
 	Final() ([]byte, error)
 	Initialized() bool
@@ -29,7 +30,7 @@ type VerifyContext interface {
 	Initialized() bool
 }
 
-func NewSignContext(session *Session, mechanism *Mechanism, hKey  C.CK_OBJECT_HANDLE) (context SignContext, err error) {
+func NewSignContext(session *Session, mechanism *Mechanism, hKey C.CK_OBJECT_HANDLE) (context SignContext, err error) {
 	keyObject, err := session.GetObject(hKey)
 	if err != nil {
 		return nil, err
@@ -89,7 +90,7 @@ func NewSignContext(session *Session, mechanism *Mechanism, hKey  C.CK_OBJECT_HA
 	return context, nil
 }
 
-func NewVerifyContext(session *Session, mechanism *Mechanism, hKey  C.CK_OBJECT_HANDLE) (context VerifyContext, err error) {
+func NewVerifyContext(session *Session, mechanism *Mechanism, hKey C.CK_OBJECT_HANDLE) (context VerifyContext, err error) {
 	keyObject, err := session.GetObject(hKey)
 	if err != nil {
 		return nil, err

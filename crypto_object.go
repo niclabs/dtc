@@ -6,6 +6,7 @@ package main
 import "C"
 import (
 	"bytes"
+	"fmt"
 	"unsafe"
 )
 
@@ -117,7 +118,9 @@ func (object *CryptoObject) CopyAttributes(pTemplate C.CK_ATTRIBUTE_PTR, ulCount
 				return err
 			}
 		} else {
-			return NewError("CryptoObject.CopyAttributes", "got NULL pointer", C.CKR_ARGUMENTS_BAD)
+			return NewError("CryptoObject.CopyAttributes", fmt.Sprintf(
+				"Attribute number %d does not exist: %d", i, templateSlice[i]._type,
+			), C.CKR_ARGUMENTS_BAD)
 		}
 	}
 	return nil

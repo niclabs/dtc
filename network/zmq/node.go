@@ -13,13 +13,14 @@ type NodeState int
 
 // Node represents a remote machine connection. It has all the data required to connect to a node, and a pointer to use the respective Client struct.
 type Node struct {
-	id     string       // Internal Node ID
-	host   *net.IPAddr  // Host of remote node
-	port   uint16       // Port of remote node SUB
-	pubKey string       // Public key of remote node used in ZMQ CURVE Auth
-	socket *zmq4.Socket // ZMQ4 Socket
-	client *Client      // The server that manages this Node subroutine.
-	Err    error        // The last error this node had.
+	id     string        // Internal Node ID
+	host   *net.IPAddr   // Host of remote node
+	port   uint16        // Port of remote node SUB
+	pubKey string        // Public key of remote node used in ZMQ CURVE Auth
+	socket *zmq4.Socket  // ZMQ4 Socket
+	client *Client       // The server that manages this Node subroutine.
+	quit   chan struct{} // Signal to stop polling messages
+	Err    error         // The last error this node had.
 }
 
 func newNode(client *Client, config *config.NodeConfig) (*Node, error) {
@@ -38,12 +39,18 @@ func newNode(client *Client, config *config.NodeConfig) (*Node, error) {
 		port:   config.Port,
 		pubKey: config.PublicKey,
 		client: client,
+		quit:   make(chan struct{}, 1),
 	}, nil
 }
 
-// Returns client ID
+// ID Returns node ID
 func (node *Node) ID() string {
 	return node.id
+}
+
+// ClientID returns Client ID
+func (node *Node) ClientID() string {
+	return node.client.ID
 }
 
 func (node *Node) getConnString() string {
@@ -62,7 +69,7 @@ func (node *Node) connect() error {
 		return err
 	}
 	node.socket = s
-	if err := node.socket.SetIdentity(node.ID()); err != nil {
+	if err := node.socket.SetIdentity(node.ClientID()); err != nil {
 		node.Err = err
 		return err
 	}
@@ -89,16 +96,29 @@ func (node *Node) connect() error {
 	return nil
 }
 
-func (node *Node) recvMessage() {
-	rawMsg, err := node.socket.RecvMessageBytes(0)
-	if err != nil {
-		log.Printf("Error with new message: %v", err)
-		return
-	}
-	msg, err := message.FromBytes(rawMsg)
-	if err != nil {
-		log.Printf("Cannot parse message: %s\n", err)
-		return
-	}
-	node.client.channel <- msg
+func (node *Node) listen() {
+	go func() {
+		for {
+			select {
+			case <-node.quit:
+				log.Printf("stopping listening of messages")
+				return
+			default:
+				rawMsg, err := node.socket.RecvMessageBytes(0)
+				if err != nil {
+					continue
+				}
+				msg, err := message.FromBytes(rawMsg)
+				if err != nil {
+					log.Printf("Cannot parse message: %s\n", err)
+					return
+				}
+				node.client.channel <- msg
+			}
+		}
+	}()
+}
+
+func (node *Node) stopReceiving() {
+	node.quit <- struct{}{}
 }

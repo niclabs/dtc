@@ -23,8 +23,8 @@ type CriptokiConfig struct {
 	Model           string         // String that will be shown as Model
 	Description     string         // String that will be shown as Description
 	SerialNumber    string         // String that will be shown as Serial Number
-	MinPinLength    uint8          // String that will be used as Min Pin Length
-	MaxPinLength    uint8          // String that will be used as Max Pin Length
+	MinPinLength    uint8          // String that will be used as Min Pin SignatureLength
+	MaxPinLength    uint8          // String that will be used as Max Pin SignatureLength
 	MaxSessionCount uint16         // String that will be used as Max Session Count
 	DatabaseType    string         // Type of database used for saving criptoki info. Right now only is usable "sqlite3".
 	Slots           []*SlotsConfig // List of slots open.

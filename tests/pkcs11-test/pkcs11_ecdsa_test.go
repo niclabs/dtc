@@ -9,6 +9,7 @@ import (
 	"os"
 	"testing"
 )
+
 /*
 Purpose: GenerateConfig ECDSA keypair with a given name and persistence.
 Inputs: test object
@@ -77,13 +78,15 @@ func TestSignECDSA(t *testing.T) {
 	tokenLabel := "TestSignECDSA"
 	_, pvk := generateECDSAKeyPair(t, p, session, tokenLabel, false)
 
-	p.SignInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA_SHA256, nil)}, pvk)
+	err := p.SignInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA_SHA256, nil)}, pvk)
+	if err != nil {
+		t.Fatalf("failed to sign: %s", err)
+	}
 	_, e := p.Sign(session, []byte("Sign me!"))
 	if e != nil {
 		t.Fatalf("failed to sign: %s\n", e)
 	}
 }
-
 
 func TestFindECDSAObject(t *testing.T) {
 	p := setenv(t)
@@ -119,9 +122,7 @@ func TestGetECDSAAttributeValue(t *testing.T) {
 	pbk, _ := generateECDSAKeyPair(t, p, session, "GetAttributeValue", false)
 
 	template := []*pkcs11.Attribute{
-		pkcs11.NewAttribute(pkcs11.CKA_PUBLIC_EXPONENT, nil),
-		pkcs11.NewAttribute(pkcs11.CKA_MODULUS_BITS, nil),
-		pkcs11.NewAttribute(pkcs11.CKA_MODULUS, nil),
+		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, nil),
 		pkcs11.NewAttribute(pkcs11.CKA_LABEL, nil),
 	}
 	attr, err := p.GetAttributeValue(session, pkcs11.ObjectHandle(pbk), template)
@@ -173,18 +174,21 @@ func ExampleCtx_SignECDSA() {
 	defer p.CloseSession(session)
 	p.Login(session, pkcs11.CKU_USER, pin)
 	defer p.Logout(session)
+
+	ecParams, _ := utils.CurveNameToASN1Bytes("P-224")
+
 	publicKeyTemplate := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),
-		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_ECDSA),
+		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, false),
 		pkcs11.NewAttribute(pkcs11.CKA_ENCRYPT, true),
-		pkcs11.NewAttribute(pkcs11.CKA_PUBLIC_EXPONENT, []byte{3}),
-		pkcs11.NewAttribute(pkcs11.CKA_MODULUS_BITS, 1024),
+		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, ecParams),
+
 		pkcs11.NewAttribute(pkcs11.CKA_LABEL, "ExampleSign"),
 	}
 	privateKeyTemplate := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PRIVATE_KEY),
-		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_ECDSA),
+		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, false),
 		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, true),
 		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),

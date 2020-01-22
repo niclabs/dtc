@@ -52,13 +52,16 @@ func PubKeyToASN1Bytes(pk *ecdsa.PublicKey) ([]byte, error) {
 
 func ASN1BytesToPubKey(c elliptic.Curve, b []byte) (*ecdsa.PublicKey, error) {
 	var pointBytes []byte
-	ecPointASN1, err := asn1.Unmarshal(b, &pointBytes)
+	rest, err := asn1.Unmarshal(b, &pointBytes)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding ec pubkey: %s", err.Error())
 	}
-	x, y := elliptic.Unmarshal(c, ecPointASN1)
+	if len(rest) > 0 {
+		return nil, fmt.Errorf("error decoding ec pubkey: rest length is greater than zero")
+	}
+	x, y := elliptic.Unmarshal(c, pointBytes)
 	if x == nil {
-		return nil, fmt.Errorf("error decoding ec pubkey: cannot transform the binary value into a point")
+		return nil, fmt.Errorf("error decoding ec pubkey: cannot transform the binary value into a point using curve %s", c.Params().Name)
 
 	}
 	return &ecdsa.PublicKey{

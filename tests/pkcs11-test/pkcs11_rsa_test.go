@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 )
+
 /*
 Purpose: GenerateConfig RSA keypair with a given name and persistence.
 Inputs: test object
@@ -39,7 +40,7 @@ func generateRSAKeyPair(t *testing.T, p *pkcs11.Ctx, session pkcs11.SessionHandl
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, tokenPersistent),
 		pkcs11.NewAttribute(pkcs11.CKA_VERIFY, true),
 		pkcs11.NewAttribute(pkcs11.CKA_PUBLIC_EXPONENT, []byte{1, 0, 1}),
-		pkcs11.NewAttribute(pkcs11.CKA_MODULUS_BITS, 1024),
+		pkcs11.NewAttribute(pkcs11.CKA_MODULUS_BITS, 2048),
 		pkcs11.NewAttribute(pkcs11.CKA_LABEL, tokenLabel),
 	}
 	privateKeyTemplate := []*pkcs11.Attribute{
@@ -75,13 +76,15 @@ func TestSignRSA(t *testing.T) {
 	tokenLabel := "TestSignRSA"
 	_, pvk := generateRSAKeyPair(t, p, session, tokenLabel, false)
 
-	p.SignInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_SHA1_RSA_PKCS, nil)}, pvk)
+	err := p.SignInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_SHA1_RSA_PKCS, nil)}, pvk)
+	if err != nil {
+		t.Fatalf("failed to sign: %s", err)
+	}
 	_, e := p.Sign(session, []byte("Sign me!"))
 	if e != nil {
 		t.Fatalf("failed to sign: %s\n", e)
 	}
 }
-
 
 func TestFindRSAObject(t *testing.T) {
 	p := setenv(t)
@@ -177,7 +180,7 @@ func ExampleCtx_SignRSA() {
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, false),
 		pkcs11.NewAttribute(pkcs11.CKA_ENCRYPT, true),
 		pkcs11.NewAttribute(pkcs11.CKA_PUBLIC_EXPONENT, []byte{3}),
-		pkcs11.NewAttribute(pkcs11.CKA_MODULUS_BITS, 1024),
+		pkcs11.NewAttribute(pkcs11.CKA_MODULUS_BITS, 2048),
 		pkcs11.NewAttribute(pkcs11.CKA_LABEL, "ExampleSign"),
 	}
 	privateKeyTemplate := []*pkcs11.Attribute{

@@ -116,4 +116,3 @@ func (mechanism *Mechanism) Prepare(randSrc io.Reader, nBits int, data []byte) (
 		return
 	}
 }
-

@@ -23,12 +23,11 @@ func (client *Client) SendECDSAKeyShares(keyID string, keys []*tcecdsa.KeyShare,
 	i := 0
 	for id, node := range client.nodes {
 		log.Printf("Sending key share to node in %s:%d", node.host, node.port)
-		msg, err := node.sendECDSAKeyShare(id, keys[i], meta)
+		msg, err := node.sendECDSAKeyShare(keyID, keys[i], meta)
 		if err != nil {
 			return fmt.Errorf("error with node %s: %s", id, err)
 		}
 		client.pendingMessages[msg.ID] = msg
-		go node.recvMessage()
 		i++
 	}
 	client.currentMessage = message.SendECDSAKeyShare
@@ -79,7 +78,6 @@ func (client *Client) SendECDSAKeyInitMessageList(keyID string, messages tcecdsa
 			return fmt.Errorf("error with node %d: %s", i, err)
 		}
 		client.pendingMessages[msg.ID] = msg
-		go node.recvMessage()
 	}
 	client.currentMessage = message.ECDSAInitKeys
 	return nil
@@ -118,7 +116,6 @@ func (client *Client) AskForECDSARound1MessageList(keyID string, msgToSign []byt
 			return fmt.Errorf("error sending Round1Message with node %s: %s", node.ID(), err)
 		}
 		client.pendingMessages[msg.ID] = msg
-		go node.recvMessage()
 	}
 	client.currentMessage = message.ECDSARound1
 	return nil
@@ -139,25 +136,26 @@ func (client *Client) GetECDSARound1MessageList(k int) ([]string, tcecdsa.Round1
 	}
 	list := make(tcecdsa.Round1MessageList, 0)
 	msgIDs := make([]string, 0)
-	if err := doForNTimeout(client.channel, k, client.timeout, client.doMessage(func(msg *message.Message) error {
+	err := doForNTimeout(client.channel, len(client.nodes), client.timeout, client.doMessage(func(msg *message.Message) error {
 		keyInitMsg, err := message.DecodeECDSARound1Message(msg.Data[0])
 		if err != nil {
 			return fmt.Errorf("corrupt key: %v\n", msg)
 		} else {
 			list = append(list, keyInitMsg)
-			msgIDs = append(msgIDs, msg.NodeID)
+			msgIDs = append(msgIDs, msg.ResponseOf)
 			return nil
 		}
-	})); err != nil {
+	}))
+	if (err != nil && err != TimeoutError) || (len(msgIDs) < k || len(list) < k) {
 		return nil, nil, err
 	}
-	if len(list) != k || len(msgIDs) != k{
-		return nil, nil, fmt.Errorf("list and msgIDs length should be k, but they are not")
+	if len(list) != len(msgIDs) {
+		return nil, nil, fmt.Errorf("list and msgIDs length should be the same")
 	}
-	return msgIDs, list, nil
+	return msgIDs[:k], list[:k], nil
 }
 
-func (client *Client) AskForECDSARound2MessageList(keyID string, nodeIDs []string, messages tcecdsa.Round1MessageList) error {
+func (client *Client) AskForECDSARound2MessageList(nodeIDs []string, messages tcecdsa.Round1MessageList) error {
 	client.mutex.Lock()
 	defer client.mutex.Unlock()
 	if !client.running {
@@ -172,15 +170,18 @@ func (client *Client) AskForECDSARound2MessageList(keyID string, nodeIDs []strin
 	for _, nodeID := range nodeIDs {
 		node, ok := client.nodes[nodeID]
 		if !ok {
-			return fmt.Errorf("node with nodeID %s not found", nodeID)
+			e := fmt.Sprintf("node with nodeID %s not found. Available nodes:", nodeID)
+			for k, _ := range client.nodes {
+				e += k + ","
+			}
+			return fmt.Errorf(e)
 		}
 		log.Printf("Sending Round1MessageList to node in %s:%d", node.host, node.port)
-		msg, err := node.ecdsaRound2(keyID, messages)
+		msg, err := node.ecdsaRound2(messages)
 		if err != nil {
 			return fmt.Errorf("error with node %s: %s", nodeID, err)
 		}
 		client.pendingMessages[msg.ID] = msg
-		go node.recvMessage()
 	}
 	client.currentMessage = message.ECDSARound2
 	return nil
@@ -217,7 +218,7 @@ func (client *Client) GetECDSARound2MessageList(k int) (tcecdsa.Round2MessageLis
 	return list, nil
 }
 
-func (client *Client) AskForECDSARound3MessageList(keyID string, nodeIDs []string, messages tcecdsa.Round2MessageList) error {
+func (client *Client) AskForECDSARound3MessageList(nodeIDs []string, messages tcecdsa.Round2MessageList) error {
 	client.mutex.Lock()
 	defer client.mutex.Unlock()
 	if !client.running {
@@ -235,12 +236,11 @@ func (client *Client) AskForECDSARound3MessageList(keyID string, nodeIDs []strin
 			return fmt.Errorf("node with nodeID %s not found", nodeID)
 		}
 		log.Printf("Sending Round2MessageList to node in %s:%d", node.host, node.port)
-		msg, err := node.ecdsaRound3(keyID, messages)
+		msg, err := node.ecdsaRound3(messages)
 		if err != nil {
 			return fmt.Errorf("error with node %s: %s", nodeID, err)
 		}
 		client.pendingMessages[msg.ID] = msg
-		go node.recvMessage()
 	}
 	client.currentMessage = message.ECDSARound3
 	return nil
@@ -277,7 +277,7 @@ func (client *Client) GetECDSARound3MessageList(k int) (tcecdsa.Round3MessageLis
 	return list, nil
 }
 
-func (client *Client) AskForECDSASignature(keyID string, nodeIDs []string, messages tcecdsa.Round3MessageList) error {
+func (client *Client) AskForECDSASignature(nodeIDs []string, messages tcecdsa.Round3MessageList) error {
 	client.mutex.Lock()
 	defer client.mutex.Unlock()
 	if !client.running {
@@ -295,12 +295,11 @@ func (client *Client) AskForECDSASignature(keyID string, nodeIDs []string, messa
 			return fmt.Errorf("node with nodeID %s not found", nodeID)
 		}
 		log.Printf("Sending Round3MessageList to node in %s:%d", node.host, node.port)
-		msg, err := node.ecdsaGetSignature(keyID, messages)
+		msg, err := node.ecdsaGetSignature(messages)
 		if err != nil {
 			return fmt.Errorf("error with node %s: %s", nodeID, err)
 		}
 		client.pendingMessages[msg.ID] = msg
-		go node.recvMessage()
 	}
 	client.currentMessage = message.ECDSAGetSignature
 	return nil
@@ -369,7 +368,6 @@ func (client *Client) AskForECDSAKeyDeletion(keyID string) error {
 			return fmt.Errorf("error with node %s: %s", keyID, err)
 		}
 		client.pendingMessages[msg.ID] = msg
-		go node.recvMessage()
 	}
 	client.currentMessage = message.DeleteECDSAKeyShare
 	return nil
@@ -385,47 +383,8 @@ func (client *Client) AckECDSAKeyDeletion() error {
 	if !client.running {
 		return fmt.Errorf("connection not running")
 	}
-	if client.currentMessage != message.RestartECDSASession {
+	if client.currentMessage != message.DeleteECDSAKeyShare {
 		return fmt.Errorf("cannot ack for key deletion in a currentMessage state different to ECDSAInitKeys")
-	}
-	log.Printf("timeout will be %s", client.timeout)
-	return doForNTimeout(client.channel, len(client.nodes), client.timeout, client.ackOnly)
-}
-
-func (client *Client) AskForECDSASessionRestart() error {
-	client.mutex.Lock()
-	defer client.mutex.Unlock()
-	if !client.running {
-		return fmt.Errorf("connection not started")
-	}
-	if client.currentMessage != message.None {
-		return fmt.Errorf("cannot ask for session restart in a currentMessage state different to None")
-	}
-	for id, node := range client.nodes {
-		log.Printf("Asking for sesion restart to node in %s:%d", node.host, node.port)
-		msg, err := node.restartECDSASession()
-		if err != nil {
-			return fmt.Errorf("error with node %s: %s", id, err)
-		}
-		client.pendingMessages[msg.ID] = msg
-		go node.recvMessage()
-	}
-	client.currentMessage = message.RestartECDSASession
-	return nil
-}
-
-func (client *Client) AckECDSASessionRestart() error {
-	client.mutex.Lock()
-	defer client.mutex.Unlock()
-	defer func() {
-		client.pendingMessages = make(map[string]*message.Message)
-		client.currentMessage = message.None
-	}()
-	if !client.running {
-		return fmt.Errorf("connection not running")
-	}
-	if client.currentMessage != message.RestartECDSASession {
-		return fmt.Errorf("cannot ack for session restart in a currentMessage state different to ECDSAInitKeys")
 	}
 	log.Printf("timeout will be %s", client.timeout)
 	return doForNTimeout(client.channel, len(client.nodes), client.timeout, client.ackOnly)

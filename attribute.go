@@ -54,7 +54,7 @@ func (attributes Attributes) Equals(attributes2 Attributes) bool {
 }
 
 // SetIfUndefined adds an attribute only if it doesn't exist
-func (attributes Attributes) SetIfUndefined(attrs  ...*Attribute) {
+func (attributes Attributes) SetIfUndefined(attrs ...*Attribute) {
 	for _, attr := range attrs {
 		if _, ok := attributes[attr.Type]; !ok {
 			attributes[attr.Type] = attr
@@ -63,7 +63,7 @@ func (attributes Attributes) SetIfUndefined(attrs  ...*Attribute) {
 }
 
 // Set adds an attribute or modifies it if it already exists
-func (attributes Attributes) Set(attrs  ...*Attribute) {
+func (attributes Attributes) Set(attrs ...*Attribute) {
 	for _, attr := range attrs {
 		attributes[attr.Type] = attr
 	}

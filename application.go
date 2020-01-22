@@ -4,7 +4,9 @@ package main
 #include "pkcs11go.h"
 */
 import "C"
-import "github.com/niclabs/dtc/v3/config"
+import (
+	"github.com/niclabs/dtc/v3/config"
+)
 
 // Application contains the essential parts of the HSM
 type Application struct {
@@ -25,14 +27,11 @@ func NewApplication() (app *Application, err error) {
 		err = NewError("NewApplication", err.Error(), C.CKR_DEVICE_ERROR)
 		return
 	}
-
 	if err = db.Init(conf.Criptoki.Slots); err != nil {
 		err = NewError("NewApplication", err.Error(), C.CKR_DEVICE_ERROR)
 		return
 	}
-
 	slots := make([]*Slot, len(conf.Criptoki.Slots))
-
 	dtc, err := NewDTC(conf.DTC)
 	if err != nil {
 		return
@@ -44,7 +43,6 @@ func NewApplication() (app *Application, err error) {
 		Config:  conf,
 		DTC:     dtc,
 	}
-
 	for i, slotConf := range conf.Criptoki.Slots {
 		slot := &Slot{
 			ID:          C.CK_SLOT_ID(i),
@@ -60,7 +58,6 @@ func NewApplication() (app *Application, err error) {
 		slot.InsertToken(token)
 		slots[i] = slot
 	}
-
 	return
 }
 

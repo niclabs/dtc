@@ -60,4 +60,3 @@ func (dtc *DTC) RSADeleteKey(keyID string) error {
 	log.Printf("Acking key shares deletion related to keyid=%s", keyID)
 	return dtc.Connection.AckRSAKeyDeletion()
 }
-
