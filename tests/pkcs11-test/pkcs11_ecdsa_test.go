@@ -35,7 +35,7 @@ func generateECDSAKeyPair(t *testing.T, p *pkcs11.Ctx, session pkcs11.SessionHan
 		returns: object handles for public and private keys.
 	*/
 
-	ecParams, _ := utils.CurveNameToASN1Bytes("P-224")
+	ecParams, _ := utils.CurveNameToASN1Bytes("P-256")
 
 	publicKeyTemplate := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),
@@ -175,7 +175,7 @@ func ExampleCtx_SignECDSA() {
 	p.Login(session, pkcs11.CKU_USER, pin)
 	defer p.Logout(session)
 
-	ecParams, _ := utils.CurveNameToASN1Bytes("P-224")
+	ecParams, _ := utils.CurveNameToASN1Bytes("P-256")
 
 	publicKeyTemplate := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),

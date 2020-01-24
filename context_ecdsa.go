@@ -214,7 +214,7 @@ func createECDSAPrivateKey(keyID string, skAttrs Attributes, pk *ecdsa.PublicKey
 	skAttrs.SetIfUndefined(
 		&Attribute{C.CKA_CLASS, ulongToArr(C.CKO_PRIVATE_KEY)},
 		&Attribute{C.CKA_KEY_TYPE, ulongToArr(C.CKK_EC)},
-		&Attribute{C.CKA_KEY_GEN_MECHANISM, ulongToArr(C.CKK_EC)},
+		&Attribute{C.CKA_KEY_GEN_MECHANISM, ulongToArr(C.CKM_EC_KEY_PAIR_GEN)},
 		&Attribute{C.CKA_LOCAL, ulongToArr(C.CK_TRUE)},
 
 		// This fields are our defaults

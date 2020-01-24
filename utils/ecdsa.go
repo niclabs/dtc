@@ -6,6 +6,7 @@ import (
 	"crypto/elliptic"
 	"encoding/asn1"
 	"fmt"
+	"math/big"
 )
 
 // from github.com/Thalesignite/crypto11
@@ -42,7 +43,10 @@ func ASN1ToCurveName(b []byte) (string, error) {
 }
 
 func PubKeyToASN1Bytes(pk *ecdsa.PublicKey) ([]byte, error) {
-	ecPointBytes := elliptic.Marshal(pk.Curve, pk.X, pk.Y)
+	numSize := (pk.Curve.Params().BitSize + 7) / 8
+	ecPointBytes := make([]byte, 2*numSize)
+	copy(ecPointBytes[numSize-len(pk.X.Bytes()):numSize], pk.X.Bytes())
+	copy(ecPointBytes[(2*numSize)-len(pk.Y.Bytes()):(2*numSize)], pk.Y.Bytes())
 	ecPointASN1, err := asn1.Marshal(ecPointBytes)
 	if err != nil {
 		return nil, err
@@ -51,6 +55,7 @@ func PubKeyToASN1Bytes(pk *ecdsa.PublicKey) ([]byte, error) {
 }
 
 func ASN1BytesToPubKey(c elliptic.Curve, b []byte) (*ecdsa.PublicKey, error) {
+	numSize := (c.Params().BitSize + 7) / 8
 	var pointBytes []byte
 	rest, err := asn1.Unmarshal(b, &pointBytes)
 	if err != nil {
@@ -59,14 +64,13 @@ func ASN1BytesToPubKey(c elliptic.Curve, b []byte) (*ecdsa.PublicKey, error) {
 	if len(rest) > 0 {
 		return nil, fmt.Errorf("error decoding ec pubkey: rest length is greater than zero")
 	}
-	x, y := elliptic.Unmarshal(c, pointBytes)
-	if x == nil {
-		return nil, fmt.Errorf("error decoding ec pubkey: cannot transform the binary value into a point using curve %s", c.Params().Name)
-
+	if len(pointBytes) != 2*numSize {
+		return nil, fmt.Errorf("error decoding ec pubkey: length of point bytes is not 2 * curveSize")
 	}
+	x, y := pointBytes[:numSize], pointBytes[numSize:]
 	return &ecdsa.PublicKey{
 		Curve: c,
-		X:     x,
-		Y:     y,
+		X:     new(big.Int).SetBytes(x),
+		Y:     new(big.Int).SetBytes(y),
 	}, nil
 }
