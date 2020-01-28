@@ -6,11 +6,11 @@ import (
 )
 
 // RSACreateKey creates a new key and saves its shares distributed among all the nodes.
-func (dtc *DTC) RSACreateKey(keyID string, bitSize int) (*tcrsa.KeyMeta, error) {
+func (dtc *DTC) RSACreateKey(keyID string, bitSize int, exponent int) (*tcrsa.KeyMeta, error) {
 	dtc.Lock()
 	defer dtc.Unlock()
 	log.Printf("Creating new key with bitsize=%d, threshold=%d and nodes=%d", bitSize, dtc.Threshold, dtc.Nodes)
-	keyShares, keyMeta, err := tcrsa.NewKey(bitSize, dtc.Threshold, dtc.Nodes, nil)
+	keyShares, keyMeta, err := tcrsa.NewKey(bitSize, dtc.Threshold, dtc.Nodes, &tcrsa.KeyMetaArgs{E:exponent})
 	if err != nil {
 		return nil, err
 	}

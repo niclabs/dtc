@@ -153,7 +153,7 @@ func verifyRSA(mechanism *Mechanism, pubKey crypto.PublicKey, data []byte, signa
 func createRSAPublicKey(keyID string, pkAttrs Attributes, keyMeta *tcrsa.KeyMeta) (Attributes, error) {
 
 	eBytes := make([]byte, reflect.TypeOf(keyMeta.PublicKey.E).Size())
-	binary.LittleEndian.PutUint64(eBytes, uint64(keyMeta.PublicKey.E))
+	binary.BigEndian.PutUint64(eBytes, uint64(keyMeta.PublicKey.E))
 
 	encodedKeyMeta, err := message.EncodeRSAKeyMeta(keyMeta)
 	if err != nil {
@@ -183,12 +183,13 @@ func createRSAPublicKey(keyID string, pkAttrs Attributes, keyMeta *tcrsa.KeyMeta
 		&Attribute{C.CKA_START_DATE, make([]byte, 8)},
 		&Attribute{C.CKA_END_DATE, make([]byte, 8)},
 		&Attribute{C.CKA_MODULUS_BITS, nil},
+		&Attribute{C.CKA_PUBLIC_EXPONENT, eBytes},
+
 	)
 
 	pkAttrs.Set(
 		// E and N from PK
 		&Attribute{C.CKA_MODULUS, keyMeta.PublicKey.N.Bytes()},
-		&Attribute{C.CKA_PUBLIC_EXPONENT, eBytes},
 
 		// Custom Fields
 		&Attribute{AttrTypeKeyHandler, []byte(keyID)},
@@ -201,7 +202,7 @@ func createRSAPublicKey(keyID string, pkAttrs Attributes, keyMeta *tcrsa.KeyMeta
 func createRSAPrivateKey(keyID string, skAttrs Attributes, keyMeta *tcrsa.KeyMeta) (Attributes, error) {
 
 	eBytes := make([]byte, reflect.TypeOf(keyMeta.PublicKey.E).Size())
-	binary.LittleEndian.PutUint64(eBytes, uint64(keyMeta.PublicKey.E))
+	binary.BigEndian.PutUint64(eBytes, uint64(keyMeta.PublicKey.E))
 
 	encodedKeyMeta, err := message.EncodeRSAKeyMeta(keyMeta)
 	if err != nil {
@@ -237,12 +238,12 @@ func createRSAPrivateKey(keyID string, skAttrs Attributes, keyMeta *tcrsa.KeyMet
 
 		&Attribute{C.CKA_START_DATE, make([]byte, 8)},
 		&Attribute{C.CKA_END_DATE, make([]byte, 8)},
+		&Attribute{C.CKA_PUBLIC_EXPONENT, eBytes},
 	)
 
 	skAttrs.Set(
 		// E and N from PK
 		&Attribute{C.CKA_MODULUS, keyMeta.PublicKey.N.Bytes()},
-		&Attribute{C.CKA_PUBLIC_EXPONENT, eBytes},
 
 		// Custom Fields
 		&Attribute{AttrTypeKeyHandler, []byte(keyID)},
