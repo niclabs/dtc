@@ -153,7 +153,7 @@ func verifyRSA(mechanism *Mechanism, pubKey crypto.PublicKey, data []byte, signa
 func createRSAPublicKey(keyID string, pkAttrs Attributes, keyMeta *tcrsa.KeyMeta) (Attributes, error) {
 
 	eBytes := make([]byte, reflect.TypeOf(keyMeta.PublicKey.E).Size())
-	binary.BigEndian.PutUint64(eBytes, uint64(keyMeta.PublicKey.E))
+	binary.BigEndian.PutUint64(eBytes, uint64(keyMeta.PublicKey.E)) // Exponent is BigNumber
 
 	encodedKeyMeta, err := message.EncodeRSAKeyMeta(keyMeta)
 	if err != nil {

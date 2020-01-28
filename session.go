@@ -548,7 +548,7 @@ func (session *Session) SeedRandom(seed []byte) {
 			f = i + 8
 		}
 		slice := seed[i:f]
-		seedInt += int64(binary.BigEndian.Uint64(slice)) // it overflows
+		seedInt += int64(binary.LittleEndian.Uint64(slice)) // it overflows
 	}
 	session.randSrc.Seed(seedInt)
 }
@@ -597,12 +597,12 @@ func (session *Session) generateRSAKeyPair(pkTemplate, skTemplate Attributes) (p
 	}
 	exponentAttr, err := pkTemplate.GetAttributeByType(C.CKA_PUBLIC_EXPONENT)
 	if err != nil {
-		err = NewError("Session.GenerateRSAKeyPair", "Modulus Bits undefined", C.CKR_TEMPLATE_INCOMPLETE)
+		err = NewError("Session.GenerateRSAKeyPair", "Public Exponent undefined", C.CKR_TEMPLATE_INCOMPLETE)
 		return
 	}
-
-	bitSize := binary.BigEndian.Uint64(bitSizeAttr.Value)
-	exponent := binary.BigEndian.Uint64(exponentAttr.Value)
+	bitSize := binary.LittleEndian.Uint64(bitSizeAttr.Value)
+	exponent := binary.BigEndian.Uint64(exponentAttr.Value) // Big Integer
+	log.Printf("creating key with bitsize=%d and exponent=%d", bitSize, exponent)
 	keyMeta, err = dtc.RSACreateKey(keyID, int(bitSize), int(exponent))
 	if err != nil {
 		return
