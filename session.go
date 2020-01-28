@@ -601,7 +601,13 @@ func (session *Session) generateRSAKeyPair(pkTemplate, skTemplate Attributes) (p
 		return
 	}
 	bitSize := binary.LittleEndian.Uint64(bitSizeAttr.Value)
-	exponent := binary.BigEndian.Uint64(exponentAttr.Value) // Big Integer
+	extendedExpAttr := make([]byte, 8)
+	if len(exponentAttr.Value) > 8 {
+		err = NewError("Session.GenerateRSAKeyPair", "Exponent size should not be greater than 64 bits", C.CKR_ARGUMENTS_BAD)
+		return
+	}
+	copy(extendedExpAttr[8 - len(exponentAttr.Value):], exponentAttr.Value)
+	exponent := binary.BigEndian.Uint64(extendedExpAttr) // Big Integer
 	log.Printf("creating key with bitsize=%d and exponent=%d", bitSize, exponent)
 	keyMeta, err = dtc.RSACreateKey(keyID, int(bitSize), int(exponent))
 	if err != nil {
