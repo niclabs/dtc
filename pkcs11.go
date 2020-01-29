@@ -242,8 +242,9 @@ func C_GetInfo(pInfo C.CK_INFO_PTR) C.CK_RV {
 	C.memcpy(unsafe.Pointer(&info.libraryDescription[0]), unsafe.Pointer(cDescription), 32)
 
 	info.flags = 0
-
-	info.libraryVersion.major = 1
+	info.cryptokiVersion.major = 2
+	info.cryptokiVersion.minor = 40
+	info.libraryVersion.major = 2
 	info.libraryVersion.minor = 0
 
 	return C.CKR_OK
