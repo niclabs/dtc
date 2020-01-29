@@ -43,8 +43,6 @@ func (dtc *DTC) ECDSACreateKey(keyID string, curveName string) (*tcecdsa.KeyMeta
 func (dtc *DTC) ECDSASignData(keyID string, meta *tcecdsa.KeyMeta, data []byte) ([]byte, error) {
 	dtc.Lock()
 	defer dtc.Unlock()
-	log.Printf("Signing data with key of id=%s", keyID)
-	// Round 1
 	log.Printf("Sending Round 1 messages...")
 	if err := dtc.Connection.AskForECDSARound1MessageList(keyID, data); err != nil {
 		return nil, err

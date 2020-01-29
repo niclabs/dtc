@@ -13,6 +13,7 @@ import (
 	"github.com/niclabs/dtcnode/v3/message"
 	"github.com/niclabs/tcecdsa"
 	"io"
+	"log"
 	"math/big"
 )
 
@@ -70,6 +71,8 @@ func (context *ECDSASignContext) Final() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("Signing data with key of curve=%s and id=%s", context.keyMeta.CurveName, context.keyID)
+	// Round 1
 	sig, err := context.dtc.ECDSASignData(context.keyID, context.keyMeta, prepared)
 	if err != nil {
 		return nil, err
@@ -124,17 +127,17 @@ func verifyECDSA(mechanism *Mechanism, pubKey crypto.PublicKey, data []byte, sig
 		return NewError("verifyECDSA", "public key invalid for this type of signature", C.CKR_ARGUMENTS_BAD)
 	}
 	switch mechanism.Type {
-	case C.CKM_ECDSA_SHA1, C.CKM_ECDSA_SHA256, C.CKM_ECDSA_SHA384, C.CKM_ECDSA_SHA512:
+	case C.CKM_ECDSA, C.CKM_ECDSA_SHA1, C.CKM_ECDSA_SHA256, C.CKM_ECDSA_SHA384, C.CKM_ECDSA_SHA512:
 		if hashType == crypto.Hash(0) {
-			err = NewError("verifyECDSA", "mechanism hash type is not supported with ECDSA", C.CKR_MECHANISM_INVALID)
-			return
+			hash = data
+		} else {
+			hashFunc := hashType.New()
+			_, err = hashFunc.Write(data)
+			if err != nil {
+				return
+			}
+			hash = hashFunc.Sum(nil)
 		}
-		hashFunc := hashType.New()
-		_, err = hashFunc.Write(data)
-		if err != nil {
-			return
-		}
-		hash = hashFunc.Sum(nil)
 		var r, s *big.Int
 		r, s, err = tcecdsa.UnmarshalSignature(signature)
 		if err != nil {

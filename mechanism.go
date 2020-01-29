@@ -48,7 +48,7 @@ func (mechanism *Mechanism) ToC(cDst C.CK_MECHANISM_PTR) error {
 // GetHashType returns the crypto.Hash object related to the mechanism type of the receiver.
 func (mechanism *Mechanism) GetHashType() (h crypto.Hash, err error) {
 	switch mechanism.Type {
-	case C.CKM_RSA_PKCS:
+	case C.CKM_RSA_PKCS, C.CKM_ECDSA:
 		return crypto.Hash(0), nil
 	case C.CKM_MD5_RSA_PKCS, C.CKM_MD5:
 		h = crypto.MD5
@@ -100,9 +100,10 @@ func (mechanism *Mechanism) Prepare(randSrc io.Reader, nBits int, data []byte) (
 		hash = hashFunc.Sum(nil)
 		prepared, err = padPSS(randSrc, hashType, nBits, hash)
 		return
-	case C.CKM_ECDSA_SHA1, C.CKM_ECDSA_SHA256, C.CKM_ECDSA_SHA384, C.CKM_ECDSA_SHA512:
+	case C.CKM_ECDSA, C.CKM_ECDSA_SHA1, C.CKM_ECDSA_SHA256, C.CKM_ECDSA_SHA384, C.CKM_ECDSA_SHA512:
 		if hashType == crypto.Hash(0) {
-			err = NewError("Mechanism.Sign", "mechanism hash type is not supported with ECDSA Signing", C.CKR_MECHANISM_INVALID)
+			prepared = data
+			return
 		}
 		hashFunc := hashType.New()
 		_, err = hashFunc.Write(data)

@@ -62,7 +62,7 @@ func NewSignContext(session *Session, mechanism *Mechanism, hKey C.CK_OBJECT_HAN
 			return nil, err
 		}
 		context = c
-	case C.CKM_ECDSA_SHA1, C.CKM_ECDSA_SHA256, C.CKM_ECDSA_SHA384, C.CKM_ECDSA_SHA512:
+	case C.CKM_ECDSA, C.CKM_ECDSA_SHA1, C.CKM_ECDSA_SHA256, C.CKM_ECDSA_SHA384, C.CKM_ECDSA_SHA512:
 		// Get PK
 		pkAttr := keyObject.FindAttribute(C.CKA_EC_POINT)
 		if pkAttr == nil {
@@ -122,7 +122,7 @@ func NewVerifyContext(session *Session, mechanism *Mechanism, hKey C.CK_OBJECT_H
 			return nil, err
 		}
 		context = c
-	case C.CKM_ECDSA_SHA1, C.CKM_ECDSA_SHA256, C.CKM_ECDSA_SHA384, C.CKM_ECDSA_SHA512:
+	case C.CKM_ECDSA, C.CKM_ECDSA_SHA1, C.CKM_ECDSA_SHA256, C.CKM_ECDSA_SHA384, C.CKM_ECDSA_SHA512:
 		// Get PK
 		pkAttr := keyObject.FindAttribute(C.CKA_EC_POINT)
 		if pkAttr == nil {
