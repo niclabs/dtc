@@ -20,7 +20,7 @@ echo "Verification successful!"
 
 # Reset HSM keys
 echo "Resetting keys..."
-./hsm-tools reset-pkcs11-keys -p ./dtc.so -a rsa || {
+./hsm-tools reset-pkcs11-keys -p ./dtc.so || {
   echo "Cannot reset keys :("
   exit 1
 }
@@ -47,7 +47,7 @@ echo "Verification successful!"
 
 # Reset HSM keys
 echo "Resetting keys..."
-./hsm-tools reset-pkcs11-keys -p ./dtc.so -a ecdsa || {
+./hsm-tools reset-pkcs11-keys -p ./dtc.so || {
   echo "Cannot reset keys :("
   exit 1
 }
