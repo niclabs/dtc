@@ -14,17 +14,17 @@ RUN go mod download
 RUN ./build.sh
 
 WORKDIR /
-RUN git clone https://github.com/niclabs/dhsm-signer --branch v1.0
+RUN git clone https://github.com/niclabs/hsm-tools
 
-WORKDIR /dhsm-signer
+WORKDIR /hsm-tools
 RUN go mod tidy
 RUN go build
 
-RUN mv /dtc/dtc.so /dhsm-signer/dtc.so
+RUN mv /dtc/dtc.so /hsm-tools/dtc.so
 
 # copy example zone and test with this shellscript.
-COPY ./dtc/tests/dhsm-signer/dtc/test.sh test.sh
-COPY ./dtc/tests/dhsm-signer/dtc/example.com example.com
+COPY ./dtc/tests/hsm-tools/dtc/test.sh test.sh
+COPY ./dtc/tests/hsm-tools/dtc/example.com example.com
 
 # Sleep because we need to wait the network to be initialized
 CMD sleep 5 && ./test.sh

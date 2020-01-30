@@ -23,6 +23,6 @@ services:
   dtcclient:
     build:
       context: ../../../
-      dockerfile: dtc/tests/dhsm-signer/dtc/Dockerfile
+      dockerfile: dtc/tests/hsm-tools/dtc/Dockerfile
     volumes:
       - ./dtc/config:/etc/dtc

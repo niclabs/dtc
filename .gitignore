@@ -5,5 +5,5 @@ dtc.so
 db.sqlite3
 dtc.h
 /tests/pkcs11-test/config*
-/tests/dhsm-signer/dtc/config/
-/tests/dhsm-signer/dtcnode/config/
+/tests/hsm-tools/dtc/config/
+/tests/hsm-tools/dtcnode/config/
