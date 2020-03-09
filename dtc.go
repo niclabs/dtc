@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	viper.SetConfigName("config")
+	viper.SetConfigName("dtc-config")
 	viper.AddConfigPath("./")
 	viper.AddConfigPath("$HOME/.dtc")
 	viper.AddConfigPath("/etc/dtc/")
