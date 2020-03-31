@@ -85,8 +85,15 @@ func (dtc *DTC) ECDSASignData(keyID string, meta *tcecdsa.KeyMeta, data []byte) 
 	if err != nil {
 		return nil, err
 	}
-	// Finally we return the signature
-	return tcecdsa.MarshalSignature(r, s)
+	rBytes, sBytes := r.Bytes(), s.Bytes()
+	sigSize := 2 * ((meta.Curve().Params().BitSize + 7) / 8)
+	if len(rBytes) > sigSize/2 || len(sBytes) > sigSize/2 {
+
+	}
+	sig := make([]byte, sigSize)
+	copy(sig[sigSize/2-len(rBytes):sigSize/2], rBytes)
+	copy(sig[sigSize-len(rBytes):sigSize], sBytes)
+	return sig, nil
 }
 
 // ECDSADeleteKey deletes the key shares of the key with id = keyID from all the nodes.
