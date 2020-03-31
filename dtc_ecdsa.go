@@ -85,6 +85,13 @@ func (dtc *DTC) ECDSASignData(keyID string, meta *tcecdsa.KeyMeta, data []byte) 
 	if err != nil {
 		return nil, err
 	}
+	// https://www.oasis-open.org/committees/download.php/50389/CKM_ECDSA_FIPS_186_4_v03.pdf section 2.3.1
+	// >>> The signature octets correspond to the concatenation of the ECDSA values r and s,
+	// >>> both represented as an octet string of equal length of at most nLen with the most
+	// >>> significant byte first. If r and s have different octet length, the shorter of both
+	// >>> must be padded with leading zero octets such that both have the same octet length.
+	// >>> Loosely spoken, the first half of the signature is r and the second half is s.
+	// >>> For signatures created by a token, the resulting signature is always of length 2nLen.
 	rBytes, sBytes := r.Bytes(), s.Bytes()
 	sigSize := 2 * ((meta.Curve().Params().BitSize + 7) / 8)
 	if len(rBytes) > sigSize/2 || len(sBytes) > sigSize/2 {

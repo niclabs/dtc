@@ -138,11 +138,12 @@ func verifyECDSA(mechanism *Mechanism, pubKey crypto.PublicKey, data []byte, sig
 			}
 			hash = hashFunc.Sum(nil)
 		}
-		var r, s *big.Int
-		r, s, err = tcecdsa.UnmarshalSignature(signature)
-		if err != nil {
-			return
-		}
+		// https://www.oasis-open.org/committees/download.php/50389/CKM_ECDSA_FIPS_186_4_v03.pdf Section 2.3.1
+		// >>> For signatures passed to a token for verification, the signature may have a shorter length
+		// >>> but must be composed as specified before.
+		big.NewInt(0).SetBytes(signature[:len(signature)])
+		r := big.NewInt(0).SetBytes(signature[:len(signature)/2])
+		s := big.NewInt(0).SetBytes(signature[len(signature)/2:])
 		if !ecdsa.Verify(ecdsaPK, hash, r, s) {
 			return NewError("verifyECDSA", "invalid signature", C.CKR_SIGNATURE_INVALID)
 		}
