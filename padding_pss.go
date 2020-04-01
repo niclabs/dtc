@@ -52,7 +52,7 @@ func padPSS(rand io.Reader, hash crypto.Hash, nBits int, hashed []byte) (s []byt
 	// See [1], section 9.1.1
 	hLen := hash.Size()
 	sLen := len(salt)
-	emLen := (emBits + 7) / 8
+	emLen := int(emBits + 7) / 8
 
 	hashFunc := hash.New()
 

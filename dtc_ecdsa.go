@@ -93,9 +93,9 @@ func (dtc *DTC) ECDSASignData(keyID string, meta *tcecdsa.KeyMeta, data []byte) 
 	// >>> Loosely spoken, the first half of the signature is r and the second half is s.
 	// >>> For signatures created by a token, the resulting signature is always of length 2nLen.
 	rBytes, sBytes := r.Bytes(), s.Bytes()
-	sigSize := 2 * ((meta.Curve().Params().BitSize + 7) / 8)
+	sigSize := 2 * (int(meta.Curve().Params().BitSize + 7) / 8)
 	if len(rBytes) > sigSize/2 || len(sBytes) > sigSize/2 {
-
+		return nil, NewError("DTC.ECDSASignData", "R and S length should be the same as the signature Size", 0)
 	}
 	sig := make([]byte, sigSize)
 	copy(sig[sigSize/2-len(rBytes):sigSize/2], rBytes)
