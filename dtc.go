@@ -3,10 +3,11 @@ package main
 import "C"
 import (
 	"fmt"
+	"sync"
+
 	"github.com/niclabs/dtc/v3/config"
 	"github.com/niclabs/dtc/v3/network"
 	"github.com/spf13/viper"
-	"sync"
 )
 
 func init() {
