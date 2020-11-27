@@ -150,7 +150,7 @@ func (client *Client) GetECDSARound1MessageList(k int) ([]string, tcecdsa.Round1
 	}
 	list := make(tcecdsa.Round1MessageList, 0)
 	msgIDs := make([]string, 0)
-	err := doForNTimeout(client.channel, len(client.nodes), client.timeout, client.doMessage(func(msg *message.Message) error {
+	err := doForNTimeout(client.channel, k, client.timeout, client.doMessage(func(msg *message.Message) error {
 		keyInitMsg, err := message.DecodeECDSARound1Message(msg.Data[0])
 		if err != nil {
 			return fmt.Errorf("corrupt key: %v\n", msg)

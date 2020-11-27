@@ -1,8 +1,10 @@
 package zmq
 
 import (
-	"github.com/niclabs/dtcnode/v3/message"
+	"log"
 	"time"
+
+	"github.com/niclabs/dtcnode/v3/message"
 )
 
 // doForNTimeout listens for N messages from a channel, or until a timeout is raised.
@@ -14,6 +16,7 @@ func doForNTimeout(ch chan *message.Message, n int, timeout time.Duration, fn fu
 		select {
 		case msg := <-ch:
 			if err := fn(msg); err != nil {
+				log.Printf("error executing function over received message (this could be because an unexpected or delayed message): %s", err)
 				continue // Ignores the message
 			}
 			acked++
