@@ -2,9 +2,10 @@ package zmq
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/niclabs/dtcnode/v3/message"
 	"github.com/niclabs/tcrsa"
-	"log"
 )
 
 func (client *Client) SendRSAKeyShares(keyID string, keys tcrsa.KeyShareList, meta *tcrsa.KeyMeta) error {
@@ -13,8 +14,11 @@ func (client *Client) SendRSAKeyShares(keyID string, keys tcrsa.KeyShareList, me
 	if !client.running {
 		return fmt.Errorf("connection not started")
 	}
-	if len(keys) != len(client.nodes) {
-		return fmt.Errorf("number of keys (%d) is not equal to number of nodes (%d)", len(keys), len(client.nodes))
+	if len(client.nodes) != client.numNodes {
+		return fmt.Errorf("all %d nodes are needed to send key shares, but only %d are connected", client.numNodes, len(client.nodes))
+	}
+	if len(keys) != client.numNodes {
+		return fmt.Errorf("number of keys (%d) is not equal to number of nodes (%d)", len(keys), client.numNodes)
 	}
 	if client.currentMessage != message.None {
 		return fmt.Errorf("cannot send key shares in a currentMessage state different to None")
@@ -24,6 +28,7 @@ func (client *Client) SendRSAKeyShares(keyID string, keys tcrsa.KeyShareList, me
 		log.Printf("Sending key share to node in %s:%d", node.host, node.port)
 		msg, err := node.sendRSAKeyShare(keyID, keys[i], meta)
 		if err != nil {
+			// I must send key shares to all nodes! No resiliency here.
 			return fmt.Errorf("error with node %d: %s", i, err)
 		}
 		client.pendingMessages[msg.ID] = msg
@@ -63,7 +68,9 @@ func (client *Client) AskForRSASigShares(keyID string, hash []byte) error {
 		log.Printf("Asking for sig share to node in %s:%d", node.host, node.port)
 		msg, err := node.getRSASigShare(keyID, hash)
 		if err != nil {
-			return fmt.Errorf("error asking sigshare with node %s: %s", node.ID(), err)
+			log.Printf("error asking sigshare with node %s: %s", node.ID(), err)
+			// I can allow to lose some nodes
+			continue
 		}
 		client.pendingMessages[msg.ID] = msg
 	}
@@ -110,7 +117,9 @@ func (client *Client) AskForRSAKeyDeletion(keyID string) error {
 		log.Printf("Sending key share deletion petition to node in %s:%d", node.host, node.port)
 		msg, err := node.deleteRSAKeyShare(keyID)
 		if err != nil {
-			return fmt.Errorf("error with node %d: %s", i, err)
+			log.Printf("error with node %s: %s", i, err)
+			// I can allow to lose some nodes (they will have some key metadata but that is ok)
+			continue
 		}
 		client.pendingMessages[msg.ID] = msg
 	}

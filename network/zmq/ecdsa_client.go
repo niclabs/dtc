@@ -2,10 +2,11 @@ package zmq
 
 import (
 	"fmt"
-	"github.com/niclabs/dtcnode/v3/message"
-	"github.com/niclabs/tcecdsa"
 	"log"
 	"math/big"
+
+	"github.com/niclabs/dtcnode/v3/message"
+	"github.com/niclabs/tcecdsa"
 )
 
 func (client *Client) SendECDSAKeyShares(keyID string, keys []*tcecdsa.KeyShare, meta *tcecdsa.KeyMeta) error {
@@ -14,8 +15,11 @@ func (client *Client) SendECDSAKeyShares(keyID string, keys []*tcecdsa.KeyShare,
 	if !client.running {
 		return fmt.Errorf("connection not started")
 	}
-	if len(keys) != len(client.nodes) {
-		return fmt.Errorf("number of keys is not equal to number of nodes")
+	if len(client.nodes) != client.numNodes {
+		return fmt.Errorf("all %d nodes are needed to send key shares, but only %d are connected", client.numNodes, len(client.nodes))
+	}
+	if len(keys) != client.numNodes {
+		return fmt.Errorf("number of keys (%d) is not equal to number of nodes (%d)", len(keys), client.numNodes)
 	}
 	if client.currentMessage != message.None {
 		return fmt.Errorf("cannot send key shares in a currentMessage state different to None")
@@ -25,6 +29,7 @@ func (client *Client) SendECDSAKeyShares(keyID string, keys []*tcecdsa.KeyShare,
 		log.Printf("Sending key share to node in %s:%d", node.host, node.port)
 		msg, err := node.sendECDSAKeyShare(keyID, keys[i], meta)
 		if err != nil {
+			// I must send key shares to all nodes! No resiliency here.
 			return fmt.Errorf("error with node %s: %s", id, err)
 		}
 		client.pendingMessages[msg.ID] = msg
@@ -43,6 +48,9 @@ func (client *Client) GetECDSAKeyInitMessageList() (tcecdsa.KeyInitMessageList, 
 	}()
 	if client.currentMessage != message.SendECDSAKeyShare {
 		return nil, fmt.Errorf("cannot ask for KeyInitMessages in a currentMessage state different to SendECDSAKeyShare")
+	}
+	if len(client.nodes) != client.numNodes {
+		return nil, fmt.Errorf("all %d nodes are needed to send key shares, but only %d are connected", client.numNodes, len(client.nodes))
 	}
 	list := make(tcecdsa.KeyInitMessageList, 0)
 	if err := doForNTimeout(client.channel, len(client.nodes), client.timeout, client.doMessage(func(msg *message.Message) error {
@@ -75,7 +83,8 @@ func (client *Client) SendECDSAKeyInitMessageList(keyID string, messages tcecdsa
 		log.Printf("Sending init key params to node in %s:%d", node.host, node.port)
 		msg, err := node.ecdsaInitKeys(keyID, messages)
 		if err != nil {
-			return fmt.Errorf("error with node %d: %s", i, err)
+			// I must init key shares of all nodes! No resiliency here.
+			return fmt.Errorf("error with node %s: %s", i, err)
 		}
 		client.pendingMessages[msg.ID] = msg
 	}
@@ -113,7 +122,9 @@ func (client *Client) AskForECDSARound1MessageList(keyID string, msgToSign []byt
 		log.Printf("Asking for sig share to node in %s:%d", node.host, node.port)
 		msg, err := node.ecdsaRound1(keyID, msgToSign)
 		if err != nil {
-			return fmt.Errorf("error sending Round1Message with node %s: %s", node.ID(), err)
+			log.Printf("error sending Round1Message with node %s: %s", node.ID(), err)
+			// I can lose some nodes in round 1
+			continue
 		}
 		client.pendingMessages[msg.ID] = msg
 	}
@@ -126,6 +137,9 @@ func (client *Client) GetECDSARound1MessageList(k int) ([]string, tcecdsa.Round1
 	defer client.mutex.Unlock()
 	if k <= 0 {
 		return nil, nil, fmt.Errorf("k must be greater than 0")
+	}
+	if k > len(client.pendingMessages) {
+		return nil, nil, fmt.Errorf("not enough nodes acked the last step. needed=%d, had=%d", k, len(client.pendingMessages))
 	}
 	defer func() {
 		client.pendingMessages = make(map[string]*message.Message)
@@ -193,6 +207,9 @@ func (client *Client) GetECDSARound2MessageList(k int) (tcecdsa.Round2MessageLis
 	if k <= 0 {
 		return nil, fmt.Errorf("k must be greater than 0")
 	}
+	if k > len(client.pendingMessages) {
+		return nil, fmt.Errorf("not enough nodes acked the last step. needed=%d, had=%d", k, len(client.pendingMessages))
+	}
 	defer func() {
 		client.pendingMessages = make(map[string]*message.Message)
 		client.currentMessage = message.None
@@ -251,6 +268,9 @@ func (client *Client) GetECDSARound3MessageList(k int) (tcecdsa.Round3MessageLis
 	defer client.mutex.Unlock()
 	if k <= 0 {
 		return nil, fmt.Errorf("k must be greater than 0")
+	}
+	if k > len(client.pendingMessages) {
+		return nil, fmt.Errorf("not enough nodes acked the last step. needed=%d, had=%d", k, len(client.pendingMessages))
 	}
 	defer func() {
 		client.pendingMessages = make(map[string]*message.Message)
@@ -311,6 +331,9 @@ func (client *Client) GetECDSASignature(k int) (*big.Int, *big.Int, error) {
 	if k <= 0 {
 		return nil, nil, fmt.Errorf("k must be greater than 0")
 	}
+	if k > len(client.pendingMessages) {
+		return nil, nil, fmt.Errorf("not enough nodes acked the last step. needed=%d, had=%d", k, len(client.pendingMessages))
+	}
 	defer func() {
 		client.pendingMessages = make(map[string]*message.Message)
 		client.currentMessage = message.None
@@ -323,12 +346,11 @@ func (client *Client) GetECDSASignature(k int) (*big.Int, *big.Int, error) {
 	if err := doForNTimeout(client.channel, k, client.timeout, client.doMessage(func(msg *message.Message) error {
 		r, s, err := message.DecodeECDSASignature(msg.Data[0])
 		if err != nil {
-			return fmt.Errorf("corrupt key: %v\n", msg)
-		} else {
-			rList = append(rList, r)
-			sList = append(sList, s)
-			return nil
+			return fmt.Errorf("corrupt key: %v", msg)
 		}
+		rList = append(rList, r)
+		sList = append(sList, s)
+		return nil
 	})); err != nil {
 		return nil, nil, err
 	}
@@ -365,7 +387,9 @@ func (client *Client) AskForECDSAKeyDeletion(keyID string) error {
 		log.Printf("Asking for key deletion to node in %s:%d", node.host, node.port)
 		msg, err := node.deleteECDSAKeyShare(keyID)
 		if err != nil {
-			return fmt.Errorf("error with node %s: %s", keyID, err)
+			log.Printf("error with node %s: %s", keyID, err)
+			// I can allow to lose some nodes (they will have some key metadata but that is ok)
+			continue
 		}
 		client.pendingMessages[msg.ID] = msg
 	}

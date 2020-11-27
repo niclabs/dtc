@@ -2,12 +2,13 @@ package zmq
 
 import (
 	"fmt"
-	"github.com/niclabs/dtc/v3/config"
-	"github.com/niclabs/dtcnode/v3/message"
-	"github.com/pebbe/zmq4"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/niclabs/dtc/v3/config"
+	"github.com/niclabs/dtcnode/v3/message"
+	"github.com/pebbe/zmq4"
 )
 
 // The domain of the ZMQ connection. This value must be the same in the server, or it will not work.
@@ -36,6 +37,7 @@ type Client struct {
 	channel         chan *message.Message       // The channel where all the responses from router are sent.
 	mutex           sync.Mutex                  // A mutex to operate the pendingMessages map.
 	currentMessage  message.Type                // A label which indicates the operation the connection is doing right now. It avoids inconsistent states (i.e. ask for a type of resource and then collect another one).
+	numNodes        int                         // Number of nodes based on configuration
 }
 
 // New returns a new ZMQ connection based in the configuration provided.
@@ -60,11 +62,13 @@ func New(config *config.ZMQConfig) (client *Client, err error) {
 		channel:         make(chan *message.Message),
 		pendingMessages: make(map[string]*message.Message),
 		nodes:           make(map[string]*Node, 0),
+		numNodes:        len(config.Nodes),
 	}
 	for i := 0; i < len(config.Nodes); i++ {
 		newNode, err := newNode(client, config.Nodes[i])
 		if err != nil {
-			return nil, fmt.Errorf("Node number %i has a bad configuration", i+1)
+			log.Printf("Node number %d has a bad configuration: %s", i+1, err)
+			continue
 		}
 		client.nodes[newNode.ID()] = newNode
 	}
