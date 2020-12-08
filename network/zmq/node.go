@@ -2,13 +2,15 @@ package zmq
 
 import (
 	"fmt"
+	"log"
+	"net"
+
 	"github.com/niclabs/dtc/v3/config"
 	"github.com/niclabs/dtcnode/v3/message"
 	"github.com/pebbe/zmq4"
-	"log"
-	"net"
 )
 
+// NodeState represents a code for the state of the node
 type NodeState int
 
 // Node represents a remote machine connection. It has all the data required to connect to a node, and a pointer to use the respective Client struct.
@@ -121,4 +123,16 @@ func (node *Node) listen() {
 
 func (node *Node) stopReceiving() {
 	node.quit <- struct{}{}
+}
+
+func (node *Node) sendMessage(parts ...interface{}) (int, error) {
+	i, err := node.socket.SendMessage(parts...)
+	if n := zmq4.AsErrno(err); n == zmq4.EFSM {
+		err = node.connect() // Reconnecting (FSM was wating a reply that never came)
+		if err != nil {      // Error reconnecting
+			return -1, err
+		}
+		return node.socket.SendMessage(parts...) // if fails, nothing to do
+	}
+	return i, err
 }

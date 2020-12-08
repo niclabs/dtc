@@ -10,10 +10,11 @@ import (
 	"crypto/rsa"
 	"encoding/binary"
 	"fmt"
-	"github.com/niclabs/dtcnode/v3/message"
-	"github.com/niclabs/tcrsa"
 	"io"
 	"reflect"
+
+	"github.com/niclabs/dtcnode/v3/message"
+	"github.com/niclabs/tcrsa"
 )
 
 type SignContextRSA struct {
@@ -184,7 +185,6 @@ func createRSAPublicKey(keyID string, pkAttrs Attributes, keyMeta *tcrsa.KeyMeta
 		&Attribute{C.CKA_END_DATE, make([]byte, 8)},
 		&Attribute{C.CKA_MODULUS_BITS, nil},
 		&Attribute{C.CKA_PUBLIC_EXPONENT, eBytes},
-
 	)
 
 	pkAttrs.Set(

@@ -148,7 +148,7 @@ func (client *Client) ackOnly(msg *message.Message) error {
 // It returns an error from the preliminary check or an error from fn.
 func (client *Client) doMessage(fn func(msg *message.Message) error) func(msg *message.Message) error {
 	return func(msg *message.Message) error {
-		log.Printf("message received from node %s\n", msg.From)
+		log.Printf("message %s received from node %s\n", msg.ID, msg.From)
 		if pending, exists := client.pendingMessages[msg.ID]; exists {
 			delete(client.pendingMessages, msg.ID)
 			if err := msg.ResponseOK(pending); err != nil {
@@ -160,6 +160,7 @@ func (client *Client) doMessage(fn func(msg *message.Message) error) func(msg *m
 			}
 		} else {
 			log.Printf("unexpected message, ignoring (id: %s, type: %s, from: %s, responseOf: %s)", msg.ID, msg.Type.String(), msg.From, msg.ResponseOf)
+			return fmt.Errorf("unexpected message")
 		}
 		return nil
 	}

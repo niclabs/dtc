@@ -18,7 +18,7 @@ func (node *Node) sendRSAKeyShare(id string, key *tcrsa.KeyShare, meta *tcrsa.Ke
 	if err != nil {
 		return nil, err
 	}
-	_, err = node.socket.SendMessage(msg.GetBytesLists()...)
+	_, err = node.sendMessage(msg.GetBytesLists()...)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +31,7 @@ func (node *Node) getRSASigShare(id string, doc []byte) (msg *message.Message, e
 	if err != nil {
 		return nil, err
 	}
-	if _, err := node.socket.SendMessage(msg.GetBytesLists()...); err != nil {
+	if _, err := node.sendMessage(msg.GetBytesLists()...); err != nil {
 		return nil, err
 	}
 	return msg, nil
@@ -42,7 +42,7 @@ func (node *Node) deleteRSAKeyShare(id string) (*message.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, err = node.socket.SendMessage(msg.GetBytesLists()...)
+	_, err = node.sendMessage(msg.GetBytesLists()...)
 	if err != nil {
 		return nil, err
 	}

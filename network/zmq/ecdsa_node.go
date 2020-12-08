@@ -18,7 +18,7 @@ func (node *Node) sendECDSAKeyShare(id string, key *tcecdsa.KeyShare, meta *tcec
 	if err != nil {
 		return nil, err
 	}
-	_, err = node.socket.SendMessage(msg.GetBytesLists()...)
+	_, err = node.sendMessage(msg.GetBytesLists()...)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func (node *Node) ecdsaInitKeys(id string, initKeyMessages tcecdsa.KeyInitMessag
 	if err != nil {
 		return nil, err
 	}
-	if _, err := node.socket.SendMessage(msg.GetBytesLists()...); err != nil {
+	if _, err := node.sendMessage(msg.GetBytesLists()...); err != nil {
 		return nil, err
 	}
 	return msg, nil
@@ -46,7 +46,7 @@ func (node *Node) ecdsaRound1(id string, doc []byte) (msg *message.Message, err 
 	if err != nil {
 		return nil, err
 	}
-	if _, err := node.socket.SendMessage(msg.GetBytesLists()...); err != nil {
+	if _, err := node.sendMessage(msg.GetBytesLists()...); err != nil {
 		return nil, err
 	}
 	return msg, nil
@@ -61,7 +61,7 @@ func (node *Node) ecdsaRound2(messages tcecdsa.Round1MessageList) (msg *message.
 	if err != nil {
 		return nil, err
 	}
-	if _, err := node.socket.SendMessage(msg.GetBytesLists()...); err != nil {
+	if _, err := node.sendMessage(msg.GetBytesLists()...); err != nil {
 		return nil, err
 	}
 	return msg, nil
@@ -76,7 +76,7 @@ func (node *Node) ecdsaRound3(messages tcecdsa.Round2MessageList) (msg *message.
 	if err != nil {
 		return nil, err
 	}
-	if _, err := node.socket.SendMessage(msg.GetBytesLists()...); err != nil {
+	if _, err := node.sendMessage(msg.GetBytesLists()...); err != nil {
 		return nil, err
 	}
 	return msg, nil
@@ -91,7 +91,7 @@ func (node *Node) ecdsaGetSignature(messages tcecdsa.Round3MessageList) (msg *me
 	if err != nil {
 		return nil, err
 	}
-	if _, err := node.socket.SendMessage(msg.GetBytesLists()...); err != nil {
+	if _, err := node.sendMessage(msg.GetBytesLists()...); err != nil {
 		return nil, err
 	}
 	return msg, nil
@@ -102,7 +102,7 @@ func (node *Node) deleteECDSAKeyShare(id string) (*message.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, err = node.socket.SendMessage(msg.GetBytesLists()...)
+	_, err = node.sendMessage(msg.GetBytesLists()...)
 	if err != nil {
 		return nil, err
 	}
