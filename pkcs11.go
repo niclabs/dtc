@@ -57,7 +57,7 @@ func C_Initialize(pInitArgs C.CK_VOID_PTR) C.CK_RV {
 		return C.CKR_CRYPTOKI_ALREADY_INITIALIZED
 	}
 	cInitArgs := (*C.CK_C_INITIALIZE_ARGS)(unsafe.Pointer(pInitArgs))
-	if (cInitArgs.flags&C.CKF_OS_LOCKING_OK == 0) || (cInitArgs.pReserved != nil) {
+	if cInitArgs != nil && ((cInitArgs.flags&C.CKF_OS_LOCKING_OK == 0) || (cInitArgs.pReserved != nil)) {
 		return C.CKR_ARGUMENTS_BAD
 	}
 	var err error
