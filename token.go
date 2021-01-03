@@ -103,7 +103,7 @@ func (token *Token) GetInfo(pInfo C.CK_TOKEN_INFO_PTR) error {
 	}
 
 	serialNumber += strings.Repeat(" ", 16-len(serialNumber))
-	cSerial := C.CBytes([]byte(model))
+	cSerial := C.CBytes([]byte(serialNumber))
 	defer C.free(unsafe.Pointer(cSerial))
 	C.memcpy(unsafe.Pointer(&info.serialNumber[0]), cSerial, 16)
 
