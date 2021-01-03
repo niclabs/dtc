@@ -51,6 +51,7 @@ func NewToken(label, userPin, soPin string) (*Token, error) {
 			C.CKF_LOGIN_REQUIRED |
 			C.CKF_USER_PIN_INITIALIZED |
 			C.CKF_TOKEN_INITIALIZED,
+		Objects: make(CryptoObjects, 0),
 	}
 	return newToken, nil
 }

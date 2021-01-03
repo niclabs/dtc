@@ -3,8 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/niclabs/dtc/v3/config"
 	"testing"
+
+	"github.com/niclabs/dtc/v3/config"
 )
 
 const TestFirstTokenLabel = "TCBHSM"
@@ -65,11 +66,9 @@ func TestDB_SaveToken(t *testing.T) {
 	if err != nil {
 		t.Errorf("init_storage: %v", err)
 	}
-	newToken := &Token{
-		Label:   TestOtherTokenLabel,
-		Pin:     "1234",
-		SoPin:   "1234",
-		Objects: make(CryptoObjects, 0),
+	newToken, err := NewToken(TestOtherTokenLabel, "1234", "1234")
+	if err != nil {
+		t.Errorf("new_token: %v", err)
 	}
 	if err != nil {
 		t.Errorf("max_handle: %v", err)

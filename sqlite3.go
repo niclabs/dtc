@@ -7,11 +7,12 @@ import "C"
 import (
 	"database/sql"
 	"fmt"
+	"log"
+	"sync"
+
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/niclabs/dtc/v3/config"
 	"github.com/spf13/viper"
-	"log"
-	"sync"
 )
 
 // Sqlite3DB is a wrapper over a sql.Sqlite3DB object, complying with storage
@@ -114,11 +115,9 @@ func (db *Sqlite3DB) GetToken(label string) (token *Token, err error) {
 	if err != nil {
 		return
 	}
-	token = &Token{
-		Label:   label,
-		Pin:     pin,
-		SoPin:   soPin,
-		Objects: make(CryptoObjects, 0),
+	token, err = NewToken(label, pin, soPin)
+	if err != nil {
+		return
 	}
 
 	attrsStmt, err := db.Prepare(GetCryptoObjectAttrsQuery)
