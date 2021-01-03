@@ -108,6 +108,11 @@ func (slot *Slot) GetInfo(pInfo C.CK_SLOT_INFO_PTR) error {
 	defer C.free(unsafe.Pointer(cManufacturerID))
 	C.memcpy(unsafe.Pointer(&info.manufacturerID[0]), cManufacturerID, 32)
 
+	slot.flags = C.CKF_REMOVABLE_DEVICE
+	if slot.token != nil {
+		slot.flags += C.CKF_TOKEN_PRESENT
+	}
+
 	pInfo.flags = C.CK_ULONG(slot.flags)
 	pInfo.hardwareVersion.major = 2
 	pInfo.hardwareVersion.minor = 40
