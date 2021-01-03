@@ -161,7 +161,7 @@ func C_GetInfo(pInfo C.CK_INFO_PTR) C.CK_RV {
 		description = description[:32]
 	}
 	description += strings.Repeat(" ", 32-len(description))
-	cDescription := C.CString(manufacturer)
+	cDescription := C.CString(description)
 	defer C.free(unsafe.Pointer(cDescription))
 	C.memcpy(unsafe.Pointer(&info.libraryDescription[0]), unsafe.Pointer(cDescription), 32)
 
